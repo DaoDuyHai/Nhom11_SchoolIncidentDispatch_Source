@@ -1,6 +1,6 @@
 # 🚀 HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY DỰ ÁN TỪ GITHUB
 ### HỆ THỐNG BÁO CÁO VÀ ĐIỀU PHỐI SỰ CỐ TRƯỜNG THPT THEO THỜI GIAN THỰC
-*(High School Real-time Incident Reporting & Smart Dispatch System)*
+*(High School Real-time Incident Reporting & Dispatch System)*
 
 > **Dành cho:** Giảng viên, Hội đồng chấm bảo vệ hoặc bất kỳ ai vừa tải / clone dự án này từ GitHub về máy tính cá nhân.
 
@@ -54,25 +54,23 @@ Dự án được thiết kế theo cấu trúc **Maven Multi-Module** chuẩn, 
 2. NetBeans sẽ tự động tải các thư viện cần thiết (JavaFX 17, SQLite JDBC, Gson, JUnit 5) vào máy. Chờ khoảng 10–30 giây cho đến khi cửa sổ Output báo **`BUILD SUCCESS`**.
 3. *(Tùy chọn)* Chuột phải vào `incident-report-system` -> Chọn **Test** (hoặc bấm `Alt + F6`) để kiểm tra toàn bộ 9 bài test tự động đều xanh lá 100%.
 
-### Bước 3: Khởi động Server (BẮT BUỘC CHẠY TRƯỚC)
+### Bước 3: Khởi động Server tích hợp Admin Dashboard (BẮT BUỘC CHẠY TRƯỚC)
 > [!IMPORTANT]
-> Trong lập trình mạng Socket, **Server phải luôn được bật trước** để mở cổng lắng nghe, sau đó các Client mới có thể kết nối vào.
+> **Admin chính là Server!** Khi bạn khởi động Server, ứng dụng vừa mở các cổng mạng Socket (TCP 5000, UDP Heartbeat 5001), vừa hiển thị ngay lập tức cửa sổ **Giao diện Quản trị viên (Admin Server Dashboard)** trực quan để theo dõi toàn bộ hệ thống.
 
 1. Trong cây thư mục **Projects** của NetBeans, mở rộng module:  
    `server` ➡️ `Source Packages` ➡️ `com.incidentreport.server` ➡️ tìm file **`Server.java`**.
 2. Nhấp chuột phải vào file **`Server.java`** ➡️ Chọn **Run File** (hoặc bấm phím tắt **`Shift + F6`**).
-3. Quan sát tab **Output** bên dưới NetBeans hiển thị thông báo sẵn sàng:
+3. Cửa sổ **Server Admin Dashboard** sẽ xuất hiện trên màn hình, đồng thời tab Output hiển thị:
    ```text
    ============================================================================
       HỆ THỐNG ĐIỀU PHỐI SỰ CỐ TRƯỜNG THPT - CENTRAL DISPATCH SERVER          
-      Phiên bản: 2.0 (TCP Socket + UDP Heartbeat + UDP Multicast + JavaFX)    
+      Phiên bản: 2.0 (TCP Socket + UDP Heartbeat + Server Admin GUI)          
    ============================================================================
    ✅ Đã nạp danh mục sự cố từ CSDL thành công!
-   ✅ Đã phục hồi sự cố đang chờ vào Aging Priority Queue!
-   ✅ [DISPATCH WORKER] Đã khởi động luồng điều phối thông minh!
    ✅ [UDP HEARTBEAT] Đang lắng nghe nhịp tim trên cổng UDP 5001...
    ✅ [TCP SERVER] Đang lắng nghe kết nối trên cổng TCP 5000...
-   ✅ [UDP MULTICAST] Sẵn sàng phát cảnh báo tới nhóm 230.0.0.1:9999
+   ✅ [SERVER GUI] Đã khởi chạy Trung tâm Quản trị Điều hành Server!
    ```
 
 ### Bước 4: Khởi chạy Giao diện Đồ họa JavaFX (Client)
@@ -82,7 +80,9 @@ Dự án được thiết kế theo cấu trúc **Maven Multi-Module** chuẩn, 
    > **Lưu ý:** Luôn chạy từ file `Main.java` (thay vì `IncidentReportApp.java`). File này được thiết kế theo chuẩn JavaFX Launcher để tránh hoàn toàn lỗi *"JavaFX runtime components are missing"*.
 3. Màn hình Đăng nhập hiện đại màu xanh Navy sẽ lập tức xuất hiện!
 4. **Mở song song nhiều cửa sổ Client để Demo:**  
-   Bạn tiếp tục nhấp chuột phải vào `Main.java` và chọn **Run File (Shift + F6)** thêm 2–3 lần nữa. NetBeans sẽ mở ra nhiều cửa sổ ứng dụng độc lập để bạn đăng nhập các vai trò khác nhau cùng lúc.
+   Bạn tiếp tục nhấp chuột phải vào `Main.java` và chọn **Run File (Shift + F6)** thêm 1–2 lần nữa. NetBeans sẽ mở ra nhiều cửa sổ ứng dụng độc lập để bạn đăng nhập:
+   * **Cửa sổ 1:** Đăng nhập Giáo viên / Học sinh (`gv_lan` / `hs_minh`) để gửi báo cáo.
+   * **Cửa sổ 2:** Đăng nhập Kỹ thuật viên / Y tế (`kt_tuan` / `yte_mai`) để xem Hồ công việc mở và bấm tự nhận việc.
 
 ---
 
@@ -106,7 +106,7 @@ cd source
 # 1. Biên dịch toàn bộ hệ thống
 mvn clean compile
 
-# 2. Bật Server (Kênh TCP 5000 + UDP 5001 + UDP Multicast)
+# 2. Bật Server (Kênh TCP 5000 + UDP Heartbeat 5001 + Giao diện Admin)
 mvn exec:java -pl server
 
 # 3. Mở một cửa sổ Terminal mới để chạy Client JavaFX (Có thể mở nhiều cửa sổ)
@@ -117,16 +117,16 @@ mvn javafx:run -pl client
 
 ## 6. Danh Sách Tài Khoản Đăng Nhập Mẫu
 
-Hệ thống đã nạp sẵn 7 tài khoản đại diện cho đầy đủ các bên liên quan trong trường học.  
+Hệ thống đã nạp sẵn các tài khoản đại diện cho đầy đủ các bên liên quan trong trường học.  
 **MẬT KHẨU MẶC ĐỊNH CHO TẤT CẢ TÀI KHOẢN:** **`123456`**
 
 | Tên Đăng Nhập | Vai Trò (Role) | Chuyên Môn / Chức Danh | Họ và Tên | Mục Đích Thử Nghiệm |
 | :--- | :--- | :--- | :--- | :--- |
-| **`admin_bgh`** | **ADMIN** | Hiệu trưởng (Quản lý) | Thầy Nguyễn Văn An | Bảng Dashboard toàn trường, điều phối thủ công, phát loa báo động Multicast |
+| **`admin_bgh`** | **ADMIN** | Hiệu trưởng (Quản trị) | Thầy Nguyễn Văn An | Tích hợp trực tiếp trên Server Dashboard: Giám sát toàn trường, chỉ định việc |
 | **`gv_lan`** | **REPORTER** | Giáo viên chủ nhiệm 10A2 | Cô Trần Thị Lan | Gửi báo cáo hỏng hóc kèm ảnh chụp hiện trường |
 | **`hs_minh`** | **REPORTER** | Lớp trưởng 10A2 | Lê Hoàng Minh | Gửi báo cáo sự cố (dùng thử nghiệm kiểm tra gộp báo cáo trùng) |
-| **`kt_tuan`** | **RESPONDER** | Kỹ thuật điện (TECHNICAL) | Anh Hoàng Văn Tuấn | Nhận Popup điều phối tự động, bấm Nhận việc, cập nhật Hoàn thành |
-| **`kt_nam`** | **RESPONDER** | Kỹ thuật điện (TECHNICAL) | Anh Ngô Bảo Nam | Nhân viên kỹ thuật dự phòng (kiểm chứng thuật toán chia tải Least-Workload) |
+| **`kt_tuan`** | **RESPONDER** | Kỹ thuật điện (TECHNICAL) | Anh Hoàng Văn Tuấn | Xem Hồ công việc mở, bấm Tự nhận việc (Claim Task), cập nhật Hoàn thành |
+| **`kt_nam`** | **RESPONDER** | Kỹ thuật điện (TECHNICAL) | Anh Ngô Bảo Nam | Nhân viên kỹ thuật dự phòng (kiểm chứng chống Race Condition khi 2 người cùng nhận 1 việc) |
 | **`yte_mai`** | **RESPONDER** | Y tế học đường (MEDICAL) | Cô Vũ Tuyết Mai | Nhận các ca cấp cứu, sơ cứu y tế học sinh |
 | **`bv_son`** | **RESPONDER** | Bảo vệ trường (SECURITY) | Bác Trương Sơn | Nhận thông báo sự cố an ninh trật tự, người lạ đột nhập |
 
@@ -134,35 +134,38 @@ Hệ thống đã nạp sẵn 7 tài khoản đại diện cho đầy đủ các
 
 ## 7. Kịch Bản Demo Nhanh Các Tính Năng Cốt Lõi (Nên Thử)
 
-Để kiểm chứng toàn bộ các điểm ưu việt của đề tài, hãy mở **3 cửa sổ Client** trên màn hình:
+Để kiểm chứng toàn bộ các điểm ưu việt của đề tài, hãy mở **Server** và **2 cửa sổ Client** trên màn hình:
 
-### 🔹 Kịch bản 1: Gửi báo cáo kèm ảnh & Tự động điều phối (Smart Dispatch)
-1. **Cửa sổ 1:** Đăng nhập giáo viên `gv_lan` (mật khẩu `123456`).
-2. **Cửa sổ 2:** Đăng nhập kỹ thuật viên `kt_tuan` (mật khẩu `123456`).
-3. Tại máy của `gv_lan`:
+### 🔹 Kịch bản 1: Gửi báo cáo kèm ảnh & Tự chủ nhận việc (Self-Pick from Task Pool)
+1. **Server Dashboard:** Đang hiển thị trực tiếp trên màn hình, theo dõi kết nối sống.
+2. **Cửa sổ Client 1:** Đăng nhập giáo viên `gv_lan` (mật khẩu `123456`).
+3. **Cửa sổ Client 2:** Đăng nhập kỹ thuật viên `kt_tuan` (mật khẩu `123456`).
+4. Tại máy của `gv_lan`:
    * Nhập vị trí phòng: `A201`
    * Chọn loại sự cố: `Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)`
    * Mức độ: `4 - Khẩn cấp`
    * Bấm nút **"Chọn ảnh minh chứng"** để chọn một bức ảnh bất kỳ trên máy tính.
    * Bấm nút **"GỬI BÁO CÁO SỰ CỐ"**.
-4. **Kết quả tức thì:** 
-   * Máy của anh Tuấn (`kt_tuan`) ngay lập tức phát âm báo và nhảy lên **Popup điều phối màu xanh kèm ảnh hiện trường và thanh đếm ngược 30 giây**.
-   * Anh Tuấn bấm **"NHẬN NHIỆM VỤ"** ➡️ Thẻ công việc xuất hiện trong danh sách công việc của Tuấn.
-   * Anh Tuấn bấm **"BẮT ĐẦU XỬ LÝ"** ➡️ trạng thái chuyển thành `IN_PROGRESS`.
-   * Khi xong, bấm **"HOÀN THÀNH"** và nhập ghi chú nghiệm thu ➡️ sự cố hoàn tất.
+5. **Kết quả tức thì:** 
+   * Trên máy anh Tuấn (`kt_tuan`): Mục **"Hồ công việc mở" (Open Task Pool)** lập tức xuất hiện thẻ sự cố phòng `A201` kèm điểm ưu tiên và ảnh chụp.
+   * Anh Tuấn không bị Server ép nhận hay bị bắn popup dồn dập. Khi sẵn sàng, anh Tuấn chủ động bấm nút **"NHẬN VIỆC" (Pick/Claim Task)**.
+   * Thẻ công việc chuyển sang danh sách "Nhiệm vụ đang xử lý" của Tuấn.
+   * Tuấn bấm **"BẮT ĐẦU XỬ LÝ"** (`IN_PROGRESS`) và sau đó bấm **"HOÀN THÀNH"** (`RESOLVED`).
+   * Trên Server Dashboard của Ban Giám hiệu, tiến trình được cập nhật thời gian thực!
 
 ### 🔹 Kịch bản 2: Kiểm chứng Chống bão báo cáo trùng lặp (Spatio-Temporal Deduplication)
-1. Giữ nguyên máy `gv_lan` vừa báo phòng `A201`.
+1. Giữ nguyên sự cố phòng `A201` do `gv_lan` vừa báo.
 2. Mở thêm 1 Client khác, đăng nhập học sinh `hs_minh`.
 3. Cho `hs_minh` tiếp tục gửi một báo cáo cùng phòng `A201` với danh mục điện.
-4. **Kết quả:** Hệ thống **không tạo sự cố mới**, không spam nhân viên kỹ thuật mà tự động gộp vào sự cố gốc, số lượng người báo tăng lên `2`, và điểm ưu tiên được cộng thêm thưởng.
+4. **Kết quả:** Hệ thống **không tạo sự cố mới**, không nhân đôi công việc mà tự động gộp vào sự cố gốc, số lượng người báo tăng lên `2`, và điểm ưu tiên được cộng thêm thưởng.
 
-### 🔹 Kịch bản 3: Giám sát Dashboard và Bắn cảnh báo khẩn cấp (UDP Multicast)
-1. **Cửa sổ 3:** Đăng nhập tài khoản Ban giám hiệu `admin_bgh`.
-2. Bảng điều khiển Admin tự động cập nhật thời gian thực danh sách sự cố, trạng thái online của nhân viên và tải công việc hiện tại.
-3. Ở góc dưới Admin, nhập thông điệp vào ô Cảnh báo: `"Hỏa hoạn khu nhà B! Tất cả giáo viên và học sinh sơ tán khẩn cấp ra sân cỏ!"`.
-4. Bấm **"PHÁT CẢNH BÁO MULTICAST"**.
-5. **Kết quả:** **TẤT CẢ** các Client đang mở (cả máy cô Lan, máy anh Tuấn, máy em Minh) đều đồng loạt bật **Popup cảnh báo khẩn cấp màu đỏ rực**, kèm âm báo khẩn cấp qua kênh UDP Multicast `230.0.0.1:9999`!
+### 🔹 Kịch bản 3: Kiểm chứng Chống Race Condition (Atomic Claim)
+1. Mở song song 2 Client Kỹ thuật: 1 máy của `kt_tuan` và 1 máy của `kt_nam`.
+2. Có một sự cố mới xuất hiện trong Hồ công việc.
+3. Cả 2 nhân viên cùng nhìn thấy sự cố và cùng bấm nút **"NHẬN VIỆC"** tại cùng một thời điểm:
+   * Đúng **1 người** bấm trước (hoặc gói tin đến socket trước) nhận việc thành công (`ASSIGNED`).
+   * Người thứ hai nhận thông báo: *"⚠️ Nhiệm vụ này vừa được đồng nghiệp tiếp nhận trước!"*.
+   * Triệt tiêu hoàn toàn lỗi 2 người cùng tới xử lý 1 việc!
 
 ---
 
@@ -189,7 +192,7 @@ Dự án có sẵn một công cụ giả lập bắn tải 50 luồng đồng t
 
 ### ❓ 1. Lỗi: `Không thể kết nối Server: Connection refused: connect`
 * **Nguyên nhân:** Bạn vừa bấm chạy `Main.java` (Client) trong khi `Server.java` (Server) chưa được bật.
-* **Cách sửa:** Tắt cửa sổ Client, vào NetBeans chạy `Server.java` trước. Chờ tab Output của Server hiện dòng `[TCP SERVER] Đang lắng nghe kết nối trên cổng TCP 5000...` rồi mới bấm chạy lại `Main.java`.
+* **Cách sửa:** Tắt cửa sổ Client, vào NetBeans chạy `Server.java` trước. Chờ Server Dashboard mở lên rồi mới bấm chạy lại `Main.java`.
 
 ### ❓ 2. Lỗi: `Address already in use: bind`
 * **Nguyên nhân:** Cổng 5000 hoặc 5001 đang bị chiếm do một phiên bản Server cũ đang chạy ngầm chưa tắt.
@@ -202,4 +205,4 @@ Dự án có sẵn một công cụ giả lập bắn tải 50 luồng đồng t
 ### ❓ 4. Làm sao để khôi phục lại CSDL về trạng thái sạch sẽ ban đầu?
 * Nếu bạn chạy thử nghiệm nhiều và muốn xóa sạch toàn bộ dữ liệu để demo lại từ đầu:
   1. Trong NetBeans, mở module `service` ➡️ `com.incidentreport.service` ➡️ chuột phải vào file **`InitDatabase.java`** ➡️ Chọn **Run File (Shift + F6)**.
-  2. File SQLite `database/incident_report.db` sẽ được xóa sạch và nạp lại toàn bộ 6 bảng cùng dữ liệu hạt giống (Seed Data) chuẩn mực 100%!
+  2. File SQLite `database/incident_report.db` sẽ được xóa sạch và nạp lại toàn bộ các bảng cùng dữ liệu hạt giống (Seed Data) chuẩn mực 100%!
