@@ -1,0 +1,5 @@
+Timestamp,ConcurrentClients,Success,Fail,DeduplicatedCount,AvgLatencyMs,P95LatencyMs,ThroughputReqSec
+1791958944741,50,26,24,24,337,531,34.08
+1791959100036,50,50,0,47,498,1181,37.57
+1791959137723,50,50,0,47,99,217,146.20
+

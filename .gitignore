@@ -1,0 +1,34 @@
+# --- NetBeans ---
+.nb-attrs
+.project
+.classpath
+.settings/
+nbproject/private/
+
+# --- Maven ---
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/
+
+# --- IDEs khác (nếu có dùng sau này) ---
+.idea/
+*.iml
+.vscode/
+
+# --- File rác, file test và file nhận được trong quá trình chạy ---
+*.png
+*.jpg
+*.jpeg
+*.log
+received_image.*
+test.*
+uploads/
+*.db-wal
+*.db-shm
+*.db-journal

@@ -1,0 +1,35 @@
+{
+  "routes": [
+    {
+      "incidentType": "FIGHT",
+      "departments": ["SECURITY"],
+      "priority": "URGENT"
+    },
+    {
+      "incidentType": "BULLYING",
+      "departments": ["SECURITY"],
+      "priority": "URGENT"
+    },
+    {
+      "incidentType": "FIRE",
+      "departments": ["SECURITY", "ADMIN"],
+      "priority": "URGENT"
+    },
+    {
+      "incidentType": "MEDICAL_EMERGENCY",
+      "departments": ["MEDICAL"],
+      "priority": "URGENT"
+    },
+    {
+      "incidentType": "EQUIPMENT",
+      "departments": ["FACILITY"],
+      "priority": "NORMAL"
+    },
+    {
+      "incidentType": "OTHER",
+      "departments": ["ADMIN"],
+      "priority": "LOW"
+    }
+  ]
+}
+
