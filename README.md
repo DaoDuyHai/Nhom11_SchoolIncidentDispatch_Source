@@ -359,7 +359,3 @@ Dự án trang bị bộ kiểm thử tự động toàn diện bằng **JUnit 5
 * **Hướng phát triển:**
   * Tích hợp mã hóa TLS/SSL trên kênh TCP Socket để tăng cường tính bảo mật dữ liệu học đường.
   * Phát triển ứng dụng di động (Android/iOS) kết nối qua giao thức socket để giáo viên và học sinh tiện thao tác trực tiếp tại hiện trường.
-
-#   S c h o o l I n c i d e n t D i s p a t c h 
- 
- 
