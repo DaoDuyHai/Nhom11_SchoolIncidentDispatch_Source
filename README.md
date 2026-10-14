@@ -5,6 +5,8 @@
 > **Chủ đề:** Chủ đề 3 – Ứng dụng mạng đa giao thức (Client/Server, Real-time Dispatch, Fault Tolerance)  
 > **Công nghệ cốt lõi:** Pure Java Socket (TCP, UDP, Multicast) + JavaFX 17 + JDBC SQLite WAL + Multithreading  
 > **Thời hạn hoàn thành:** Tháng 10/2026  
+> 
+> 🚀 **HƯỚNG DẪN CÀI ĐẶT & CHẠY DỰ ÁN CHO NGƯỜI MỚI TẢI VỀ:** Xem chi tiết tại [HOW_TO_RUN.md](HOW_TO_RUN.md)
 
 ---
 
