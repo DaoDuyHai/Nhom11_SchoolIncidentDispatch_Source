@@ -69,7 +69,8 @@ Xây dựng hệ thống mạng theo mô hình **Client–Server kết hợp Hà
 +------------------------------------------------------------------------------+
 |                         SQLITE 3 EMBEDDED DATABASE                           |
 |  1. incident_categories   2. users               3. incident_tickets         |
-|  4. incident_reports      5. dispatch_logs                                   |
+|  4. incident_reports      5. dispatch_logs       6. multicast_alerts         |
+|  7. chat_messages                                                            |
 +------------------------------------------------------------------------------+
 ```
 
@@ -98,3 +99,10 @@ Xây dựng hệ thống mạng theo mô hình **Client–Server kết hợp Hà
 ### 3.4. Phân hệ Giám sát Sống còn (Fault Tolerance Engine)
 * Lắng nghe gói tin UDP Heartbeat (chu kỳ 3 giây) từ các máy Responder.
 * Nếu mất tín hiệu quá 10 giây, tự động kích hoạt Auto-Failover: chuyển nhân viên sang `OFFLINE` và thu hồi ca việc đang dở dang trả lại Task Pool cho người khác tiếp quản.
+
+### 3.5. Phân hệ Trao Đổi & Chat Thời Gian Thực (Real-time Chat Subsystem)
+* **Mô hình Kênh đôi linh hoạt (Dual-Channel Chat):**
+  * **Chat theo Sự cố (Incident Ticket Chat):** Phòng trao đổi trực tiếp giữa Người báo cáo (Client), Kỹ thuật viên tiếp nhận (Responder) và Ban Giám Hiệu (Admin) để cập nhật hiện trường, thông báo thời gian tới phòng, chỉ đạo và nghiệm thu xử lý.
+  * **Kênh Trao đổi Toàn trường (General Dispatch Channel):** Cho phép mọi bên trao đổi thông tin, thông báo nhanh và điều phối liên khoa phòng.
+* **Giao thức đóng khung nhị phân (Binary Framing):** Sử dụng các mã bản tin TCP `TYPE_CHAT_SEND (0x0C)`, `TYPE_CHAT_PUSH (0x1C)`, `TYPE_CHAT_HISTORY (0x0D)`, `TYPE_CHAT_HISTORY_RESP (0x1D)` truyền tải an toàn nội dung text đa dòng UTF-8 qua `Attachment Bytes`.
+* **Lưu trữ CSDL SQLite:** Bảng `chat_messages` lưu vết lịch sử tin nhắn đa luồng với khóa ngoại liên kết `ticket_id` và `sender_id`.

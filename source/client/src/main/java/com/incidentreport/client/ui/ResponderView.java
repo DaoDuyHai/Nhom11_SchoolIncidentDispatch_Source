@@ -34,12 +34,30 @@ public class ResponderView extends BorderPane implements SocketClientManager.Pac
     private final Label lblWorkload = new Label("Đang xử lý: 0");
     private final VBox taskCardsContainer = new VBox(12);
     private final ObservableList<IncidentTicket> myTasks = FXCollections.observableArrayList();
+    private final VBox openPoolCardsContainer = new VBox(12);
+    private final ObservableList<IncidentTicket> openPoolTasks = FXCollections.observableArrayList();
+    private final TabPane tabPane = new TabPane();
+    private Tab tabOpenPool;
+    private Tab tabTasks;
+    private ChatPanel chatPanel;
+    private Tab tabChat;
 
     public ResponderView(User user) {
         this.currentUser = user;
         initUI();
         SocketClientManager.getInstance().addListener(this);
         loadMyTasks();
+        loadOpenPool();
+
+        // Tự động làm mới nhiệm vụ và hồ công việc mở mỗi 5s
+        javafx.animation.Timeline autoRefresh = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(5), e -> {
+                loadMyTasks();
+                loadOpenPool();
+            })
+        );
+        autoRefresh.setCycleCount(javafx.animation.Timeline.INDEFINITE);
+        autoRefresh.play();
     }
 
     private void initUI() {
@@ -90,13 +108,46 @@ public class ResponderView extends BorderPane implements SocketClientManager.Pac
         setTop(topBar);
 
         // Center Content
-        TabPane tabPane = new TabPane();
+        tabOpenPool = new Tab("① 📋 Hồ công việc mở (Chờ tiếp nhận)", createOpenPoolTab());
+        tabOpenPool.setClosable(false);
 
-        Tab tabTasks = new Tab("① Nhiệm vụ của tôi", createTasksTab());
+        tabTasks = new Tab("② 🛠️ Nhiệm vụ của tôi", createTasksTab());
         tabTasks.setClosable(false);
 
-        tabPane.getTabs().add(tabTasks);
+        chatPanel = new ChatPanel(currentUser);
+        tabChat = new Tab("③ 💬 Trao đổi / Chat", chatPanel);
+        tabChat.setClosable(false);
+
+        tabPane.getTabs().addAll(tabOpenPool, tabTasks, tabChat);
         setCenter(tabPane);
+    }
+
+    private Node createOpenPoolTab() {
+        VBox layout = new VBox(12);
+        layout.setPadding(new Insets(15));
+        layout.setStyle("-fx-background-color: #F4F6F9;");
+
+        HBox toolBar = new HBox(12);
+        toolBar.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblSection = new Label("CÁC SỰ CỐ ĐANG CHỜ NHÂN SỰ TIẾP NHẬN (TỰ CHỌN VIỆC)");
+        lblSection.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        lblSection.setTextFill(Color.web("#1E5AA8"));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button btnRefresh = new Button("Làm mới hồ công việc");
+        btnRefresh.setOnAction(e -> loadOpenPool());
+        toolBar.getChildren().addAll(lblSection, spacer, btnRefresh);
+
+        openPoolCardsContainer.setPadding(new Insets(5));
+        ScrollPane scrollPane = new ScrollPane(openPoolCardsContainer);
+        scrollPane.setFitToWidth(true);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        layout.getChildren().addAll(toolBar, scrollPane);
+        return layout;
     }
 
     private Node createTasksTab() {
@@ -204,12 +255,96 @@ public class ResponderView extends BorderPane implements SocketClientManager.Pac
             actionBox.getChildren().add(btnResolve);
         }
 
+        Button btnChat = new Button("💬 Trao đổi (Chat)");
+        btnChat.setStyle("-fx-background-color: #0D9488; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 14; -fx-cursor: hand;");
+        btnChat.setOnAction(e -> {
+            chatPanel.selectTicket(t.getTicketId(), t.getTicketCode() + " - Phòng " + t.getRoomLocation());
+            tabPane.getSelectionModel().select(tabChat);
+        });
+        actionBox.getChildren().add(btnChat);
+
         card.getChildren().addAll(topLine, lblTitle, lblTime, actionBox);
+        return card;
+    }
+
+    private void renderOpenPoolCards() {
+        openPoolCardsContainer.getChildren().clear();
+
+        if (openPoolTasks.isEmpty()) {
+            Label lblEmpty = new Label("Hiện không có sự cố nào đang chờ tiếp nhận. Hệ thống đang hoạt động an toàn!");
+            lblEmpty.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 14));
+            lblEmpty.setTextFill(Color.GRAY);
+            lblEmpty.setPadding(new Insets(30));
+            openPoolCardsContainer.getChildren().add(lblEmpty);
+            return;
+        }
+
+        for (IncidentTicket t : openPoolTasks) {
+            openPoolCardsContainer.getChildren().add(createCardForOpenPoolTicket(t));
+        }
+    }
+
+    private Node createCardForOpenPoolTicket(IncidentTicket t) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(14));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #D9DEE5; -fx-border-radius: 8px;");
+
+        HBox topLine = new HBox(10);
+        topLine.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblCode = new Label(t.getTicketCode() + " - Phòng " + t.getRoomLocation());
+        lblCode.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label lblPriority = new Label(String.format("⭐ Ưu tiên: %.1f", t.getComputedPriority()));
+        lblPriority.setStyle("-fx-background-color: #FFF3CD; -fx-text-fill: #856404; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4px;");
+
+        topLine.getChildren().addAll(
+            lblCode, spacer,
+            lblPriority,
+            ComponentFactory.createSeverityBadge(t.getBaseSeverity()),
+            ComponentFactory.createStatusBadge(t.getStatus())
+        );
+
+        Label lblCategory = new Label("Loại sự cố: " + (t.getCategoryName() != null ? t.getCategoryName() : t.getCategoryCode())
+            + "   |   Số người báo: " + t.getReportCount() + "   |   Báo lúc: " + t.getCreatedAt());
+        lblCategory.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+        lblCategory.setTextFill(Color.web("#2C3E50"));
+
+        Label lblTitle = new Label("\"" + t.getTitle() + "\"");
+        lblTitle.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 13));
+
+        HBox actionBox = new HBox(10);
+        actionBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Button btnChat = new Button("💬 Trao đổi");
+        btnChat.setStyle("-fx-background-color: #0D9488; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 12; -fx-cursor: hand;");
+        btnChat.setOnAction(e -> {
+            chatPanel.selectTicket(t.getTicketId(), t.getTicketCode() + " - Phòng " + t.getRoomLocation());
+            tabPane.getSelectionModel().select(tabChat);
+        });
+
+        Button btnClaim = new Button("👉 NHẬN VIỆC (Claim Task)");
+        btnClaim.setStyle("-fx-background-color: #2E9E5B; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 16; -fx-cursor: hand;");
+        btnClaim.setOnAction(e -> {
+            String payload = String.format("ACK_TASK|ticketId=%d|action=ACCEPT", t.getTicketId());
+            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_ACK_TASK, payload));
+        });
+
+        actionBox.getChildren().addAll(btnChat, btnClaim);
+
+        card.getChildren().addAll(topLine, lblCategory, lblTitle, actionBox);
         return card;
     }
 
     private void loadMyTasks() {
         SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_LIST_MY_TICKETS, "LIST_MY_TICKETS"));
+    }
+
+    private void loadOpenPool() {
+        SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_GET_OPEN_POOL, "GET_OPEN_POOL"));
     }
 
     @Override
@@ -224,9 +359,22 @@ public class ResponderView extends BorderPane implements SocketClientManager.Pac
             if ("OK".equalsIgnoreCase(status)) {
                 new Alert(Alert.AlertType.INFORMATION, "✅ Nhận ca xử lý thành công!").show();
                 loadMyTasks();
+                loadOpenPool();
+                if (tabTasks != null) {
+                    tabPane.getSelectionModel().select(tabTasks);
+                }
             } else if ("TASK_ALREADY_TAKEN".equalsIgnoreCase(status)) {
                 new Alert(Alert.AlertType.WARNING, "⚠️ Nhiệm vụ này đã có nhân viên khác tiếp nhận trước!").show();
+                loadOpenPool();
             }
+
+        } else if (packet.getType() == Constants.TYPE_GET_OPEN_POOL_RESP) {
+            try {
+                Type listType = new TypeToken<ArrayList<IncidentTicket>>(){}.getType();
+                List<IncidentTicket> list = gson.fromJson(packet.getHeaderPayload(), listType);
+                openPoolTasks.setAll(list);
+                renderOpenPoolCards();
+            } catch (Exception ignored) {}
 
         } else if (packet.getType() == Constants.TYPE_LIST_TICKETS_RESP) {
             try {
@@ -234,10 +382,23 @@ public class ResponderView extends BorderPane implements SocketClientManager.Pac
                 List<IncidentTicket> list = gson.fromJson(packet.getHeaderPayload(), listType);
                 myTasks.setAll(list);
                 renderTaskCards();
+                if (chatPanel != null) {
+                    chatPanel.setTickets(list);
+                }
             } catch (Exception ignored) {}
 
         } else if (packet.getType() == Constants.TYPE_STATUS_UPDATE) {
             loadMyTasks();
+            loadOpenPool();
+
+        } else if (packet.getType() == Constants.TYPE_CHAT_PUSH) {
+            if (chatPanel != null) {
+                chatPanel.onChatPush(packet);
+            }
+        } else if (packet.getType() == Constants.TYPE_CHAT_HISTORY_RESP) {
+            if (chatPanel != null) {
+                chatPanel.onChatHistoryResponse(packet);
+            }
         }
     }
 

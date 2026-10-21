@@ -43,8 +43,17 @@ public class DispatchWorker implements Runnable {
     // Map theo dõi sự cố đang được push đi chờ ACK: ticketId -> timestamp (ms) gửi lệnh push
     private static final Map<Integer, Long> awaitingAckTickets = new ConcurrentHashMap<>();
 
+    // Map ghi nhận các trường hợp từ chối sự cố để tránh spam lại cùng 1 nhân sự trong 60s
+    private static final Map<String, Long> rejectedCache = new ConcurrentHashMap<>();
+
     public DispatchWorker(AgingPriorityQueue queue) {
         this.queue = queue;
+    }
+
+    public static void recordRejection(int staffId, int ticketId) {
+        if (staffId > 0 && ticketId > 0) {
+            rejectedCache.put(staffId + "_" + ticketId, System.currentTimeMillis());
+        }
     }
 
     /**
@@ -136,7 +145,14 @@ public class DispatchWorker implements Runnable {
         long now = System.currentTimeMillis();
         long ackTimeoutMs = Constants.DISPATCH_ACK_TIMEOUT_SEC * 1000L;
 
-        // Nếu sự cố này đang được ai đó xem xét trong hạn 30s thì bỏ qua
+        // 1. Kiểm tra sự cố còn ở trạng thái PENDING không
+        IncidentTicket currentTicket = TicketDAO.getTicketById(ticket.getTicketId());
+        if (currentTicket == null || !Constants.STATUS_PENDING.equals(currentTicket.getStatus())) {
+            awaitingAckTickets.remove(ticket.getTicketId());
+            return true; // Đã được tiếp nhận hoặc xử lý, không điều phối tiếp
+        }
+
+        // 2. Nếu sự cố này đang được ai đó xem xét trong hạn 30s thì bỏ qua
         Long ticketPushedAt = awaitingAckTickets.get(ticket.getTicketId());
         if (ticketPushedAt != null && (now - ticketPushedAt < ackTimeoutMs)) {
             return false;
@@ -152,9 +168,20 @@ public class DispatchWorker implements Runnable {
             return false;
         }
 
-        // Lọc ứng viên: Chỉ giao cho nhân viên HIỆN TẠI KHÔNG CÓ POPUP CHỜ PHẢN HỒI (< 30s)
+        // 3. Lọc ứng viên: Phải ĐANG KẾT NỐI SOCKET THỰC TẾ, không vừa từ chối, và không có popup chờ
         User chosenStaff = null;
         for (User candidate : candidates) {
+            // Bỏ qua nhân sự không kết nối Socket phiên thực tế
+            if (!ServerSessionManager.isUserOnline(candidate.getUserId())) {
+                continue;
+            }
+
+            // Bỏ qua nhân sự vừa từ chối sự cố này trong vòng 60s
+            Long rejectedAt = rejectedCache.get(candidate.getUserId() + "_" + ticket.getTicketId());
+            if (rejectedAt != null && (now - rejectedAt < 60000L)) {
+                continue;
+            }
+
             Long lastPush = staffPendingPush.get(candidate.getUserId());
             if (lastPush == null || (now - lastPush > ackTimeoutMs)) {
                 chosenStaff = candidate;
@@ -163,7 +190,7 @@ public class DispatchWorker implements Runnable {
         }
 
         if (chosenStaff == null) {
-            // Tất cả nhân viên phù hợp đang có popup chờ phản hồi -> Tiếp tục chờ
+            // Không có nhân sự khả dụng hiện tại
             return false;
         }
 

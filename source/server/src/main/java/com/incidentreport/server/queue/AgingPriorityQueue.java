@@ -53,6 +53,10 @@ public class AgingPriorityQueue {
         return false;
     }
 
+    public synchronized boolean removeTicket(int ticketId) {
+        return queue.removeIf(item -> item.getTicket() != null && item.getTicket().getTicketId() == ticketId);
+    }
+
     public synchronized void enqueue(IncidentTicket ticket) {
         if (ticket != null && !containsTicketId(ticket.getTicketId())) {
             queue.offer(new QueueItem(ticket));

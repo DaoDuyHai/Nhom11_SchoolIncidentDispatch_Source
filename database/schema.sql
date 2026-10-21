@@ -9,6 +9,7 @@
 PRAGMA foreign_keys = OFF;
 
 -- Xóa mọi bảng từng tạo ở các phiên bản cũ hoặc thử nghiệm trước đó
+DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS multicast_alerts;
 DROP TABLE IF EXISTS dispatch_logs;
 DROP TABLE IF EXISTS incident_reports;
@@ -167,6 +168,22 @@ CREATE TABLE multicast_alerts (
     FOREIGN KEY (related_ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE SET NULL
 );
 
+-- 7. BẢNG CHAT_MESSAGES: Trao đổi thời gian thực giữa Client, Kỹ thuật viên và Quản lý
+CREATE TABLE chat_messages (
+    message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NULL,                     -- NULL hoặc 0: Kênh chung toàn trường; >0: Sự cố cụ thể
+    sender_id INTEGER NOT NULL,
+    sender_name TEXT NOT NULL,
+    sender_role TEXT NOT NULL,                  -- REPORTER, RESPONDER, ADMIN
+    content TEXT NOT NULL,
+    sent_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
+    
+    FOREIGN KEY (ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_chat_ticket ON chat_messages(ticket_id, sent_at);
+
 -- ----------------------------------------------------------------------------
 -- BƯỚC 3: NẠP DỮ LIỆU MẪU KHỞI TẠO (SEED DATA)
 -- ----------------------------------------------------------------------------
@@ -214,3 +231,11 @@ INSERT INTO dispatch_logs (
     0, 100.0,
     'ACCEPTED', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime'), 'Điều phối tự động cho nhân viên kỹ thuật có workload thấp nhất'
 );
+
+-- 4. Tin nhắn mẫu giữa các bên trong sự cố và kênh chung
+INSERT INTO chat_messages (ticket_id, sender_id, sender_name, sender_role, content, sent_at) VALUES
+(1, 2, 'Cô Trần Thị Lan (GVCN 10A2)', 'REPORTER', 'Cầu dao lớp A201 bị khét lẹt, các em học sinh đang hoảng hốt. Nhờ kỹ thuật kiểm tra gấp ạ!', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-15 minutes', 'localtime')),
+(1, 4, 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'Tôi đã nhận ca và đang mang đồ nghề lên tầng 2 phòng A201 ngay đây ạ.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-12 minutes', 'localtime')),
+(1, 1, 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'Thầy Tuấn lưu ý ngắt át tổng trước khi sửa và kiểm tra an toàn toàn bộ dãy phòng A201 nhé.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-10 minutes', 'localtime')),
+(1, 4, 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'Dạ vâng thưa thầy, em đã ngắt át và đang xử lý mối nối chập.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-5 minutes', 'localtime')),
+(NULL, 1, 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'Chào các thầy cô và đội ngũ kỹ thuật. Chúc tuần làm việc mới an toàn và hiệu quả!', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-1 hour', 'localtime'));

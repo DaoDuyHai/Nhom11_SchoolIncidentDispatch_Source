@@ -55,4 +55,31 @@ public class AgingPriorityQueueTest {
         queue.updateAllScores();
         assertTrue(ticket.getComputedPriority() >= initialPriority, "Điểm sau aging phải lớn hơn hoặc bằng ban đầu");
     }
+
+    @Test
+    @DisplayName("Kiểm tra thu hồi/xóa ticket khỏi hàng đợi khi đã được giao (removeTicket)")
+    void testRemoveTicketWhenAssigned() {
+        AgingPriorityQueue queue = new AgingPriorityQueue();
+
+        IncidentTicket t1 = new IncidentTicket();
+        t1.setTicketId(101);
+        t1.setTicketCode("INC-101");
+        t1.setBaseSeverity(3);
+
+        IncidentTicket t2 = new IncidentTicket();
+        t2.setTicketId(102);
+        t2.setTicketCode("INC-102");
+        t2.setBaseSeverity(4);
+
+        queue.enqueue(t1);
+        queue.enqueue(t2);
+        assertEquals(2, queue.size());
+        assertTrue(queue.containsTicketId(101));
+
+        boolean removed = queue.removeTicket(101);
+        assertTrue(removed, "Phải xóa thành công ticket 101 khỏi hàng đợi");
+        assertEquals(1, queue.size());
+        assertFalse(queue.containsTicketId(101));
+        assertTrue(queue.containsTicketId(102));
+    }
 }

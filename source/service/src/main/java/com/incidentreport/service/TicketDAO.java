@@ -134,6 +134,29 @@ public class TicketDAO {
         }
     }
 
+    /**
+     * Giao nhiệm vụ / Chỉ định thủ công bởi Ban Giám Hiệu (Admin)
+     */
+    public static boolean assignTicketManual(int ticketId, int staffId) {
+        String sql = "UPDATE incident_tickets SET " +
+                     "status = ?, assigned_staff_id = ?, " +
+                     "accepted_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime'), " +
+                     "version_lock = version_lock + 1 " +
+                     "WHERE ticket_id = ? AND status IN ('PENDING', 'ASSIGNED')";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, Constants.STATUS_ASSIGNED);
+            pstmt.setInt(2, staffId);
+            pstmt.setInt(3, ticketId);
+
+            return pstmt.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi assignTicketManual: " + e.getMessage());
+            return false;
+        }
+    }
+
     public static boolean updateTicketStatus(int ticketId, int staffId, String newStatus, String resolutionNote) {
         StringBuilder sql = new StringBuilder("UPDATE incident_tickets SET status = ?, version_lock = version_lock + 1 ");
         if (Constants.STATUS_RESOLVED.equals(newStatus)) {

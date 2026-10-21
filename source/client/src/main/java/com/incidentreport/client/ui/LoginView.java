@@ -17,6 +17,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
+import javafx.stage.Stage;
+
 import java.util.Map;
 
 public class LoginView extends VBox implements SocketClientManager.PacketListener {
@@ -27,6 +29,9 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
     private final PasswordField txtPassword = new PasswordField();
     private final Label lblError = new Label();
     private final Button btnLogin = new Button("ĐĂNG NHẬP");
+    private final Button btnGuestLogin = new Button("🚀 BÁO CÁO NHANH KHÔNG CẦN ĐĂNG NHẬP (KHÁCH)");
+    private final Hyperlink linkRegister = new Hyperlink("Đăng ký tài khoản");
+    private final Hyperlink linkForgotPassword = new Hyperlink("Quên mật khẩu?");
     private final ProgressIndicator progress = new ProgressIndicator();
 
     public LoginView() {
@@ -71,6 +76,26 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
         btnLogin.setOnAction(e -> attemptLogin());
         txtPassword.setOnAction(e -> attemptLogin());
 
+        // Liên kết Đăng ký & Quên mật khẩu
+        linkRegister.setStyle("-fx-text-fill: #1E5AA8; -fx-font-size: 12px;");
+        linkRegister.setOnAction(e -> openRegisterDialog());
+
+        linkForgotPassword.setStyle("-fx-text-fill: #6B7785; -fx-font-size: 12px;");
+        linkForgotPassword.setOnAction(e -> openForgotPasswordDialog());
+
+        HBox linksBox = new HBox(20, linkRegister, linkForgotPassword);
+        linksBox.setAlignment(Pos.CENTER);
+
+        // Divider
+        Label lblDivider = new Label("────────  HOẶC  ────────");
+        lblDivider.setTextFill(Color.web("#B0BEC5"));
+        lblDivider.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 11));
+
+        // Nút Đăng nhập khách (Báo cáo nhanh)
+        btnGuestLogin.setStyle("-fx-background-color: #E65100; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 8 16; -fx-background-radius: 6;");
+        btnGuestLogin.setMaxWidth(Double.MAX_VALUE);
+        btnGuestLogin.setOnAction(e -> attemptGuestLogin());
+
         progress.setVisible(false);
         progress.setMaxSize(24, 24);
 
@@ -78,9 +103,65 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
         lblError.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
         lblError.setWrapText(true);
 
-        getChildren().addAll(lblAppTitle, lblSubTitle, grid, btnLogin, progress, lblError);
+        getChildren().addAll(lblAppTitle, lblSubTitle, grid, btnLogin, linksBox, lblDivider, btnGuestLogin, progress, lblError);
 
         SocketClientManager.getInstance().addListener(this);
+    }
+
+    private void openRegisterDialog() {
+        String host = txtHost.getText().trim();
+        int port = getPort();
+        Stage stage = (Stage) getScene().getWindow();
+        new RegisterDialog(stage, host, port, username -> {
+            txtUsername.setText(username);
+            txtPassword.clear();
+            txtPassword.requestFocus();
+        }).show();
+    }
+
+    private void openForgotPasswordDialog() {
+        String host = txtHost.getText().trim();
+        int port = getPort();
+        Stage stage = (Stage) getScene().getWindow();
+        new ForgotPasswordDialog(stage, host, port, txtUsername.getText().trim(), username -> {
+            txtUsername.setText(username);
+            txtPassword.clear();
+            txtPassword.requestFocus();
+        }).show();
+    }
+
+    private int getPort() {
+        try {
+            return Integer.parseInt(txtPort.getText().trim());
+        } catch (Exception e) {
+            return Constants.TCP_PORT;
+        }
+    }
+
+    private void attemptGuestLogin() {
+        String host = txtHost.getText().trim();
+        int port = getPort();
+
+        lblError.setText("");
+        progress.setVisible(true);
+        btnGuestLogin.setDisable(true);
+        btnLogin.setDisable(true);
+
+        new Thread(() -> {
+            boolean connected = SocketClientManager.getInstance().connect(host, port);
+            if (!connected) {
+                javafx.application.Platform.runLater(() -> {
+                    lblError.setText("Không thể kết nối tới Server tại " + host + ":" + port);
+                    progress.setVisible(false);
+                    btnGuestLogin.setDisable(false);
+                    btnLogin.setDisable(false);
+                });
+                return;
+            }
+
+            // Gửi bản tin 0x23 GUEST_LOGIN
+            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_GUEST_LOGIN, "GUEST_LOGIN"));
+        }).start();
     }
 
     private void attemptLogin() {
@@ -128,6 +209,7 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
         if (packet.getType() == Constants.TYPE_LOGIN_RESP) {
             progress.setVisible(false);
             btnLogin.setDisable(false);
+            btnGuestLogin.setDisable(false);
 
             Map<String, String> p = packet.parseParams();
             String status = p.get("status");
@@ -173,6 +255,7 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
     public void onDisconnected() {
         progress.setVisible(false);
         btnLogin.setDisable(false);
+        btnGuestLogin.setDisable(false);
         lblError.setText("Mất kết nối máy chủ!");
     }
 }

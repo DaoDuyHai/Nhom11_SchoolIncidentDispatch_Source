@@ -12,6 +12,7 @@ import com.incidentreport.common.packet.Packet;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -29,6 +30,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -52,6 +54,8 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
     private final TableView<IncidentTicket> ticketTable = new TableView<>();
     private final ObservableList<IncidentTicket> ticketList = FXCollections.observableArrayList();
     private final TabPane tabPane = new TabPane();
+    private ChatPanel chatPanel;
+    private Tab tabChat;
 
     public ReporterView(User user) {
         this.currentUser = user;
@@ -93,7 +97,11 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
         Tab tabList = new Tab("② Báo cáo của tôi", createMyTicketsTab());
         tabList.setClosable(false);
 
-        tabPane.getTabs().addAll(tabNew, tabList);
+        chatPanel = new ChatPanel(currentUser);
+        tabChat = new Tab("③ 💬 Trao đổi / Chat", chatPanel);
+        tabChat.setClosable(false);
+
+        tabPane.getTabs().addAll(tabNew, tabList, tabChat);
         setCenter(tabPane);
     }
 
@@ -209,6 +217,18 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
         });
     }
 
+    private int getStatusRank(String status) {
+        if (status == null) return 99;
+        switch (status) {
+            case Constants.STATUS_PENDING: return 1;
+            case Constants.STATUS_ASSIGNED: return 2;
+            case Constants.STATUS_IN_PROGRESS: return 3;
+            case Constants.STATUS_RESOLVED: return 4;
+            case Constants.STATUS_CANCELLED: return 5;
+            default: return 10;
+        }
+    }
+
     private Node createMyTicketsTab() {
         VBox box = new VBox(10);
         box.setPadding(new Insets(15));
@@ -223,14 +243,17 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("Mã sự cố");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
         colCode.setPrefWidth(140);
+        colCode.setSortable(true);
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("Phòng");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
         colRoom.setPrefWidth(90);
+        colRoom.setSortable(true);
 
         TableColumn<IncidentTicket, String> colCat = new TableColumn<>("Loại sự cố");
         colCat.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCategoryName() != null ? d.getValue().getCategoryName() : d.getValue().getCategoryCode()));
         colCat.setPrefWidth(180);
+        colCat.setSortable(true);
 
         TableColumn<IncidentTicket, Number> colSev = new TableColumn<>("Mức độ");
         colSev.setCellValueFactory(d -> new javafx.beans.property.SimpleIntegerProperty(d.getValue().getBaseSeverity()));
@@ -243,6 +266,8 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
             }
         });
         colSev.setPrefWidth(100);
+        colSev.setSortable(true);
+        colSev.setComparator(Comparator.comparingInt(Number::intValue));
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("Trạng thái");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
@@ -255,19 +280,52 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
             }
         });
         colStatus.setPrefWidth(120);
+        colStatus.setSortable(true);
+        colStatus.setComparator((s1, s2) -> Integer.compare(getStatusRank(s1), getStatusRank(s2)));
 
         TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("Người tiếp nhận");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(
             d.getValue().getAssignedStaffName() != null ? d.getValue().getAssignedStaffName() : "—"
         ));
         colStaff.setPrefWidth(160);
+        colStaff.setSortable(true);
 
         TableColumn<IncidentTicket, String> colTime = new TableColumn<>("Giờ báo");
         colTime.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt()));
         colTime.setPrefWidth(160);
+        colTime.setSortable(true);
 
-        ticketTable.getColumns().addAll(colCode, colRoom, colCat, colSev, colStatus, colStaff, colTime);
-        ticketTable.setItems(ticketList);
+        TableColumn<IncidentTicket, Void> colChatAction = new TableColumn<>("Trao đổi");
+        colChatAction.setSortable(false);
+        colChatAction.setCellFactory(col -> new TableCell<>() {
+            private final Button btnChat = new Button("💬 Chat");
+            {
+                btnChat.setStyle("-fx-background-color: #0D9488; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4px; -fx-cursor: hand;");
+                btnChat.setOnAction(e -> {
+                    IncidentTicket t = getTableView().getItems().get(getIndex());
+                    if (t != null) {
+                        chatPanel.selectTicket(t.getTicketId(), t.getTicketCode() + " - Phòng " + t.getRoomLocation());
+                        tabPane.getSelectionModel().select(tabChat);
+                    }
+                });
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) setGraphic(null);
+                else setGraphic(btnChat);
+            }
+        });
+        colChatAction.setPrefWidth(85);
+
+        ticketTable.getColumns().addAll(colCode, colRoom, colCat, colSev, colStatus, colStaff, colTime, colChatAction);
+
+        SortedList<IncidentTicket> sortedMyTickets = new SortedList<>(ticketList);
+        sortedMyTickets.comparatorProperty().bind(ticketTable.comparatorProperty());
+        ticketTable.setItems(sortedMyTickets);
+        ticketTable.getSortOrder().add(colTime);
+        colTime.setSortType(TableColumn.SortType.DESCENDING);
+
         VBox.setVgrow(ticketTable, Priority.ALWAYS);
 
         box.getChildren().addAll(toolBar, ticketTable);
@@ -366,11 +424,23 @@ public class ReporterView extends BorderPane implements SocketClientManager.Pack
                 Type listType = new TypeToken<ArrayList<IncidentTicket>>(){}.getType();
                 List<IncidentTicket> list = gson.fromJson(packet.getHeaderPayload(), listType);
                 ticketList.setAll(list);
+                if (chatPanel != null) {
+                    chatPanel.setTickets(list);
+                }
             } catch (Exception ignored) {}
 
         } else if (packet.getType() == Constants.TYPE_STATUS_UPDATE) {
             // Tự động tải lại bảng khi trạng thái thay đổi
             loadMyTickets();
+
+        } else if (packet.getType() == Constants.TYPE_CHAT_PUSH) {
+            if (chatPanel != null) {
+                chatPanel.onChatPush(packet);
+            }
+        } else if (packet.getType() == Constants.TYPE_CHAT_HISTORY_RESP) {
+            if (chatPanel != null) {
+                chatPanel.onChatHistoryResponse(packet);
+            }
         }
     }
 

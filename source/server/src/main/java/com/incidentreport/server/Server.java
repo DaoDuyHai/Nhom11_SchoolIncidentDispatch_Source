@@ -8,6 +8,7 @@ import com.incidentreport.server.queue.AgingPriorityQueue;
 import com.incidentreport.service.CategoryDAO;
 import com.incidentreport.service.InitDatabase;
 import com.incidentreport.service.TicketDAO;
+import com.incidentreport.service.UserDAO;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -38,6 +39,9 @@ public class Server {
         System.out.println("   HỆ THỐNG ĐIỀU PHỐI SỰ CỐ TRƯỜNG THPT - CENTRAL DISPATCH SERVER          ");
         System.out.println("   Phiên bản: 2.0 (TCP Socket + UDP Heartbeat + UDP Multicast + JavaFX)    ");
         System.out.println("============================================================================");
+
+        // 0. Đặt lại trạng thái offline cho toàn bộ người dùng khi Server khởi động
+        UserDAO.resetAllUsersOffline();
 
         // 1. Tải danh mục sự cố từ CSDL
         CategoryDAO.refreshCache();

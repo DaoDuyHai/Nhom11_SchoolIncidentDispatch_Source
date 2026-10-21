@@ -167,6 +167,22 @@ Hệ thống đã nạp sẵn các tài khoản đại diện cho đầy đủ c
    * Người thứ hai nhận thông báo: *"⚠️ Nhiệm vụ này vừa được đồng nghiệp tiếp nhận trước!"*.
    * Triệt tiêu hoàn toàn lỗi 2 người cùng tới xử lý 1 việc!
 
+### 🔹 Kịch bản 4: Kênh Chat Trao Đổi Thời Gian Thực (Client - Kỹ thuật viên - Quản lý)
+1. Mở 3 cửa sổ Client đăng nhập 3 vai trò khác nhau:
+   * Client 1: Giáo viên `gv_lan` (REPORTER)
+   * Client 2: Kỹ thuật viên `kt_tuan` (RESPONDER)
+   * Client 3: Ban Giám Hiệu `admin_bgh` (ADMIN)
+2. **Chat theo Sự cố (Incident Ticket Chat):**
+   * Tại máy `gv_lan`, mở tab **"② Báo cáo của tôi"** ➡️ Bấm nút **"💬 Chat"** tại sự cố `INC-20261014-0001` (Phòng A201). Hệ thống tự động chuyển sang tab Chat và mở đúng phòng của sự cố này.
+   * `gv_lan` nhắn: *"Anh Tuấn ơi, lớp A201 đang có khói khét ở cầu dao, học sinh đã ra ngoài hết rồi ạ!"*.
+   * Ngay lập tức, tại máy của `kt_tuan` và `admin_bgh`, tin nhắn hiển thị bong bóng chat xanh/trắng mượt mà kèm vai trò `[Người báo cáo]`.
+   * `kt_tuan` nhắn lại: *"Tôi đã cầm thiết bị lên tầng 2 rồi, 1 phút nữa tới nơi nhé cô!"*.
+   * `admin_bgh` (Hiệu trưởng) nhắn chỉ đạo: *"Anh Tuấn nhớ ngắt át tổng tầng 2 trước khi tháo lắp thiết bị!"*.
+   * Cả 3 bên đều nhìn thấy phản hồi tức thời qua Socket TCP `0xCAFE` với nhãn phân biệt vai trò trực quan!
+3. **Kênh Chat Chung Toàn Trường (General Channel):**
+   * Bất kỳ bên nào chọn **"📢 Kênh Toàn Trường"** ở sidebar bên trái để gửi tin nhắn thông báo điều phối tới toàn bộ thành viên đang online.
+
+
 ---
 
 ## 8. Chạy Bài Kiểm Tra Tải & Đo Đạc Thực Nghiệm (Benchmark Simulator)
