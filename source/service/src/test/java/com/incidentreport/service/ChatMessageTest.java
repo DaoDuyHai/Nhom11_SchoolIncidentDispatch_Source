@@ -12,22 +12,8 @@ public class ChatMessageTest {
 
     @BeforeAll
     public static void setup() {
+        InitDatabase.init();
         ChatMessageDAO.ensureTableExists();
-    }
-
-    @Test
-    public void testSaveAndGetGeneralMessages() {
-        ChatMessage msg = new ChatMessage(
-            null, 1, "Thầy Hiệu Trưởng", "ADMIN", "Thông báo thử nghiệm kênh chung"
-        );
-        boolean saved = ChatMessageDAO.saveMessage(msg);
-        assertTrue(saved, "Tin nhắn kênh chung phải được lưu thành công");
-        assertTrue(msg.getMessageId() > 0, "Phải sinh được messageId tự tăng");
-        assertNotNull(msg.getSentAt(), "Phải có sent_at");
-
-        List<ChatMessage> generalList = ChatMessageDAO.getGeneralMessages(10);
-        assertNotNull(generalList);
-        assertFalse(generalList.isEmpty(), "Danh sách tin nhắn kênh chung không được rỗng");
     }
 
     @Test
@@ -51,5 +37,11 @@ public class ChatMessageTest {
         assertTrue(foundMsg1, "Phải tìm thấy msg1 vừa lưu");
         assertTrue(foundMsg2, "Phải tìm thấy msg2 vừa lưu");
     }
-}
 
+    @Test
+    public void testGetAllMessagesForAudit() {
+        List<ChatMessage> all = ChatMessageDAO.getAllMessages(50);
+        assertNotNull(all);
+        assertFalse(all.isEmpty(), "Admin phải xem được toàn bộ lịch sử tin nhắn để kiểm toán");
+    }
+}

@@ -5,6 +5,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+/**
+ * Quản lý kết nối cơ sở dữ liệu SQLite đa luồng an toàn (WAL Mode)
+ */
 public class DatabaseConnection {
 
     public static File getDatabaseFile() {
@@ -45,15 +48,14 @@ public class DatabaseConnection {
                 if (e.getMessage() != null && (e.getMessage().contains("BUSY") || e.getMessage().contains("locked"))) {
                     retries--;
                     try {
-                        Thread.sleep(200); // Wait 200ms and retry
-                    } catch (InterruptedException ie) {}
+                        Thread.sleep(200);
+                    } catch (InterruptedException ignored) {}
                 } else {
                     System.err.println("Lỗi kết nối Database: " + e.getMessage());
                     return null;
                 }
             }
         }
-        System.err.println("Database vẫn bị khóa sau nhiều lần thử.");
         return null;
     }
 }

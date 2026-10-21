@@ -10,6 +10,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Quản lý danh mục sự cố và định tuyến chuyên môn
+ */
 public class CategoryDAO {
     private static final Map<String, IncidentCategory> cache = new HashMap<>();
 
@@ -38,9 +41,7 @@ public class CategoryDAO {
                 IncidentCategory c = new IncidentCategory(
                     rs.getString("category_code"),
                     rs.getString("category_name"),
-                    rs.getString("required_specialty"),
-                    rs.getInt("default_severity"),
-                    rs.getInt("dedup_window_seconds")
+                    rs.getString("required_specialty")
                 );
                 cache.put(c.getCategoryCode(), c);
             }
@@ -49,4 +50,3 @@ public class CategoryDAO {
         }
     }
 }
-

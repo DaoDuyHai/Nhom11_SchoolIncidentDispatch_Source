@@ -6,6 +6,10 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * DAO quản lý tin nhắn trao đổi 1-1 giữa Reporter và Responder.
+ * Dữ liệu được lưu vĩnh viễn trên Server để Admin kiểm tra/kiểm toán (Audit Log).
+ */
 public class ChatMessageDAO {
 
     static {
@@ -15,7 +19,7 @@ public class ChatMessageDAO {
     public static void ensureTableExists() {
         String sql = "CREATE TABLE IF NOT EXISTS chat_messages (\n" +
                      "    message_id INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
-                     "    ticket_id INTEGER NULL,\n" +
+                     "    ticket_id INTEGER NOT NULL,\n" +
                      "    sender_id INTEGER NOT NULL,\n" +
                      "    sender_name TEXT NOT NULL,\n" +
                      "    sender_role TEXT NOT NULL,\n" +
@@ -43,11 +47,7 @@ public class ChatMessageDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            if (message.getTicketId() != null && message.getTicketId() > 0) {
-                pstmt.setInt(1, message.getTicketId());
-            } else {
-                pstmt.setNull(1, Types.INTEGER);
-            }
+            pstmt.setInt(1, message.getTicketId());
             pstmt.setInt(2, message.getSenderId());
             pstmt.setString(3, message.getSenderName());
             pstmt.setString(4, message.getSenderRole());
@@ -96,24 +96,21 @@ public class ChatMessageDAO {
         return list;
     }
 
-    public static List<ChatMessage> getGeneralMessages(int limit) {
+    public static List<ChatMessage> getAllMessages(int limit) {
         ensureTableExists();
         List<ChatMessage> list = new ArrayList<>();
-        String sql = "SELECT * FROM (\n" +
-                     "    SELECT * FROM chat_messages WHERE ticket_id IS NULL OR ticket_id = 0 \n" +
-                     "    ORDER BY message_id DESC LIMIT ?\n" +
-                     ") ORDER BY message_id ASC";
+        String sql = "SELECT * FROM chat_messages ORDER BY message_id DESC LIMIT ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, limit > 0 ? limit : 50);
+            pstmt.setInt(1, limit > 0 ? limit : 200);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapMessage(rs));
                 }
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi ChatMessageDAO.getGeneralMessages: " + e.getMessage());
+            System.err.println("❌ Lỗi ChatMessageDAO.getAllMessages: " + e.getMessage());
         }
         return list;
     }
@@ -121,12 +118,7 @@ public class ChatMessageDAO {
     private static ChatMessage mapMessage(ResultSet rs) throws SQLException {
         ChatMessage msg = new ChatMessage();
         msg.setMessageId(rs.getInt("message_id"));
-        int ticketId = rs.getInt("ticket_id");
-        if (!rs.wasNull() && ticketId > 0) {
-            msg.setTicketId(ticketId);
-        } else {
-            msg.setTicketId(null);
-        }
+        msg.setTicketId(rs.getInt("ticket_id"));
         msg.setSenderId(rs.getInt("sender_id"));
         msg.setSenderName(rs.getString("sender_name"));
         msg.setSenderRole(rs.getString("sender_role"));

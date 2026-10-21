@@ -1,241 +1,107 @@
 -- ============================================================================
--- KỊCH BẢN KHỞI TẠO CƠ SỞ DỮ LIỆU SQLITE (CHUẨN 6 BẢNG)
--- File đích: D:\Filecode\Laptrinhmang\baitaplon\database\incident_report.db
+-- CƠ SỞ DỮ LIỆU SQLITE - SCHOOL INCIDENT DISPATCH SYSTEM (BASIC CORE)
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- BƯỚC 1: XÓA SẠCH TOÀN BỘ BẢNG CŨ VÀ DỮ LIỆU CŨ (NẾU CÓ)
--- ----------------------------------------------------------------------------
 PRAGMA foreign_keys = OFF;
 
--- Xóa mọi bảng từng tạo ở các phiên bản cũ hoặc thử nghiệm trước đó
 DROP TABLE IF EXISTS chat_messages;
-DROP TABLE IF EXISTS multicast_alerts;
-DROP TABLE IF EXISTS dispatch_logs;
-DROP TABLE IF EXISTS incident_reports;
 DROP TABLE IF EXISTS incident_tickets;
-DROP TABLE IF EXISTS incidents;
-DROP TABLE IF EXISTS reports;
-DROP TABLE IF EXISTS tasks;
-DROP TABLE IF EXISTS notifications;
-DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS incident_categories;
-DROP TABLE IF EXISTS categories;
-DROP TABLE IF EXISTS rooms;
-DROP TABLE IF EXISTS zone_distances;
-DROP TABLE IF EXISTS zones;
+DROP TABLE IF EXISTS users;
 
--- Nếu trong file .db của bạn còn bất kỳ bảng lạ nào khác, 3 dòng dưới đây sẽ quét sạch 100%:
-PRAGMA writable_schema = 1;
-DELETE FROM sqlite_master WHERE type IN ('table', 'index', 'trigger') AND name NOT LIKE 'sqlite_%';
-PRAGMA writable_schema = 0;
-VACUUM;
-
--- Bật lại khóa ngoại và kích hoạt chế độ WAL phục vụ đa luồng (Multithreading)
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
--- ----------------------------------------------------------------------------
--- BƯỚC 2: TẠO MỚI 06 BẢNG CỐT LÕI (ĐÃ BỎ ZONE & ROOM)
--- ----------------------------------------------------------------------------
-
--- 1. BẢNG INCIDENT_CATEGORIES: Danh mục sự cố & Trọng số ưu tiên mặc định
-CREATE TABLE incident_categories (
-    category_code TEXT PRIMARY KEY,             -- VD: ELECTRIC, MEDICAL, SECURITY, FACILITY, FIRE
-    category_name TEXT NOT NULL,
-    required_specialty TEXT NOT NULL CHECK (required_specialty IN ('TECHNICAL', 'MEDICAL', 'SECURITY', 'ALL')),
-    default_severity INTEGER NOT NULL CHECK (default_severity BETWEEN 1 AND 5),
-    dedup_window_seconds INTEGER NOT NULL DEFAULT 300 -- Cửa sổ chống trùng lặp: 300s (5 phút)
-);
-
--- 2. BẢNG USERS: Quản lý tài khoản & Trạng thái kết nối thời gian thực
+-- 1. BẢNG USERS: Quản lý tài khoản duy nhất do Admin/Server cấp
 CREATE TABLE users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('REPORTER', 'RESPONDER', 'ADMIN')),
-    sub_role TEXT NOT NULL,                     -- TEACHER, STUDENT, TECH_STAFF, MEDICAL_STAFF, SECURITY_GUARD, PRINCIPAL
-    specialty TEXT NOT NULL DEFAULT 'NONE' CHECK (specialty IN ('NONE', 'TECHNICAL', 'MEDICAL', 'SECURITY')),
+    specialty TEXT NOT NULL DEFAULT 'NONE' CHECK (specialty IN ('NONE', 'TECHNICAL', 'MEDICAL', 'SECURITY', 'ALL')),
     phone TEXT,
-    
-    -- Các trường trạng thái mạng cập nhật từ TCP Session & UDP Heartbeat (3s/lần)
-    is_online INTEGER NOT NULL DEFAULT 0,       -- 0: Offline, 1: Online
-    availability_status TEXT NOT NULL DEFAULT 'OFFLINE' CHECK (availability_status IN ('OFFLINE', 'AVAILABLE', 'BUSY')),
-    current_workload INTEGER NOT NULL DEFAULT 0,-- Số sự cố đang xử lý đồng thời (Phục vụ Smart Dispatch)
-    last_heartbeat_at TEXT NULL,                -- Lưu timestamp chuẩn ISO-8601 tới mili-giây
+    is_online INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime'))
 );
 
-CREATE INDEX idx_users_dispatch ON users(role, specialty, is_online, availability_status, current_workload);
+-- 2. BẢNG INCIDENT_CATEGORIES: Định tuyến phòng ban chuyên trách
+CREATE TABLE incident_categories (
+    category_code TEXT PRIMARY KEY,
+    category_name TEXT NOT NULL,
+    required_specialty TEXT NOT NULL CHECK (required_specialty IN ('TECHNICAL', 'MEDICAL', 'SECURITY', 'ALL'))
+);
 
--- 3. BẢNG INCIDENT_TICKETS: Sự cố trung tâm (Sau khi gom nhóm chống trùng lặp)
+-- 3. BẢNG INCIDENT_TICKETS: Lưu trữ sự cố cốt lõi
 CREATE TABLE incident_tickets (
     ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_code TEXT NOT NULL UNIQUE,           -- VD: INC-20261014-0001
-    room_location TEXT NOT NULL,                -- Nhập trực tiếp: A101, A201, LAB_CHEM1...
+    ticket_code TEXT NOT NULL UNIQUE,
+    room_location TEXT NOT NULL,
     category_code TEXT NOT NULL,
+    target_department TEXT NOT NULL DEFAULT 'TECHNICAL',
     title TEXT NOT NULL,
-    
-    -- Trọng số phục vụ Aging Priority Queue
-    base_severity INTEGER NOT NULL CHECK (base_severity BETWEEN 1 AND 5),
-    report_count INTEGER NOT NULL DEFAULT 1,    -- Tăng lên khi gộp các báo cáo trùng lặp
-    computed_priority REAL NOT NULL DEFAULT 1.0,-- Điểm ưu tiên thực tế (Severity + Aging + ReportBonus)
-    
-    -- Quản lý trạng thái đồng bộ đa luồng (PENDING -> ASSIGNED -> IN_PROGRESS -> RESOLVED)
-    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CANCELLED')),
+    description TEXT NOT NULL,
+    image_file_path TEXT NULL,
+    reporter_id INTEGER NOT NULL,
+    reporter_name TEXT NOT NULL,
+    reporter_phone TEXT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'IN_PROGRESS', 'RESOLVED', 'CANCELLED')),
     assigned_staff_id INTEGER NULL,
-    version_lock INTEGER NOT NULL DEFAULT 0,    -- Chống Race Condition khi nhiều nhân viên cùng bấm nhận
-    
-    -- Các mốc thời gian chính xác tới mili-giây để đo số liệu thực nghiệm
+    assigned_staff_name TEXT NULL,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    last_merged_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    dispatched_at TEXT NULL,
     accepted_at TEXT NULL,
     resolved_at TEXT NULL,
-    
-    -- Chỉ số hiệu năng (Metrics cho báo cáo)
-    queue_waiting_time_ms INTEGER NOT NULL DEFAULT 0,
-    failover_count INTEGER NOT NULL DEFAULT 0,
     resolution_note TEXT NULL,
-    
     FOREIGN KEY (category_code) REFERENCES incident_categories(category_code) ON DELETE RESTRICT,
+    FOREIGN KEY (reporter_id) REFERENCES users(user_id) ON DELETE RESTRICT,
     FOREIGN KEY (assigned_staff_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_tickets_dedup ON incident_tickets(room_location, category_code, status, created_at);
+CREATE INDEX idx_tickets_status ON incident_tickets(status, target_department, created_at);
 
--- 4. BẢNG INCIDENT_REPORTS: Chi tiết từng bản tin báo cáo từ Reporter Client
-CREATE TABLE incident_reports (
-    report_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_id INTEGER NOT NULL,
-    reporter_id INTEGER NOT NULL,
-    reported_severity INTEGER NOT NULL CHECK (reported_severity BETWEEN 1 AND 5),
-    description TEXT NOT NULL,
-    
-    -- Thông tin file ảnh truyền qua TCP Framing (Attachment Bytes)
-    image_file_path TEXT NULL,
-    image_size_bytes INTEGER NOT NULL DEFAULT 0,
-    
-    is_duplicate_merged INTEGER NOT NULL DEFAULT 0, -- 0: Báo cáo gốc, 1: Báo cáo trùng được gộp
-    client_ip TEXT NULL,
-    submitted_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    
-    FOREIGN KEY (ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE CASCADE,
-    FOREIGN KEY (reporter_id) REFERENCES users(user_id) ON DELETE RESTRICT
-);
-
--- 5. BẢNG DISPATCH_LOGS: Lịch sử điều phối, ACK và Auto-Failover
-CREATE TABLE dispatch_logs (
-    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_id INTEGER NOT NULL,
-    staff_id INTEGER NOT NULL,
-    attempt_number INTEGER NOT NULL DEFAULT 1,
-    
-    workload_at_dispatch INTEGER NOT NULL DEFAULT 0,
-    total_dispatch_score REAL NOT NULL DEFAULT 0.0,
-    
-    dispatch_status TEXT NOT NULL DEFAULT 'PUSHED' CHECK (dispatch_status IN (
-        'PUSHED',               -- Server đã gửi lệnh DISPATCH_PUSH qua TCP
-        'ACCEPTED',             -- Nhân viên đã bấm nhận (DISPATCH_ACK = ACCEPT)
-        'REJECTED',             -- Nhân viên từ chối
-        'ACK_TIMEOUT',          -- Quá hạn phản hồi ACK -> Thu hồi
-        'HEARTBEAT_LOST',       -- Mất kết nối UDP Heartbeat > 10s -> Auto-Failover
-        'COMPLETED'             -- Đã hoàn thành xử lý
-    )),
-    
-    pushed_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    responded_at TEXT NULL,
-    failover_triggered_at TEXT NULL,
-    recovery_time_ms INTEGER NULL,
-    note TEXT NULL,
-    
-    FOREIGN KEY (ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE CASCADE,
-    FOREIGN KEY (staff_id) REFERENCES users(user_id) ON DELETE RESTRICT
-);
-
--- 6. BẢNG MULTICAST_ALERTS: Lịch sử phát cảnh báo khẩn cấp toàn trường (UDP Multicast)
-CREATE TABLE multicast_alerts (
-    alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender_admin_id INTEGER NOT NULL,
-    related_ticket_id INTEGER NULL,
-    multicast_group TEXT NOT NULL DEFAULT '230.0.0.1:9999',
-    alert_level TEXT NOT NULL DEFAULT 'CRITICAL' CHECK (alert_level IN ('CRITICAL', 'EVACUATION', 'DRILL', 'ALL_CLEAR')),
-    alert_message TEXT NOT NULL,
-    broadcasted_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    
-    FOREIGN KEY (sender_admin_id) REFERENCES users(user_id) ON DELETE RESTRICT,
-    FOREIGN KEY (related_ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE SET NULL
-);
-
--- 7. BẢNG CHAT_MESSAGES: Trao đổi thời gian thực giữa Client, Kỹ thuật viên và Quản lý
+-- 4. BẢNG CHAT_MESSAGES: Trao đổi trực tiếp 1-1 giữa Reporter và Responder (Admin xem audit)
 CREATE TABLE chat_messages (
     message_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticket_id INTEGER NULL,                     -- NULL hoặc 0: Kênh chung toàn trường; >0: Sự cố cụ thể
+    ticket_id INTEGER NOT NULL,
     sender_id INTEGER NOT NULL,
     sender_name TEXT NOT NULL,
-    sender_role TEXT NOT NULL,                  -- REPORTER, RESPONDER, ADMIN
+    sender_role TEXT NOT NULL,
     content TEXT NOT NULL,
     sent_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-    
     FOREIGN KEY (ticket_id) REFERENCES incident_tickets(ticket_id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE RESTRICT
 );
 
 CREATE INDEX idx_chat_ticket ON chat_messages(ticket_id, sent_at);
 
--- ----------------------------------------------------------------------------
--- BƯỚC 3: NẠP DỮ LIỆU MẪU KHỞI TẠO (SEED DATA)
--- ----------------------------------------------------------------------------
+-- ============================================================================
+-- NẠP DỮ LIỆU KHỞI TẠO (SEED DATA)
+-- ============================================================================
 
--- 1. Danh mục Sự cố
-INSERT INTO incident_categories (category_code, category_name, required_specialty, default_severity, dedup_window_seconds) VALUES
-('FACILITY', 'Hỏng thiết bị lớp học (Quạt, Đèn, Máy chiếu)', 'TECHNICAL', 2, 300),
-('WATER', 'Sự cố Điện nước (Vỡ ống nước, Mất nước)', 'TECHNICAL', 3, 300),
-('ELECTRIC', 'Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)', 'TECHNICAL', 4, 300),
-('MEDICAL', 'Cấp cứu Y tế (Học sinh ngất xỉu, Chấn thương)', 'MEDICAL', 5, 180),
-('SECURITY', 'An ninh Trật tự (Xô xát, Người lạ đột nhập)', 'SECURITY', 4, 180),
-('FIRE', 'Cháy nổ / Rò rỉ khí độc phòng thí nghiệm', 'ALL', 5, 120);
+-- 1. Danh mục sự cố & Định tuyến phòng ban
+INSERT INTO incident_categories (category_code, category_name, required_specialty) VALUES
+('FACILITY', 'Hỏng thiết bị lớp học (Quạt, Đèn, Máy chiếu)', 'TECHNICAL'),
+('WATER', 'Sự cố Điện nước (Vỡ ống nước, Mất nước)', 'TECHNICAL'),
+('ELECTRIC', 'Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)', 'TECHNICAL'),
+('MEDICAL', 'Cấp cứu Y tế (Học sinh ngất, Chấn thương, Sốt)', 'MEDICAL'),
+('SECURITY', 'An ninh Trật tự (Xô xát, Người lạ đột nhập, Trộm cắp)', 'SECURITY');
 
--- 2. Tài khoản Người dùng (Mật khẩu mẫu: 123456)
-INSERT INTO users (username, password_hash, full_name, role, sub_role, specialty, phone, is_online, availability_status, current_workload, last_heartbeat_at) VALUES
-('admin_bgh', '123456', 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'PRINCIPAL', 'NONE', '0901000001', 1, 'AVAILABLE', 0, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-('gv_lan', '123456', 'Cô Trần Thị Lan (GVCN 10A2)', 'REPORTER', 'TEACHER', 'NONE', '0902000001', 1, 'AVAILABLE', 0, NULL),
-('hs_minh', '123456', 'Lê Hoàng Minh (Lớp trưởng 10A2)', 'REPORTER', 'STUDENT', 'NONE', '0902000002', 1, 'AVAILABLE', 0, NULL),
-('kt_tuan', '123456', 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'TECH_STAFF', 'TECHNICAL', '0903000001', 1, 'AVAILABLE', 0, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-('kt_nam', '123456', 'Anh Ngô Bảo Nam (Kỹ thuật Điện 2)', 'RESPONDER', 'TECH_STAFF', 'TECHNICAL', '0903000002', 1, 'AVAILABLE', 2, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-('yte_mai', '123456', 'Cô Vũ Tuyết Mai (Nhân viên Y tế)', 'RESPONDER', 'MEDICAL_STAFF', 'MEDICAL', '0903000003', 1, 'AVAILABLE', 0, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime')),
-('bv_son', '123456', 'Bác Trương Sơn (Đội trưởng Bảo vệ)', 'RESPONDER', 'SECURITY_GUARD', 'SECURITY', '0903000004', 1, 'AVAILABLE', 0, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime'));
+-- 2. Tài khoản mẫu mặc định do Admin/Server cấp (Mật khẩu: 123456)
+-- Mật khẩu 123456 đã được băm SHA-256: 8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92
+INSERT INTO users (username, password_hash, full_name, role, specialty, phone, is_online) VALUES
+('admin_bgh', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'NONE', '0901000001', 0),
+('gv_lan', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Cô Trần Thị Lan (GVCN 10A2)', 'REPORTER', 'NONE', '0902000001', 0),
+('hs_minh', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Lê Hoàng Minh (Lớp trưởng 10A2)', 'REPORTER', 'NONE', '0902000002', 0),
+('kt_tuan', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'TECHNICAL', '0903000001', 0),
+('kt_nam', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Anh Ngô Bảo Nam (Kỹ thuật Thiết bị 2)', 'RESPONDER', 'TECHNICAL', '0903000002', 0),
+('yte_mai', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Cô Vũ Tuyết Mai (Nhân viên Y tế)', 'RESPONDER', 'MEDICAL', '0903000003', 0),
+('bv_son', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'Bác Trương Sơn (Đội trưởng Bảo vệ)', 'RESPONDER', 'SECURITY', '0903000004', 0);
 
--- 3. Ticket mẫu đã gom nhóm từ 2 báo cáo trùng lặp tại phòng A201
-INSERT INTO incident_tickets (
-    ticket_code, room_location, category_code, title,
-    base_severity, report_count, computed_priority,
-    status, assigned_staff_id, queue_waiting_time_ms, failover_count
-) VALUES (
-    'INC-20261014-0001', 'A201', 'ELECTRIC', 'Chập cầu dao tổng có mùi khét tại phòng A201',
-    4, 2, 4.5,
-    'ASSIGNED', 4, 42, 0
-);
+-- 3. Sự cố mẫu ban đầu
+INSERT INTO incident_tickets (ticket_id, ticket_code, room_location, category_code, target_department, title, description, reporter_id, reporter_name, reporter_phone, status) VALUES
+(1, 'TK-INIT-001', 'A101', 'FACILITY', 'TECHNICAL', 'A101 - FACILITY', 'Máy chiếu phòng học chập chờn', 2, 'Cô Trần Thị Lan (GVCN 10A2)', '0902000001', 'PENDING'),
+(2, 'TK-INIT-002', 'B202', 'MEDICAL', 'MEDICAL', 'B202 - MEDICAL', 'Học sinh lớp 11B bị đau bụng cần y tế', 3, 'Lê Hoàng Minh (Lớp trưởng 10A2)', '0902000002', 'PENDING');
 
-INSERT INTO incident_reports (ticket_id, reporter_id, reported_severity, description, image_file_path, image_size_bytes, is_duplicate_merged, client_ip) VALUES
-(1, 2, 4, 'Cầu dao cuối lớp A201 phát tia lửa điện và có mùi khét.', 'uploads/inc_a201_gv.jpg', 245120, 0, '192.168.1.101'),
-(1, 3, 4, 'Bảng điện phòng A201 bị nổ cầu chì, mất điện toàn phòng.', NULL, 0, 1, '192.168.1.102');
-
-INSERT INTO dispatch_logs (
-    ticket_id, staff_id, attempt_number,
-    workload_at_dispatch, total_dispatch_score,
-    dispatch_status, responded_at, note
-) VALUES (
-    1, 4, 1,
-    0, 100.0,
-    'ACCEPTED', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime'), 'Điều phối tự động cho nhân viên kỹ thuật có workload thấp nhất'
-);
-
--- 4. Tin nhắn mẫu giữa các bên trong sự cố và kênh chung
-INSERT INTO chat_messages (ticket_id, sender_id, sender_name, sender_role, content, sent_at) VALUES
-(1, 2, 'Cô Trần Thị Lan (GVCN 10A2)', 'REPORTER', 'Cầu dao lớp A201 bị khét lẹt, các em học sinh đang hoảng hốt. Nhờ kỹ thuật kiểm tra gấp ạ!', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-15 minutes', 'localtime')),
-(1, 4, 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'Tôi đã nhận ca và đang mang đồ nghề lên tầng 2 phòng A201 ngay đây ạ.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-12 minutes', 'localtime')),
-(1, 1, 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'Thầy Tuấn lưu ý ngắt át tổng trước khi sửa và kiểm tra an toàn toàn bộ dãy phòng A201 nhé.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-10 minutes', 'localtime')),
-(1, 4, 'Anh Hoàng Văn Tuấn (Kỹ thuật Điện 1)', 'RESPONDER', 'Dạ vâng thưa thầy, em đã ngắt át và đang xử lý mối nối chập.', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-5 minutes', 'localtime')),
-(NULL, 1, 'Thầy Nguyễn Văn An (Hiệu trưởng)', 'ADMIN', 'Chào các thầy cô và đội ngũ kỹ thuật. Chúc tuần làm việc mới an toàn và hiệu quả!', STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', '-1 hour', 'localtime'));
+-- 4. Tin nhắn trao đổi mẫu cho sự cố 1
+INSERT INTO chat_messages (message_id, ticket_id, sender_id, sender_name, sender_role, content) VALUES
+(1, 1, 2, 'Cô Trần Thị Lan (GVCN 10A2)', 'REPORTER', 'Nhờ kỹ thuật kiểm tra giúp phòng A101 nhé');

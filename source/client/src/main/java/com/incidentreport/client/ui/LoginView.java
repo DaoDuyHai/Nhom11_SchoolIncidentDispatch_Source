@@ -1,9 +1,8 @@
 package com.incidentreport.client.ui;
 
+import com.google.gson.Gson;
 import com.incidentreport.client.IncidentReportApp;
-import com.incidentreport.client.net.MulticastReceiver;
 import com.incidentreport.client.net.SocketClientManager;
-import com.incidentreport.client.net.UDPHeartbeatSender;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.User;
 import com.incidentreport.common.packet.Packet;
@@ -17,46 +16,53 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
-import javafx.stage.Stage;
-
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/**
+ * Giao diện Đăng nhập tập trung (Admin/Server quản lý tài khoản độc quyền):
+ * - Không có tự đăng ký, không có quên mật khẩu.
+ * - Hỗ trợ đăng nhập nhanh bằng tài khoản mẫu phục vụ kiểm thử tiện lợi trên NetBeans.
+ */
 public class LoginView extends VBox implements SocketClientManager.PacketListener {
 
     private final TextField txtHost = new TextField(Constants.DEFAULT_SERVER_HOST);
     private final TextField txtPort = new TextField(String.valueOf(Constants.TCP_PORT));
-    private final TextField txtUsername = new TextField();
+    private final TextField txtUsername = new TextField("admin_bgh");
     private final PasswordField txtPassword = new PasswordField();
     private final Label lblError = new Label();
     private final Button btnLogin = new Button("ĐĂNG NHẬP");
-    private final Button btnGuestLogin = new Button("🚀 BÁO CÁO NHANH KHÔNG CẦN ĐĂNG NHẬP (KHÁCH)");
-    private final Hyperlink linkRegister = new Hyperlink("Đăng ký tài khoản");
-    private final Hyperlink linkForgotPassword = new Hyperlink("Quên mật khẩu?");
     private final ProgressIndicator progress = new ProgressIndicator();
+    private final Gson gson = new Gson();
 
     public LoginView() {
         setAlignment(Pos.CENTER);
         setPadding(new Insets(30, 40, 30, 40));
-        setSpacing(15);
-        setStyle("-fx-background-color: #F4F6F9;");
+        setSpacing(14);
+        setStyle("-fx-background-color: #F8FAFC;");
 
-        // Logo & Title
+        // Header Title
         Label lblAppTitle = new Label("HỆ THỐNG ĐIỀU PHỐI SỰ CỐ");
-        lblAppTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
-        lblAppTitle.setTextFill(Color.web("#1E5AA8"));
+        lblAppTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        lblAppTitle.setTextFill(Color.web("#0F172A"));
 
-        Label lblSubTitle = new Label("TRƯỜNG THPT (High School Incident Dispatch)");
+        Label lblSubTitle = new Label("TRƯỜNG THPT - PHÂN HỆ ĐIỀU HÀNH & GIÁM SÁT");
         lblSubTitle.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 12));
-        lblSubTitle.setTextFill(Color.web("#6B7785"));
+        lblSubTitle.setTextFill(Color.web("#64748B"));
 
-        // Form Grid
+        // Form Container
+        VBox formCard = new VBox(12);
+        formCard.setMaxWidth(380);
+        formCard.setPadding(new Insets(24));
+        formCard.setStyle("-fx-background-color: white; -fx-background-radius: 10px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 12, 0, 0, 4);");
+
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(12);
         grid.setAlignment(Pos.CENTER);
 
         grid.add(new Label("Máy chủ:"), 0, 0);
-        HBox serverBox = new HBox(5, txtHost, new Label(":"), txtPort);
+        HBox serverBox = new HBox(6, txtHost, new Label(":"), txtPort);
         txtHost.setPrefWidth(140);
         txtPort.setPrefWidth(65);
         grid.add(serverBox, 1, 0);
@@ -67,195 +73,151 @@ public class LoginView extends VBox implements SocketClientManager.PacketListene
         grid.add(txtUsername, 1, 1);
 
         grid.add(new Label("Mật khẩu:"), 0, 2);
-        txtPassword.setPromptText("Mật khẩu");
+        txtPassword.setPromptText("Mật khẩu (mặc định: 123456)");
+        txtPassword.setText("123456");
         grid.add(txtPassword, 1, 2);
 
-        // Nút đăng nhập
-        btnLogin.setStyle("-fx-background-color: #1E5AA8; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 20; -fx-background-radius: 6;");
+        btnLogin.setStyle("-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 9 20; -fx-background-radius: 6;");
         btnLogin.setMaxWidth(Double.MAX_VALUE);
         btnLogin.setOnAction(e -> attemptLogin());
         txtPassword.setOnAction(e -> attemptLogin());
 
-        // Liên kết Đăng ký & Quên mật khẩu
-        linkRegister.setStyle("-fx-text-fill: #1E5AA8; -fx-font-size: 12px;");
-        linkRegister.setOnAction(e -> openRegisterDialog());
-
-        linkForgotPassword.setStyle("-fx-text-fill: #6B7785; -fx-font-size: 12px;");
-        linkForgotPassword.setOnAction(e -> openForgotPasswordDialog());
-
-        HBox linksBox = new HBox(20, linkRegister, linkForgotPassword);
-        linksBox.setAlignment(Pos.CENTER);
-
-        // Divider
-        Label lblDivider = new Label("────────  HOẶC  ────────");
-        lblDivider.setTextFill(Color.web("#B0BEC5"));
-        lblDivider.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 11));
-
-        // Nút Đăng nhập khách (Báo cáo nhanh)
-        btnGuestLogin.setStyle("-fx-background-color: #E65100; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 8 16; -fx-background-radius: 6;");
-        btnGuestLogin.setMaxWidth(Double.MAX_VALUE);
-        btnGuestLogin.setOnAction(e -> attemptGuestLogin());
+        lblError.setTextFill(Color.web("#DC2626"));
+        lblError.setStyle("-fx-font-size: 12px;");
+        lblError.setVisible(false);
+        lblError.setWrapText(true);
 
         progress.setVisible(false);
         progress.setMaxSize(24, 24);
 
-        lblError.setTextFill(Color.web("#D32F2F"));
-        lblError.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
-        lblError.setWrapText(true);
+        formCard.getChildren().addAll(grid, lblError, btnLogin, progress);
 
-        getChildren().addAll(lblAppTitle, lblSubTitle, grid, btnLogin, linksBox, lblDivider, btnGuestLogin, progress, lblError);
+        // Nút chọn nhanh tài khoản mẫu để test trên NetBeans
+        Label lblFastSelect = new Label("⚡ Chọn nhanh tài khoản mẫu (Kiểm thử NetBeans):");
+        lblFastSelect.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B; -fx-font-weight: bold;");
+
+        HBox quickBox1 = new HBox(6);
+        quickBox1.setAlignment(Pos.CENTER);
+        Button btnAdmin = createQuickBtn("Admin BGH", "admin_bgh", "123456");
+        Button btnTeacher = createQuickBtn("GV Lan", "gv_lan", "123456");
+        Button btnStudent = createQuickBtn("HS Minh", "hs_minh", "123456");
+        quickBox1.getChildren().addAll(btnAdmin, btnTeacher, btnStudent);
+
+        HBox quickBox2 = new HBox(6);
+        quickBox2.setAlignment(Pos.CENTER);
+        Button btnTech = createQuickBtn("Kỹ thuật Tuấn", "kt_tuan", "123456");
+        Button btnMed = createQuickBtn("Y tế Mai", "yte_mai", "123456");
+        Button btnSec = createQuickBtn("Bảo vệ Sơn", "bv_son", "123456");
+        quickBox2.getChildren().addAll(btnTech, btnMed, btnSec);
+
+        Label lblPolicy = new Label("🔒 Chính sách hệ thống: Tài khoản do Admin/Server cấp phát trực tiếp.");
+        lblPolicy.setStyle("-fx-font-size: 11px; -fx-text-fill: #94A3B8;");
+
+        getChildren().addAll(lblAppTitle, lblSubTitle, formCard, lblFastSelect, quickBox1, quickBox2, lblPolicy);
 
         SocketClientManager.getInstance().addListener(this);
     }
 
-    private void openRegisterDialog() {
-        String host = txtHost.getText().trim();
-        int port = getPort();
-        Stage stage = (Stage) getScene().getWindow();
-        new RegisterDialog(stage, host, port, username -> {
+    private Button createQuickBtn(String text, String username, String pass) {
+        Button btn = new Button(text);
+        btn.setStyle("-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-size: 11px; -fx-padding: 4 8; -fx-background-radius: 4;");
+        btn.setOnAction(e -> {
             txtUsername.setText(username);
-            txtPassword.clear();
-            txtPassword.requestFocus();
-        }).show();
+            txtPassword.setText(pass);
+            attemptLogin();
+        });
+        return btn;
     }
 
-    private void openForgotPasswordDialog() {
+    private void attemptLogin() {
         String host = txtHost.getText().trim();
-        int port = getPort();
-        Stage stage = (Stage) getScene().getWindow();
-        new ForgotPasswordDialog(stage, host, port, txtUsername.getText().trim(), username -> {
-            txtUsername.setText(username);
-            txtPassword.clear();
-            txtPassword.requestFocus();
-        }).show();
-    }
+        String portStr = txtPort.getText().trim();
+        String username = txtUsername.getText().trim();
+        String password = txtPassword.getText();
 
-    private int getPort() {
-        try {
-            return Integer.parseInt(txtPort.getText().trim());
-        } catch (Exception e) {
-            return Constants.TCP_PORT;
+        if (username.isEmpty() || password.isEmpty()) {
+            showError("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
+            return;
         }
-    }
 
-    private void attemptGuestLogin() {
-        String host = txtHost.getText().trim();
-        int port = getPort();
+        int port;
+        try {
+            port = Integer.parseInt(portStr);
+        } catch (NumberFormatException e) {
+            showError("Cổng kết nối không hợp lệ!");
+            return;
+        }
 
-        lblError.setText("");
-        progress.setVisible(true);
-        btnGuestLogin.setDisable(true);
-        btnLogin.setDisable(true);
+        setLoading(true);
+        lblError.setVisible(false);
 
         new Thread(() -> {
             boolean connected = SocketClientManager.getInstance().connect(host, port);
             if (!connected) {
                 javafx.application.Platform.runLater(() -> {
-                    lblError.setText("Không thể kết nối tới Server tại " + host + ":" + port);
-                    progress.setVisible(false);
-                    btnGuestLogin.setDisable(false);
-                    btnLogin.setDisable(false);
+                    setLoading(false);
+                    showError("Không thể kết nối đến Máy chủ Server tại " + host + ":" + port);
                 });
                 return;
             }
 
-            // Gửi bản tin 0x23 GUEST_LOGIN
-            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_GUEST_LOGIN, "GUEST_LOGIN"));
-        }).start();
-    }
-
-    private void attemptLogin() {
-        String host = txtHost.getText().trim();
-        int port = Constants.TCP_PORT;
-        try {
-            port = Integer.parseInt(txtPort.getText().trim());
-        } catch (Exception ex) {
-            lblError.setText("Cổng máy chủ không hợp lệ!");
-            return;
-        }
-
-        String username = txtUsername.getText().trim();
-        String password = txtPassword.getText().trim();
-
-        if (username.isEmpty() || password.isEmpty()) {
-            lblError.setText("Vui lòng nhập đầy đủ tài khoản và mật khẩu!");
-            return;
-        }
-
-        lblError.setText("");
-        progress.setVisible(true);
-        btnLogin.setDisable(true);
-        final int targetPort = port;
-
-        new Thread(() -> {
-            boolean connected = SocketClientManager.getInstance().connect(host, targetPort);
-            if (!connected) {
-                javafx.application.Platform.runLater(() -> {
-                    lblError.setText("Không thể kết nối tới Server tại " + host + ":" + targetPort);
-                    progress.setVisible(false);
-                    btnLogin.setDisable(false);
-                });
-                return;
-            }
-
-            // Gửi bản tin 0x01 LOGIN
-            String header = String.format("LOGIN|username=%s|password=%s", username, password);
-            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_LOGIN, header));
+            Packet loginPacket = new Packet(Constants.TYPE_LOGIN,
+                    String.format("LOGIN|username=%s|password=%s", username, password));
+            SocketClientManager.getInstance().sendPacket(loginPacket);
         }).start();
     }
 
     @Override
     public void onPacketReceived(Packet packet) {
         if (packet.getType() == Constants.TYPE_LOGIN_RESP) {
-            progress.setVisible(false);
-            btnLogin.setDisable(false);
-            btnGuestLogin.setDisable(false);
-
-            Map<String, String> p = packet.parseParams();
-            String status = p.get("status");
+            setLoading(false);
+            Map<String, String> params = packet.parseParams();
+            String status = params.get("status");
 
             if ("OK".equalsIgnoreCase(status)) {
-                User user = new User();
-                user.setUserId(Integer.parseInt(p.get("userId")));
-                user.setUsername(p.get("username"));
-                user.setFullName(p.get("fullName"));
-                user.setRole(p.get("role"));
-                user.setSubRole(p.get("subRole"));
-                user.setSpecialty(p.get("specialty"));
-
-                // Bắt đầu lắng nghe Kênh UDP Multicast khẩn cấp 230.0.0.1:9999 cho MỌI role
-                MulticastReceiver multicastReceiver = new MulticastReceiver(EmergencyAlertDialog::show);
-                multicastReceiver.start();
-
-                // Nếu là RESPONDER: Bật Kênh UDP Heartbeat 3 giây/lần
-                if (Constants.ROLE_RESPONDER.equals(user.getRole())) {
-                    UDPHeartbeatSender heartbeatSender = new UDPHeartbeatSender(txtHost.getText().trim(), user.getUserId());
-                    heartbeatSender.start();
-                    IncidentReportApp.setHeartbeatSender(heartbeatSender);
+                User user = null;
+                if (packet.hasAttachment()) {
+                    try {
+                        String json = new String(packet.getAttachment(), StandardCharsets.UTF_8);
+                        user = gson.fromJson(json, User.class);
+                    } catch (Exception ignored) {}
                 }
 
-                // Chuyển màn hình tương ứng với Role
+                if (user == null) {
+                    user = new User();
+                    user.setUserId(Integer.parseInt(params.getOrDefault("userId", "0")));
+                    user.setUsername(params.get("username"));
+                    user.setRole(params.get("role"));
+                    user.setSpecialty(params.get("specialty"));
+                    user.setFullName(params.get("fullName"));
+                    user.setPhone(params.get("phone"));
+                }
+
                 SocketClientManager.getInstance().removeListener(this);
-                IncidentReportApp.setCurrentUser(user);
-
-                if (Constants.ROLE_REPORTER.equals(user.getRole())) {
-                    IncidentReportApp.showView(new ReporterView(user));
-                } else if (Constants.ROLE_RESPONDER.equals(user.getRole())) {
-                    IncidentReportApp.showView(new ResponderView(user));
-                } else {
-                    IncidentReportApp.showView(new AdminView(user));
-                }
+                IncidentReportApp.showMainView(user);
             } else {
-                lblError.setText(p.getOrDefault("message", "Sai tài khoản hoặc mật khẩu!"));
+                showError(params.getOrDefault("message", "Đăng nhập thất bại!"));
             }
+        } else if (packet.getType() == Constants.TYPE_ERROR) {
+            setLoading(false);
+            Map<String, String> params = packet.parseParams();
+            showError(params.getOrDefault("message", "Lỗi xử lý từ hệ thống!"));
         }
     }
 
     @Override
     public void onDisconnected() {
-        progress.setVisible(false);
-        btnLogin.setDisable(false);
-        btnGuestLogin.setDisable(false);
-        lblError.setText("Mất kết nối máy chủ!");
+        setLoading(false);
+        showError("Mất kết nối với Server.");
+    }
+
+    private void setLoading(boolean loading) {
+        btnLogin.setDisable(loading);
+        progress.setVisible(loading);
+    }
+
+    private void showError(String msg) {
+        lblError.setText(msg);
+        lblError.setVisible(true);
     }
 }

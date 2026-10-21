@@ -1,38 +1,31 @@
 package com.incidentreport.server;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.lang.reflect.Type;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import com.google.gson.Gson;
+import com.incidentreport.common.Constants;
+import com.incidentreport.common.model.IncidentTicket;
+import com.incidentreport.common.packet.Packet;
+import com.incidentreport.service.CategoryDAO;
+import com.incidentreport.service.InitDatabase;
+import com.incidentreport.service.UserDAO;
 import org.junit.jupiter.api.AfterAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import com.incidentreport.common.Constants;
-import com.incidentreport.common.model.IncidentTicket;
-import com.incidentreport.common.model.User;
-import com.incidentreport.common.packet.Packet;
-import com.incidentreport.service.CategoryDAO;
-import com.incidentreport.service.ReportService;
-import com.incidentreport.service.TicketDAO;
-import com.incidentreport.service.UserDAO;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-@DisplayName("Kiểm thử Tích hợp Đầu-Cuối (End-to-End): TCP Socket Dispatch, Task Pool & Manual Assign")
+import static org.junit.jupiter.api.Assertions.*;
+
+@DisplayName("Kiểm thử Tích hợp Đầu-Cuối (End-to-End): Gửi báo cáo, Điều phối phòng ban, Chat 1-1 & Đóng sự cố")
 public class EndToEndDispatchIntegrationTest {
 
     private static final int TEST_PORT = 5099;
@@ -43,6 +36,7 @@ public class EndToEndDispatchIntegrationTest {
 
     @BeforeAll
     static void startTestServer() throws Exception {
+        InitDatabase.init();
         CategoryDAO.refreshCache();
         UserDAO.resetAllUsersOffline();
 
@@ -59,6 +53,7 @@ public class EndToEndDispatchIntegrationTest {
         });
         acceptThread.setDaemon(true);
         acceptThread.start();
+        Thread.sleep(200);
     }
 
     @AfterAll
@@ -72,129 +67,124 @@ public class EndToEndDispatchIntegrationTest {
         }
     }
 
-    @Test
-    @DisplayName("E2E Test: BGH đăng nhập qua TCP Socket, chỉ định giao việc và nhân viên nhận việc thành công")
-    void testEndToEndDispatchFlow() throws Exception {
-        // 1. Client Admin kết nối Socket
-        try (Socket adminSock = new Socket("127.0.0.1", TEST_PORT);
-             DataOutputStream adminOut = new DataOutputStream(new BufferedOutputStream(adminSock.getOutputStream()));
-             DataInputStream adminIn = new DataInputStream(new BufferedInputStream(adminSock.getInputStream()))) {
+    private static class TestClient implements AutoCloseable {
+        private final Socket socket;
+        private final DataInputStream in;
+        private final DataOutputStream out;
 
-            // Admin Đăng nhập
-            Packet loginPkt = new Packet(Constants.TYPE_LOGIN, "LOGIN|username=admin_bgh|password=123456");
-            loginPkt.writeTo(adminOut);
+        public TestClient() throws Exception {
+            this.socket = new Socket("127.0.0.1", TEST_PORT);
+            this.socket.setSoTimeout(5000);
+            this.in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            this.out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+        }
 
-            Packet loginResp = Packet.readFrom(adminIn);
-            assertEquals(Constants.TYPE_LOGIN_RESP, loginResp.getType());
-            assertTrue(loginResp.getHeaderPayload().contains("status=OK"));
+        public void send(Packet p) throws Exception {
+            p.writeTo(out);
+        }
 
-            // 2. Tạo một sự cố PENDING mới
-            String testRoom = "E2E_" + UUID.randomUUID().toString().substring(0, 6);
-            ReportService.SubmitResult subRes = ReportService.submitIncident(
-                2, testRoom, "TECHNICAL".equals("TECHNICAL") ? "ELECTRIC" : "FACILITY",
-                4, "Chập cháy át tổng phòng " + testRoom, null, 0, "127.0.0.1"
-            );
-            assertTrue(subRes.success);
-            int ticketId = subRes.ticket.getTicketId();
+        public Packet receive() throws Exception {
+            return Packet.readFrom(in);
+        }
 
-            // 3. Admin lấy danh sách staff
-            Packet reqStaff = new Packet(Constants.TYPE_GET_STAFF_LIST, "GET_STAFF_LIST");
-            reqStaff.writeTo(adminOut);
-
-            Packet staffResp = Packet.readFrom(adminIn);
-            assertEquals(Constants.TYPE_GET_STAFF_LIST_RESP, staffResp.getType());
-            Type staffListType = new TypeToken<ArrayList<User>>(){}.getType();
-            List<User> staffList = gson.fromJson(staffResp.getHeaderPayload(), staffListType);
-            assertNotNull(staffList);
-            assertTrue(staffList.stream().anyMatch(u -> u.getUserId() == 4), "Phải có Anh Hoàng Văn Tuấn (ID=4)");
-
-            // 4. Admin thực hiện Giao việc thủ công (TYPE_MANUAL_ASSIGN) cho Hoàng Văn Tuấn (staffId = 4)
-            Packet assignPkt = new Packet(Constants.TYPE_MANUAL_ASSIGN,
-                String.format("MANUAL_ASSIGN|ticketId=%d|staffId=4|note=BGH chi dinh xu ly ngay", ticketId));
-            assignPkt.writeTo(adminOut);
-
-            Packet assignResp = Packet.readFrom(adminIn);
-            // Có thể nhận STATUS_UPDATE do broadcast trước hoặc MANUAL_ASSIGN_RESP
-            if (assignResp.getType() == Constants.TYPE_STATUS_UPDATE) {
-                assignResp = Packet.readFrom(adminIn);
-            }
-            assertEquals(Constants.TYPE_MANUAL_ASSIGN_RESP, assignResp.getType());
-            assertTrue(assignResp.getHeaderPayload().contains("status=OK"), "Kết quả giao việc phải trả về status=OK");
-
-            // 5. Kiểm tra CSDL xác nhận sự cố đã được chuyển sang ASSIGNED và gán cho staff 4
-            IncidentTicket assignedTicket = TicketDAO.getTicketById(ticketId);
-            assertNotNull(assignedTicket);
-            assertEquals(Constants.STATUS_ASSIGNED, assignedTicket.getStatus());
-            assertEquals(4, assignedTicket.getAssignedStaffId());
+        @Override
+        public void close() throws Exception {
+            socket.close();
         }
     }
 
     @Test
-    @DisplayName("E2E Test: Kỹ thuật viên truy vấn Hồ công việc mở (GET_OPEN_POOL) và bấm nhận việc (ACK_TASK)")
-    void testEndToEndOpenPoolAndClaimFlow() throws Exception {
-        // Tạo sự cố PENDING mới
-        String testRoom = "POOL_E2E_" + UUID.randomUUID().toString().substring(0, 6);
-        ReportService.SubmitResult subRes = ReportService.submitIncident(
-            3, testRoom, "FACILITY", 3, "Hỏng bóng đèn neon", null, 0, "127.0.0.1"
-        );
-        assertTrue(subRes.success);
-        int ticketId = subRes.ticket.getTicketId();
+    public void testFullIncidentLifecycleFlow() throws Exception {
+        try (TestClient reporterClient = new TestClient();
+             TestClient responderClient = new TestClient();
+             TestClient adminClient = new TestClient()) {
 
-        // Client Kỹ thuật viên kết nối Socket
-        try (Socket responderSock = new Socket("127.0.0.1", TEST_PORT);
-             DataOutputStream respOut = new DataOutputStream(new BufferedOutputStream(responderSock.getOutputStream()));
-             DataInputStream respIn = new DataInputStream(new BufferedInputStream(responderSock.getInputStream()))) {
+            // 1. Giáo viên đăng nhập
+            reporterClient.send(new Packet(Constants.TYPE_LOGIN, "LOGIN|username=gv_lan|password=123456"));
+            Packet repLoginResp = reporterClient.receive();
+            assertEquals("OK", repLoginResp.parseParams().get("status"));
 
-            // Đăng nhập kt_tuan
-            Packet loginPkt = new Packet(Constants.TYPE_LOGIN, "LOGIN|username=kt_tuan|password=123456");
-            loginPkt.writeTo(respOut);
+            // 2. Cán bộ kỹ thuật đăng nhập
+            responderClient.send(new Packet(Constants.TYPE_LOGIN, "LOGIN|username=kt_tuan|password=123456"));
+            Packet resLoginResp = responderClient.receive();
+            assertEquals("OK", resLoginResp.parseParams().get("status"));
 
-            Packet loginResp = Packet.readFrom(respIn);
-            assertEquals(Constants.TYPE_LOGIN_RESP, loginResp.getType());
-            assertTrue(loginResp.getHeaderPayload().contains("status=OK"));
+            // Kiểm tra tính năng Offline Backlog Push: kt_tuan vừa online sẽ nhận ngay sự cố tồn đọng của phòng Kỹ thuật
+            Packet backlogPush = responderClient.receive();
+            assertEquals(Constants.TYPE_DISPATCH_NOTIFY, backlogPush.getType());
+            assertEquals("TECHNICAL", backlogPush.parseParams().get("department"));
+            assertEquals("A101", backlogPush.parseParams().get("room"));
 
-            // Yêu cầu lấy Hồ công việc mở
-            Packet poolReq = new Packet(Constants.TYPE_GET_OPEN_POOL, "GET_OPEN_POOL");
-            poolReq.writeTo(respOut);
+            // 3. Admin đăng nhập
+            adminClient.send(new Packet(Constants.TYPE_LOGIN, "LOGIN|username=admin_bgh|password=123456"));
+            Packet admLoginResp = adminClient.receive();
+            assertEquals("OK", admLoginResp.parseParams().get("status"));
 
-            Packet poolResp = Packet.readFrom(respIn);
-            assertEquals(Constants.TYPE_GET_OPEN_POOL_RESP, poolResp.getType());
-            Type ticketListType = new TypeToken<ArrayList<IncidentTicket>>(){}.getType();
-            List<IncidentTicket> poolList = gson.fromJson(poolResp.getHeaderPayload(), ticketListType);
-            assertNotNull(poolList);
-            assertTrue(poolList.stream().anyMatch(t -> t.getTicketId() == ticketId),
-                "Sự cố PENDING mới tạo phải xuất hiện trong Open Pool của Responder");
+            // 4. Giáo viên gửi báo cáo sự cố Thiết bị (FACILITY -> TECHNICAL)
+            reporterClient.send(new Packet(Constants.TYPE_SUBMIT_INCIDENT,
+                "INCIDENT|room=A105|category=FACILITY|desc=May chieu khong len nguon"));
 
-            // Bấm nhận việc (ACK_TASK ACCEPT)
-            Packet claimPkt = new Packet(Constants.TYPE_ACK_TASK, "ACK_TASK|ticketId=" + ticketId + "|action=ACCEPT");
-            claimPkt.writeTo(respOut);
+            // Giáo viên nhận xác nhận SUBMIT_RESP
+            Packet submitResp = reporterClient.receive();
+            assertEquals(Constants.TYPE_SUBMIT_RESP, submitResp.getType());
+            int ticketId = Integer.parseInt(submitResp.parseParams().get("ticketId"));
+            assertTrue(ticketId > 0);
 
-            Packet claimResp = Packet.readFrom(respIn);
-            // Có thể nhận broadcast STATUS_UPDATE trước hoặc ACK_RESP
-            if (claimResp.getType() == Constants.TYPE_STATUS_UPDATE) {
-                claimResp = Packet.readFrom(respIn);
+            // Cán bộ kỹ thuật (kt_tuan) lập tức nhận được push DISPATCH_NOTIFY tự động tới phòng ban
+            Packet dispatchPush = responderClient.receive();
+            assertEquals(Constants.TYPE_DISPATCH_NOTIFY, dispatchPush.getType());
+            assertEquals("TECHNICAL", dispatchPush.parseParams().get("department"));
+            assertEquals("A105", dispatchPush.parseParams().get("room"));
+
+            // 5. Cán bộ kỹ thuật tiếp nhận sự cố (CLAIM_TASK)
+            responderClient.send(new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId));
+            Packet claimResp = responderClient.receive();
+            assertEquals(Constants.TYPE_CLAIM_RESP, claimResp.getType());
+            assertEquals("OK", claimResp.parseParams().get("status"));
+
+            // Giáo viên nhận được thông báo trạng thái cập nhật (STATUS_BROADCAST)
+            Packet statusPush = reporterClient.receive();
+            assertEquals(Constants.TYPE_STATUS_BROADCAST, statusPush.getType());
+            assertEquals(Constants.STATUS_IN_PROGRESS, statusPush.parseParams().get("status"));
+
+            // 6. Kênh chat 1-1 giữa Giáo viên và Kỹ thuật viên
+            reporterClient.send(new Packet(Constants.TYPE_CHAT_SEND, "CHAT_SEND|ticketId=" + ticketId,
+                "Anh ơi máy chiếu phòng A105 đang cần gấp cho tiết 3 ạ".getBytes(StandardCharsets.UTF_8)));
+
+            // Reporter nhận ACK/Echo
+            Packet chatEcho = reporterClient.receive();
+            assertEquals(Constants.TYPE_CHAT_PUSH, chatEcho.getType());
+
+            // Responder nhận được tin nhắn 1-1 (bỏ qua STATUS_BROADCAST nếu có)
+            Packet chatToResponder = responderClient.receive();
+            if (chatToResponder.getType() == Constants.TYPE_STATUS_BROADCAST) {
+                chatToResponder = responderClient.receive();
             }
-            assertEquals(Constants.TYPE_ACK_RESP, claimResp.getType());
-            assertTrue(claimResp.getHeaderPayload().contains("status=OK"));
+            assertEquals(Constants.TYPE_CHAT_PUSH, chatToResponder.getType());
+            String chatContent = new String(chatToResponder.getAttachment(), StandardCharsets.UTF_8);
+            assertTrue(chatContent.contains("tiết 3"));
 
-            // Cập nhật trạng thái thành IN_PROGRESS rồi RESOLVED
-            Packet updateProg = new Packet(Constants.TYPE_STATUS_UPDATE,
-                "STATUS_UPDATE|ticketId=" + ticketId + "|status=" + Constants.STATUS_IN_PROGRESS);
-            updateProg.writeTo(respOut);
+            // 7. Cán bộ kỹ thuật hoàn tất và đóng sự cố
+            responderClient.send(new Packet(Constants.TYPE_STATUS_UPDATE,
+                "STATUS_UPDATE|ticketId=" + ticketId + "|status=RESOLVED|note=Da thay day nguon xong"));
 
-            // Gửi hoàn thành
-            Packet updateDone = new Packet(Constants.TYPE_STATUS_UPDATE,
-                "STATUS_UPDATE|ticketId=" + ticketId + "|status=" + Constants.STATUS_RESOLVED + "|note=Da thay bong den xong");
-            updateDone.writeTo(respOut);
+            // Giáo viên nhận thông báo RESOLVED -> đóng kênh chat cục bộ
+            Packet resolvedPush = reporterClient.receive();
+            assertEquals(Constants.TYPE_STATUS_BROADCAST, resolvedPush.getType());
+            assertEquals(Constants.STATUS_RESOLVED, resolvedPush.parseParams().get("status"));
 
-            // Đợi 200ms để server cập nhật CSDL
-            Thread.sleep(200);
-
-            IncidentTicket resolvedTicket = TicketDAO.getTicketById(ticketId);
-            assertNotNull(resolvedTicket);
-            assertEquals(Constants.STATUS_RESOLVED, resolvedTicket.getStatus());
-            assertEquals("Da thay bong den xong", resolvedTicket.getResolutionNote());
+            // 8. Admin kiểm tra thống kê
+            adminClient.send(new Packet(Constants.TYPE_ADMIN_GET_STATS, "GET_STATS|timeRange=ALL"));
+            Packet statResp = null;
+            for (int i = 0; i < 5; i++) {
+                Packet p = adminClient.receive();
+                if (p.getType() == Constants.TYPE_ADMIN_GET_STATS_RESP) {
+                    statResp = p;
+                    break;
+                }
+            }
+            assertNotNull(statResp);
+            assertTrue(statResp.getAttachment().length > 0);
         }
     }
 }
-

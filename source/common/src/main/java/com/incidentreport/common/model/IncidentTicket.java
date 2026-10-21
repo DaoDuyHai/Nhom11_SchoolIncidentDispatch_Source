@@ -1,33 +1,33 @@
 package com.incidentreport.common.model;
 
+import com.incidentreport.common.Constants;
+
+/**
+ * Model đại diện cho 1 sự cố trong hệ thống
+ */
 public class IncidentTicket {
     private int ticketId;
     private String ticketCode;
     private String roomLocation;
     private String categoryCode;
     private String categoryName;
+    private String targetDepartment;
     private String title;
-    private int baseSeverity;
-    private int reportCount;
-    private double computedPriority;
+    private String description;
+    private String imageFilePath;
+    private int reporterId;
+    private String reporterName;
+    private String reporterPhone;
     private String status;
     private Integer assignedStaffId;
     private String assignedStaffName;
-    private int versionLock;
     private String createdAt;
-    private String lastMergedAt;
-    private String dispatchedAt;
     private String acceptedAt;
     private String resolvedAt;
-    private long queueWaitingTimeMs;
-    private int failoverCount;
     private String resolutionNote;
 
     public IncidentTicket() {
-        this.reportCount = 1;
-        this.status = "PENDING";
-        this.computedPriority = 1.0;
-        this.versionLock = 0;
+        this.status = Constants.STATUS_PENDING;
     }
 
     public int getTicketId() { return ticketId; }
@@ -45,17 +45,26 @@ public class IncidentTicket {
     public String getCategoryName() { return categoryName; }
     public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
 
+    public String getTargetDepartment() { return targetDepartment; }
+    public void setTargetDepartment(String targetDepartment) { this.targetDepartment = targetDepartment; }
+
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
-    public int getBaseSeverity() { return baseSeverity; }
-    public void setBaseSeverity(int baseSeverity) { this.baseSeverity = baseSeverity; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public int getReportCount() { return reportCount; }
-    public void setReportCount(int reportCount) { this.reportCount = reportCount; }
+    public String getImageFilePath() { return imageFilePath; }
+    public void setImageFilePath(String imageFilePath) { this.imageFilePath = imageFilePath; }
 
-    public double getComputedPriority() { return computedPriority; }
-    public void setComputedPriority(double computedPriority) { this.computedPriority = computedPriority; }
+    public int getReporterId() { return reporterId; }
+    public void setReporterId(int reporterId) { this.reporterId = reporterId; }
+
+    public String getReporterName() { return reporterName; }
+    public void setReporterName(String reporterName) { this.reporterName = reporterName; }
+
+    public String getReporterPhone() { return reporterPhone; }
+    public void setReporterPhone(String reporterPhone) { this.reporterPhone = reporterPhone; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -66,17 +75,8 @@ public class IncidentTicket {
     public String getAssignedStaffName() { return assignedStaffName; }
     public void setAssignedStaffName(String assignedStaffName) { this.assignedStaffName = assignedStaffName; }
 
-    public int getVersionLock() { return versionLock; }
-    public void setVersionLock(int versionLock) { this.versionLock = versionLock; }
-
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
-
-    public String getLastMergedAt() { return lastMergedAt; }
-    public void setLastMergedAt(String lastMergedAt) { this.lastMergedAt = lastMergedAt; }
-
-    public String getDispatchedAt() { return dispatchedAt; }
-    public void setDispatchedAt(String dispatchedAt) { this.dispatchedAt = dispatchedAt; }
 
     public String getAcceptedAt() { return acceptedAt; }
     public void setAcceptedAt(String acceptedAt) { this.acceptedAt = acceptedAt; }
@@ -84,13 +84,6 @@ public class IncidentTicket {
     public String getResolvedAt() { return resolvedAt; }
     public void setResolvedAt(String resolvedAt) { this.resolvedAt = resolvedAt; }
 
-    public long getQueueWaitingTimeMs() { return queueWaitingTimeMs; }
-    public void setQueueWaitingTimeMs(long queueWaitingTimeMs) { this.queueWaitingTimeMs = queueWaitingTimeMs; }
-
-    public int getFailoverCount() { return failoverCount; }
-    public void setFailoverCount(int failoverCount) { this.failoverCount = failoverCount; }
-
     public String getResolutionNote() { return resolutionNote; }
     public void setResolutionNote(String resolutionNote) { this.resolutionNote = resolutionNote; }
 }
-

@@ -9,8 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Quản lý phiên làm việc đa luồng (Thread-safe Session Manager):
- * Lưu trữ Map<userId, Set<ClientHandler>> để Server hỗ trợ đa phiên đồng thời
- * và thực hiện Server-Push tới các Client một cách an toàn.
+ * - Lưu trữ kết nối của người dùng đang online (User ID -> tập hợp ClientHandler).
+ * - Cung cấp cơ chế Server Push có định tuyến: tới người dùng cụ thể, theo phòng ban chuyên trách,
+ *   hoặc toàn hệ thống.
  */
 public class ServerSessionManager {
 
@@ -18,7 +19,7 @@ public class ServerSessionManager {
 
     public static void addClient(int userId, ClientHandler handler) {
         activeSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(handler);
-        System.out.printf("👤 [SESSION] User #%d đã kết nối phiên mới. Tổng số phiên online: %d\n", userId, getOnlineCount());
+        System.out.printf("👤 [SESSION] User #%d online. Tổng phiên hoạt động: %d\n", userId, getOnlineCount());
     }
 
     public static void removeClient(int userId, ClientHandler handler) {
@@ -28,7 +29,7 @@ public class ServerSessionManager {
             if (set.isEmpty()) {
                 activeSessions.remove(userId);
             }
-            System.out.printf("👤 [SESSION] User #%d đã đóng một phiên. Còn lại: %d\n", userId, getOnlineCount());
+            System.out.printf("👤 [SESSION] User #%d rời phiên. Còn lại: %d\n", userId, getOnlineCount());
         }
     }
 
@@ -55,6 +56,9 @@ public class ServerSessionManager {
         return null;
     }
 
+    /**
+     * Gửi gói tin tới đích danh một người dùng (hỗ trợ nhiều phiên đăng nhập cùng lúc).
+     */
     public static boolean sendToUser(int userId, Packet packet) {
         Set<ClientHandler> set = activeSessions.get(userId);
         if (set != null && !set.isEmpty()) {
@@ -66,6 +70,9 @@ public class ServerSessionManager {
         return false;
     }
 
+    /**
+     * Gửi gói tin tới tất cả người dùng mang vai trò chỉ định (REPORTER, RESPONDER, ADMIN).
+     */
     public static void sendToRole(String role, Packet packet) {
         for (Set<ClientHandler> set : activeSessions.values()) {
             for (ClientHandler handler : set) {
@@ -77,13 +84,17 @@ public class ServerSessionManager {
         }
     }
 
-    public static void sendToResponders(String requiredSpecialty, Packet packet) {
+    /**
+     * Điều phối báo cáo tới phòng ban chuyên trách (TECHNICAL, MEDICAL, SECURITY).
+     * Chỉ những cán bộ Responder thuộc đúng phòng ban (hoặc ALL) mới nhận được.
+     */
+    public static void sendToDepartment(String targetDepartment, Packet packet) {
         for (Set<ClientHandler> set : activeSessions.values()) {
             for (ClientHandler handler : set) {
                 User u = handler.getLoggedInUser();
                 if (u != null && "RESPONDER".equalsIgnoreCase(u.getRole())) {
-                    if (requiredSpecialty == null || "ALL".equalsIgnoreCase(requiredSpecialty) ||
-                        "ALL".equalsIgnoreCase(u.getSpecialty()) || requiredSpecialty.equalsIgnoreCase(u.getSpecialty())) {
+                    if (targetDepartment == null || "ALL".equalsIgnoreCase(targetDepartment) ||
+                        "ALL".equalsIgnoreCase(u.getSpecialty()) || targetDepartment.equalsIgnoreCase(u.getSpecialty())) {
                         handler.enqueuePacket(packet);
                     }
                 }
@@ -91,6 +102,16 @@ public class ServerSessionManager {
         }
     }
 
+    /**
+     * Gửi thông báo / báo cáo tới ban giám hiệu (Admin).
+     */
+    public static void sendToAdmin(Packet packet) {
+        sendToRole("ADMIN", packet);
+    }
+
+    /**
+     * Phát quảng bá toàn hệ thống.
+     */
     public static void broadcast(Packet packet) {
         for (Set<ClientHandler> set : activeSessions.values()) {
             for (ClientHandler handler : set) {

@@ -5,75 +5,88 @@ import com.google.gson.reflect.TypeToken;
 import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.client.net.SocketClientManager;
 import com.incidentreport.common.Constants;
-import com.incidentreport.common.model.IncidentTicket;
-import com.incidentreport.common.model.User;
+import com.incidentreport.common.model.*;
 import com.incidentreport.common.packet.Packet;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Phân hệ Quản trị & Điều hành Trung tâm (Admin == Server):
+ * 1. Thống kê đa kỳ (Ngày, Tháng, Quý, Năm, Tất cả) & Xuất báo cáo CSV chuẩn Excel.
+ * 2. Giám sát toàn bộ sự cố trường học & Phân công cán bộ trực tiếp.
+ * 3. Quyền độc quyền khởi tạo và cấp phát tài khoản toàn trường.
+ * 4. Kiểm toán toàn bộ tin nhắn trao đổi 1-1 giữa người báo và người xử lý.
+ */
 public class AdminView extends BorderPane implements SocketClientManager.PacketListener {
 
     private final User currentUser;
     private final Gson gson = new Gson();
 
+    // Tab 1: Statistics
+    private final ComboBox<String> cbTimeRange = new ComboBox<>();
     private final Label lblTotal = new Label("0");
     private final Label lblPending = new Label("0");
     private final Label lblInProgress = new Label("0");
     private final Label lblResolved = new Label("0");
+    private final VBox deptStatsContainer = new VBox(6);
+    private final VBox topRoomsContainer = new VBox(6);
+    private StatisticReport currentStatsReport = null;
 
-    private final ComboBox<String> cbAlertLevel = new ComboBox<>();
-    private final TextField txtAlertMsg = new TextField();
-
+    // Tab 2: All Tickets
     private final TableView<IncidentTicket> allTicketsTable = new TableView<>();
     private final ObservableList<IncidentTicket> allTicketsList = FXCollections.observableArrayList();
-    private final ObservableList<User> staffList = FXCollections.observableArrayList();
-    private final TabPane tabPane = new TabPane();
-    private ChatPanel chatPanel;
-    private Tab tabChat;
+    private final ComboBox<String> cbStatusFilter = new ComboBox<>();
 
-    // Personnel Form Controls
-    private final Label lblPersonnelFormMsg = new Label();
-    private TextField txtNewStaffUname;
-    private PasswordField txtNewStaffPass;
-    private TextField txtNewStaffName;
-    private TextField txtNewStaffPhone;
+    // Tab 3: User Management
+    private final TableView<User> userTable = new TableView<>();
+    private final ObservableList<User> userList = FXCollections.observableArrayList();
+    private final TextField txtNewUsername = new TextField();
+    private final PasswordField txtNewPassword = new PasswordField();
+    private final TextField txtNewFullName = new TextField();
+    private final TextField txtNewPhone = new TextField();
+    private final ComboBox<String> cbNewRole = new ComboBox<>();
+    private final ComboBox<String> cbNewSpecialty = new ComboBox<>();
+    private final Label lblUserFormMsg = new Label();
+
+    // Tab 4: Chat Audit
+    private ChatPanel auditChatPanel;
+
+    private final TabPane tabPane = new TabPane();
+    private Tab tabStats;
+    private Tab tabTickets;
+    private Tab tabUsers;
+    private Tab tabChatAudit;
 
     public AdminView(User user) {
         this.currentUser = user;
         initUI();
         SocketClientManager.getInstance().addListener(this);
-        loadAllTickets();
-        loadStaffList();
 
-        // Tự động làm mới bảng sự cố mỗi 5 giây
-        javafx.animation.Timeline autoRefresh = new javafx.animation.Timeline(
-            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(5), e -> {
-                loadAllTickets();
-                loadStaffList();
-            })
-        );
-        autoRefresh.setCycleCount(javafx.animation.Timeline.INDEFINITE);
-        autoRefresh.play();
+        loadStatistics("ALL");
+        loadAllTickets();
+        loadAllUsers();
     }
 
     private void initUI() {
@@ -81,375 +94,279 @@ public class AdminView extends BorderPane implements SocketClientManager.PacketL
         HBox topBar = new HBox(15);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setPadding(new Insets(12, 20, 12, 20));
-        topBar.setStyle("-fx-background-color: #2C3E50;");
+        topBar.setStyle("-fx-background-color: #0F172A;");
 
-        Label lblTitle = new Label("BẢNG ĐIỀU KHIỂN BAN GIÁM HIỆU (ADMIN)");
+        Label lblTitle = new Label("BẢNG ĐIỀU HÀNH & QUẢN TRỊ TRUNG TÂM (SERVER / ADMIN)");
         lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
         lblTitle.setTextFill(Color.WHITE);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label lblUser = new Label("👤 " + currentUser.getFullName() + " (" + currentUser.getSubRole() + ")");
+        HBox connBox = ComponentFactory.createConnectionIndicator(true);
+        Label lblUser = new Label("👑 " + currentUser.getFullName() + " [ADMIN]");
         lblUser.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
         lblUser.setTextFill(Color.WHITE);
 
         Button btnLogout = new Button("Đăng xuất");
-        btnLogout.setStyle("-fx-background-color: #34495E; -fx-text-fill: white; -fx-padding: 5 12;");
+        btnLogout.setStyle("-fx-background-color: #334155; -fx-text-fill: white; -fx-padding: 5 12; -fx-background-radius: 4;");
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        topBar.getChildren().addAll(lblTitle, spacer, lblUser, btnLogout);
+        topBar.getChildren().addAll(lblTitle, spacer, connBox, lblUser, btnLogout);
         setTop(topBar);
 
-        // Center Content
-        VBox centerBox = new VBox(15);
-        centerBox.setPadding(new Insets(15));
-        centerBox.setStyle("-fx-background-color: #F4F6F9;");
+        // Center Content - TabPane
+        tabStats = new Tab("① 📊 Thống kê & Xuất báo cáo", createStatisticsTab());
+        tabStats.setClosable(false);
 
-        // 1. KPI Cards
-        HBox kpiBox = new HBox(15);
-        kpiBox.getChildren().addAll(
-            createKpiCard("TỔNG SỐ SỰ CỐ", lblTotal, "#1E5AA8"),
-            createKpiCard("CHỜ ĐIỀU PHỐI", lblPending, "#E8A317"),
-            createKpiCard("ĐANG XỬ LÝ", lblInProgress, "#3498DB"),
-            createKpiCard("ĐÃ HOÀN THÀNH", lblResolved, "#2E9E5B")
-        );
+        tabTickets = new Tab("② 📋 Giám sát & Phân công sự cố", createIncidentOversightTab());
+        tabTickets.setClosable(false);
 
-        // 2. Multicast Emergency Broadcast Panel
-        VBox alertBox = new VBox(10);
-        alertBox.setPadding(new Insets(12, 16, 12, 16));
-        alertBox.setStyle("-fx-background-color: #FFEBEE; -fx-border-color: #D32F2F; -fx-border-radius: 6px; -fx-background-radius: 6px;");
+        tabUsers = new Tab("③ 👥 Quản lý & Cấp tài khoản", createUserManagementTab());
+        tabUsers.setClosable(false);
 
-        Label lblAlertTitle = new Label("🚨 PHÁT CẢNH BÁO KHẨN CẤP TOÀN TRƯỜNG (UDP MULTICAST 230.0.0.1:9999)");
-        lblAlertTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
-        lblAlertTitle.setTextFill(Color.web("#D32F2F"));
+        auditChatPanel = new ChatPanel(currentUser);
+        tabChatAudit = new Tab("④ 💬 Kiểm toán tin nhắn 1-1", auditChatPanel);
+        tabChatAudit.setClosable(false);
 
-        HBox alertControlBox = new HBox(10);
-        alertControlBox.setAlignment(Pos.CENTER_LEFT);
-
-        cbAlertLevel.getItems().addAll("CRITICAL (Nguy hiểm cao nhất)", "EVACUATION (Sơ tán khẩn cấp)", "DRILL (Diễn tập)", "ALL_CLEAR (An toàn)");
-        cbAlertLevel.setValue("CRITICAL (Nguy hiểm cao nhất)");
-
-        txtAlertMsg.setPromptText("Nhập nội dung cảnh báo phát thanh tới toàn bộ màn hình phòng học...");
-        HBox.setHgrow(txtAlertMsg, Priority.ALWAYS);
-
-        Button btnBroadcast = new Button("PHÁT BÁO ĐỘNG NGAY");
-        btnBroadcast.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 16;");
-        btnBroadcast.setOnAction(e -> doBroadcastAlert());
-
-        alertControlBox.getChildren().addAll(cbAlertLevel, txtAlertMsg, btnBroadcast);
-        alertBox.getChildren().addAll(lblAlertTitle, alertControlBox);
-
-        // 3. All Tickets Table
-        VBox tableBox = new VBox(8);
-        HBox tableHeader = new HBox(10);
-        tableHeader.setAlignment(Pos.CENTER_LEFT);
-        Label lblTable = new Label("DANH SÁCH TOÀN BỘ SỰ CỐ");
-        lblTable.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
-        Button btnRefresh = new Button("Làm mới dữ liệu");
-        btnRefresh.setOnAction(e -> loadAllTickets());
-        tableHeader.getChildren().addAll(lblTable, btnRefresh);
-
-        initTableColumns();
-        SortedList<IncidentTicket> sortedTickets = new SortedList<>(allTicketsList);
-        sortedTickets.comparatorProperty().bind(allTicketsTable.comparatorProperty());
-        allTicketsTable.setItems(sortedTickets);
-        VBox.setVgrow(allTicketsTable, Priority.ALWAYS);
-
-        tableBox.getChildren().addAll(tableHeader, allTicketsTable);
-        VBox.setVgrow(tableBox, Priority.ALWAYS);
-
-        centerBox.getChildren().addAll(kpiBox, alertBox, tableBox);
-
-        Tab tabDashboard = new Tab("① 📊 Tổng quan & Điều hành", centerBox);
-        tabDashboard.setClosable(false);
-
-        chatPanel = new ChatPanel(currentUser);
-        tabChat = new Tab("② 💬 Kênh Trao Đổi / Chat", chatPanel);
-        tabChat.setClosable(false);
-
-        Tab tabPersonnel = new Tab("③ 👥 Quản lý nhân sự", createPersonnelTabContent());
-        tabPersonnel.setClosable(false);
-
-        tabPane.getTabs().addAll(tabDashboard, tabChat, tabPersonnel);
+        tabPane.getTabs().addAll(tabStats, tabTickets, tabUsers, tabChatAudit);
         setCenter(tabPane);
     }
 
-    private Node createPersonnelTabContent() {
-        SplitPane splitPane = new SplitPane();
-        splitPane.setDividerPositions(0.38);
+    // =========================================================================
+    // TAB 1: THỐNG KÊ ĐA CHIỀU & XUẤT CSV
+    // =========================================================================
+    private Node createStatisticsTab() {
+        VBox layout = new VBox(14);
+        layout.setPadding(new Insets(16));
+        layout.setStyle("-fx-background-color: #F8FAFC;");
 
-        // --- BÊN TRÁI: FORM TẠO TÀI KHOẢN NHÂN SỰ ---
-        VBox formCard = new VBox(12);
-        formCard.setPadding(new Insets(16));
-        formCard.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #D9DEE5; -fx-border-radius: 8px;");
+        // Top Controls: Time filter & Export CSV
+        HBox filterBar = new HBox(12);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+        filterBar.setPadding(new Insets(12, 16, 12, 16));
+        filterBar.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
 
-        Label lblFormTitle = new Label("👤 TẠO TÀI KHOẢN NHÂN SỰ MỚI");
-        lblFormTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
-        lblFormTitle.setTextFill(Color.web("#1E5AA8"));
+        Label lblFilter = new Label("Kỳ thống kê:");
+        lblFilter.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
 
-        Label lblFormDesc = new Label("Chỉ ADMIN mới có quyền khởi tạo tài khoản RESPONDER hoặc ADMIN.");
-        lblFormDesc.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 11));
-        lblFormDesc.setTextFill(Color.GRAY);
-
-        txtNewStaffUname = new TextField();
-        txtNewStaffUname.setPromptText("Tên đăng nhập (VD: kythuat_tuan, yte_lan)");
-
-        txtNewStaffPass = new PasswordField();
-        txtNewStaffPass.setPromptText("Mật khẩu ban đầu (tối thiểu 4 ký tự)");
-
-        txtNewStaffName = new TextField();
-        txtNewStaffName.setPromptText("Họ và tên đầy đủ");
-
-        txtNewStaffPhone = new TextField();
-        txtNewStaffPhone.setPromptText("Số điện thoại liên hệ");
-
-        ComboBox<String> cbRole = new ComboBox<>();
-        cbRole.getItems().addAll("RESPONDER (Nhân viên ứng phó)", "ADMIN (Ban Giám Hiệu)");
-        cbRole.getSelectionModel().select(0);
-        cbRole.setMaxWidth(Double.MAX_VALUE);
-
-        ComboBox<String> cbSpecialty = new ComboBox<>();
-        cbSpecialty.getItems().addAll(
-            "Kỹ thuật / Thiết bị (TECHNICAL)",
-            "Y tế học đường (MEDICAL)",
-            "Bảo vệ / An ninh (SECURITY)"
-        );
-        cbSpecialty.getSelectionModel().select(0);
-        cbSpecialty.setMaxWidth(Double.MAX_VALUE);
-
-        cbRole.setOnAction(e -> {
-            boolean isResp = cbRole.getSelectionModel().getSelectedIndex() == 0;
-            cbSpecialty.setDisable(!isResp);
+        cbTimeRange.getItems().addAll("Toàn thời gian (ALL)", "Hôm nay (DAY)", "Tháng này (MONTH)", "Quý này (QUARTER)", "Năm nay (YEAR)");
+        cbTimeRange.getSelectionModel().select(0);
+        cbTimeRange.setOnAction(e -> {
+            String sel = cbTimeRange.getValue();
+            String range = "ALL";
+            if (sel.contains("DAY")) range = "DAY";
+            else if (sel.contains("MONTH")) range = "MONTH";
+            else if (sel.contains("QUARTER")) range = "QUARTER";
+            else if (sel.contains("YEAR")) range = "YEAR";
+            loadStatistics(range);
         });
-
-        lblPersonnelFormMsg.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
-        lblPersonnelFormMsg.setWrapText(true);
-
-        Button btnCreate = new Button("➕ TẠO TÀI KHOẢN");
-        btnCreate.setStyle("-fx-background-color: #1E5AA8; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 9 20; -fx-background-radius: 5px; -fx-cursor: hand;");
-        btnCreate.setMaxWidth(Double.MAX_VALUE);
-
-        btnCreate.setOnAction(e -> {
-            String u = txtNewStaffUname.getText().trim();
-            String p = txtNewStaffPass.getText();
-            String n = txtNewStaffName.getText().trim();
-            String ph = txtNewStaffPhone.getText().trim();
-
-            if (u.isEmpty() || p.isEmpty() || n.isEmpty()) {
-                lblPersonnelFormMsg.setText("Vui lòng nhập đầy đủ Tên đăng nhập, Mật khẩu và Họ tên!");
-                lblPersonnelFormMsg.setTextFill(Color.web("#D32F2F"));
-                return;
-            }
-
-            if (p.length() < 4) {
-                lblPersonnelFormMsg.setText("Mật khẩu phải từ 4 ký tự trở lên!");
-                lblPersonnelFormMsg.setTextFill(Color.web("#D32F2F"));
-                return;
-            }
-
-            boolean isResp = cbRole.getSelectionModel().getSelectedIndex() == 0;
-            String role = isResp ? Constants.ROLE_RESPONDER : Constants.ROLE_ADMIN;
-            String specialty = Constants.SPECIALTY_NONE;
-            String subRole = Constants.SUB_ROLE_PRINCIPAL;
-
-            if (isResp) {
-                int specIdx = cbSpecialty.getSelectionModel().getSelectedIndex();
-                if (specIdx == 1) {
-                    specialty = Constants.SPECIALTY_MEDICAL;
-                    subRole = Constants.SUB_ROLE_MEDICAL_STAFF;
-                } else if (specIdx == 2) {
-                    specialty = Constants.SPECIALTY_SECURITY;
-                    subRole = Constants.SUB_ROLE_SECURITY_GUARD;
-                } else {
-                    specialty = Constants.SPECIALTY_TECHNICAL;
-                    subRole = Constants.SUB_ROLE_TECH_STAFF;
-                }
-            }
-
-            String header = String.format(
-                "ADMIN_CREATE_USER|username=%s|fullName=%s|phone=%s|role=%s|subRole=%s|specialty=%s",
-                u, n, ph, role, subRole, specialty
-            );
-            byte[] attach = p.getBytes(StandardCharsets.UTF_8);
-            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_ADMIN_CREATE_USER, header, attach));
-
-            lblPersonnelFormMsg.setText("Đang gửi yêu cầu tạo tài khoản...");
-            lblPersonnelFormMsg.setTextFill(Color.web("#1E5AA8"));
-        });
-
-        GridPane formGrid = new GridPane();
-        formGrid.setHgap(8);
-        formGrid.setVgap(10);
-
-        formGrid.add(new Label("Tên đăng nhập: *"), 0, 0);
-        formGrid.add(txtNewStaffUname, 1, 0);
-        formGrid.add(new Label("Mật khẩu: *"), 0, 1);
-        formGrid.add(txtNewStaffPass, 1, 1);
-        formGrid.add(new Label("Họ và tên: *"), 0, 2);
-        formGrid.add(txtNewStaffName, 1, 2);
-        formGrid.add(new Label("Số điện thoại:"), 0, 3);
-        formGrid.add(txtNewStaffPhone, 1, 3);
-        formGrid.add(new Label("Vai trò: *"), 0, 4);
-        formGrid.add(cbRole, 1, 4);
-        formGrid.add(new Label("Chuyên môn:"), 0, 5);
-        formGrid.add(cbSpecialty, 1, 5);
-
-        ColumnConstraints cc1 = new ColumnConstraints();
-        cc1.setPrefWidth(120);
-        ColumnConstraints cc2 = new ColumnConstraints();
-        cc2.setHgrow(Priority.ALWAYS);
-        formGrid.getColumnConstraints().addAll(cc1, cc2);
-
-        formCard.getChildren().addAll(lblFormTitle, lblFormDesc, formGrid, btnCreate, lblPersonnelFormMsg);
-
-        // --- BÊN PHẢI: BẢNG DANH SÁCH NHÂN SỰ ---
-        VBox tableBox = new VBox(10);
-        tableBox.setPadding(new Insets(16));
-        tableBox.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #D9DEE5; -fx-border-radius: 8px;");
-
-        HBox tableHeader = new HBox(12);
-        tableHeader.setAlignment(Pos.CENTER_LEFT);
-        Label lblListTitle = new Label("📋 DANH SÁCH NHÂN SỰ TOÀN TRƯỜNG");
-        lblListTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
-        lblListTitle.setTextFill(Color.web("#2C3E50"));
 
         Region sp = new Region();
         HBox.setHgrow(sp, Priority.ALWAYS);
 
-        Button btnReloadStaff = new Button("🔄 Làm mới danh sách");
-        btnReloadStaff.setStyle("-fx-background-color: #ECEFF1; -fx-text-fill: #37474F; -fx-font-weight: bold; -fx-padding: 6 12;");
-        btnReloadStaff.setOnAction(e -> loadStaffList());
+        Button btnExportCSV = new Button("📥 XUẤT BÁO CÁO CSV");
+        btnExportCSV.setStyle("-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 18; -fx-background-radius: 6; -fx-cursor: hand;");
+        btnExportCSV.setOnAction(e -> exportStatisticsToCSV());
 
-        tableHeader.getChildren().addAll(lblListTitle, sp, btnReloadStaff);
+        filterBar.getChildren().addAll(lblFilter, cbTimeRange, sp, btnExportCSV);
 
-        TableView<User> personnelTable = new TableView<>();
-        VBox.setVgrow(personnelTable, Priority.ALWAYS);
+        // Metric Cards
+        HBox kpiBox = new HBox(12);
+        kpiBox.getChildren().addAll(
+                createKpiCard("TỔNG SỰ CỐ", lblTotal, "#2563EB"),
+                createKpiCard("CHỜ TIẾP NHẬN", lblPending, "#EF4444"),
+                createKpiCard("ĐANG XỬ LÝ", lblInProgress, "#F59E0B"),
+                createKpiCard("ĐÃ HOÀN TẤT", lblResolved, "#10B981")
+        );
 
-        TableColumn<User, String> colUname = new TableColumn<>("Tài khoản");
-        colUname.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getUsername()));
-        colUname.setPrefWidth(120);
-        colUname.setSortable(true);
+        // Details split: Dept breakdown and Top rooms
+        HBox detailsBox = new HBox(14);
+        VBox deptCard = new VBox(10);
+        deptCard.setPadding(new Insets(14));
+        deptCard.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
+        HBox.setHgrow(deptCard, Priority.ALWAYS);
 
-        TableColumn<User, String> colName = new TableColumn<>("Họ và tên");
-        colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
-        colName.setPrefWidth(150);
-        colName.setSortable(true);
+        Label lblDeptTitle = new Label("🏢 PHÂN BỔ SỰ CỐ THEO PHÒNG BAN");
+        lblDeptTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        lblDeptTitle.setTextFill(Color.web("#0F172A"));
+        deptCard.getChildren().addAll(lblDeptTitle, deptStatsContainer);
 
-        TableColumn<User, String> colSpec = new TableColumn<>("Chuyên môn");
-        colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
-        colSpec.setPrefWidth(110);
-        colSpec.setSortable(true);
+        VBox roomCard = new VBox(10);
+        roomCard.setPadding(new Insets(14));
+        roomCard.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
+        HBox.setHgrow(roomCard, Priority.ALWAYS);
 
-        TableColumn<User, String> colSubRole = new TableColumn<>("Chức danh");
-        colSubRole.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSubRole()));
-        colSubRole.setPrefWidth(120);
-        colSubRole.setSortable(true);
+        Label lblRoomTitle = new Label("📍 TOP PHÒNG HỌC / VỊ TRÍ XẢY RA SỰ CỐ NHIỀU NHẤT");
+        lblRoomTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        lblRoomTitle.setTextFill(Color.web("#0F172A"));
+        roomCard.getChildren().addAll(lblRoomTitle, topRoomsContainer);
 
-        TableColumn<User, String> colPhone = new TableColumn<>("Số ĐT");
-        colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : ""));
-        colPhone.setPrefWidth(100);
-        colPhone.setSortable(true);
+        detailsBox.getChildren().addAll(deptCard, roomCard);
 
-        TableColumn<User, String> colOnline = new TableColumn<>("Kết nối");
-        colOnline.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getIsOnline() == 1 ? "🟢 Online" : "⚫ Offline"));
-        colOnline.setPrefWidth(85);
-        colOnline.setSortable(true);
-        colOnline.setComparator((s1, s2) -> {
-            boolean o1 = s1 != null && s1.contains("Online");
-            boolean o2 = s2 != null && s2.contains("Online");
-            return Boolean.compare(o1, o2);
-        });
-
-        TableColumn<User, String> colAvail = new TableColumn<>("Khả dụng");
-        colAvail.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAvailabilityStatus()));
-        colAvail.setPrefWidth(95);
-        colAvail.setSortable(true);
-
-        TableColumn<User, Number> colWorkload = new TableColumn<>("Đang xử lý");
-        colWorkload.setCellValueFactory(d -> new javafx.beans.property.SimpleIntegerProperty(d.getValue().getCurrentWorkload()));
-        colWorkload.setPrefWidth(85);
-        colWorkload.setSortable(true);
-        colWorkload.setComparator(Comparator.comparingInt(Number::intValue));
-
-        personnelTable.getColumns().addAll(colUname, colName, colSpec, colSubRole, colPhone, colOnline, colAvail, colWorkload);
-
-        SortedList<User> sortedStaff = new SortedList<>(staffList);
-        sortedStaff.comparatorProperty().bind(personnelTable.comparatorProperty());
-        personnelTable.setItems(sortedStaff);
-        personnelTable.getSortOrder().add(colOnline);
-        colOnline.setSortType(TableColumn.SortType.DESCENDING);
-
-        tableBox.getChildren().addAll(tableHeader, personnelTable);
-
-        splitPane.getItems().addAll(formCard, tableBox);
-
-        VBox wrap = new VBox(splitPane);
-        wrap.setPadding(new Insets(15));
-        VBox.setVgrow(splitPane, Priority.ALWAYS);
-        return wrap;
+        layout.getChildren().addAll(filterBar, kpiBox, detailsBox);
+        return new ScrollPane(layout);
     }
 
-    private VBox createKpiCard(String title, Label valLabel, String colorHex) {
+    private Node createKpiCard(String title, Label valueLabel, String colorHex) {
         VBox card = new VBox(6);
-        card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(12));
-        card.setPrefWidth(220);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #D9DEE5; -fx-border-radius: 8px;");
+        card.setPadding(new Insets(16, 20, 16, 20));
+        card.setStyle(String.format("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px; -fx-border-top-color: %s; -fx-border-top-width: 4px;", colorHex));
+        HBox.setHgrow(card, Priority.ALWAYS);
 
-        Label lbl = new Label(title);
-        lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
-        lbl.setTextFill(Color.GRAY);
+        Label lblTitle = new Label(title);
+        lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        lblTitle.setTextFill(Color.web("#64748B"));
 
-        valLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
-        valLabel.setTextFill(Color.web(colorHex));
+        valueLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 26));
+        valueLabel.setTextFill(Color.web(colorHex));
 
-        card.getChildren().addAll(lbl, valLabel);
+        card.getChildren().addAll(lblTitle, valueLabel);
         return card;
     }
 
-    private int getStatusRank(String status) {
-        if (status == null) return 99;
-        switch (status) {
-            case Constants.STATUS_PENDING: return 1;
-            case Constants.STATUS_ASSIGNED: return 2;
-            case Constants.STATUS_IN_PROGRESS: return 3;
-            case Constants.STATUS_RESOLVED: return 4;
-            case Constants.STATUS_CANCELLED: return 5;
-            default: return 10;
+    private void renderStatistics(StatisticReport report) {
+        this.currentStatsReport = report;
+        lblTotal.setText(String.valueOf(report.getTotalTickets()));
+        lblPending.setText(String.valueOf(report.getPendingCount()));
+        lblInProgress.setText(String.valueOf(report.getInProgressCount()));
+        lblResolved.setText(String.valueOf(report.getResolvedCount()));
+
+        deptStatsContainer.getChildren().clear();
+        if (report.getCountByDepartment() != null && !report.getCountByDepartment().isEmpty()) {
+            for (Map.Entry<String, Integer> entry : report.getCountByDepartment().entrySet()) {
+                HBox row = new HBox(10);
+                row.setAlignment(Pos.CENTER_LEFT);
+                Label badge = ComponentFactory.createDepartmentBadge(entry.getKey());
+                Region sp = new Region();
+                HBox.setHgrow(sp, Priority.ALWAYS);
+                Label lblCnt = new Label(entry.getValue() + " sự cố");
+                lblCnt.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+                row.getChildren().addAll(badge, sp, lblCnt);
+                deptStatsContainer.getChildren().add(row);
+            }
+        } else {
+            deptStatsContainer.getChildren().add(new Label("Chưa có dữ liệu phát sinh trong kỳ"));
+        }
+
+        topRoomsContainer.getChildren().clear();
+        if (report.getTopIncidentRooms() != null && !report.getTopIncidentRooms().isEmpty()) {
+            int rank = 1;
+            for (Map<String, Object> r : report.getTopIncidentRooms()) {
+                HBox row = new HBox(10);
+                row.setAlignment(Pos.CENTER_LEFT);
+                Label lblRank = new Label("#" + rank);
+                lblRank.setStyle("-fx-background-color: #E2E8F0; -fx-padding: 2 6; -fx-background-radius: 4; -fx-font-weight: bold;");
+                Label lblRoom = new Label(String.valueOf(r.get("room")));
+                lblRoom.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+                Region sp = new Region();
+                HBox.setHgrow(sp, Priority.ALWAYS);
+                Label lblCnt = new Label(String.valueOf(r.get("count")) + " lần");
+                lblCnt.setStyle("-fx-text-fill: #DC2626; -fx-font-weight: bold;");
+                row.getChildren().addAll(lblRank, lblRoom, sp, lblCnt);
+                topRoomsContainer.getChildren().add(row);
+                rank++;
+            }
+        } else {
+            topRoomsContainer.getChildren().add(new Label("Chưa có địa điểm phát sinh sự cố"));
         }
     }
 
-    private void initTableColumns() {
+    private void exportStatisticsToCSV() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Lưu Báo Cáo Sự Cố (CSV)");
+        fc.setInitialFileName("Bao_Cao_Su_Co_" + System.currentTimeMillis() + ".csv");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Comma Separated (*.csv)", "*.csv"));
+        File file = fc.showSaveDialog(getScene().getWindow());
+        if (file == null) return;
+
+        try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
+            // Write UTF-8 BOM for Microsoft Excel compatibility
+            pw.write('\ufeff');
+
+            pw.println("BÁO CÁO THỐNG KÊ SỰ CỐ TRƯỜNG THPT");
+            pw.printf("Kỳ báo cáo: %s\n", cbTimeRange.getValue());
+            pw.printf("Tổng sự cố: %s, Chờ xử lý: %s, Đang xử lý: %s, Đã hoàn tất: %s\n\n",
+                    lblTotal.getText(), lblPending.getText(), lblInProgress.getText(), lblResolved.getText());
+
+            pw.println("Mã sự cố,Vị trí phòng,Loại sự cố,Phòng ban điều phối,Trạng thái,Người báo cáo,SĐT người báo,Cán bộ xử lý,Thời gian báo,Thời gian giải quyết,Ghi chú");
+
+            for (IncidentTicket t : allTicketsList) {
+                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                        cleanCsv(t.getTicketCode()),
+                        cleanCsv(t.getRoomLocation()),
+                        cleanCsv(t.getCategoryName() != null ? t.getCategoryName() : t.getCategoryCode()),
+                        cleanCsv(t.getTargetDepartment()),
+                        cleanCsv(t.getStatus()),
+                        cleanCsv(t.getReporterName()),
+                        cleanCsv(t.getReporterPhone()),
+                        cleanCsv(t.getAssignedStaffName() != null ? t.getAssignedStaffName() : "Chưa tiếp nhận"),
+                        cleanCsv(t.getCreatedAt()),
+                        cleanCsv(t.getResolvedAt() != null ? t.getResolvedAt() : ""),
+                        cleanCsv(t.getResolutionNote() != null ? t.getResolutionNote() : "")
+                );
+            }
+            pw.flush();
+            new Alert(Alert.AlertType.INFORMATION, "🎉 Đã xuất file CSV báo cáo thành công tại: " + file.getAbsolutePath()).show();
+        } catch (Exception ex) {
+            new Alert(Alert.AlertType.ERROR, "Lỗi khi xuất file: " + ex.getMessage()).show();
+        }
+    }
+
+    private String cleanCsv(String s) {
+        if (s == null) return "";
+        return s.replace("\"", "\"\"");
+    }
+
+    // =========================================================================
+    // TAB 2: GIÁM SÁT TOÀN DIỆN & PHÂN CÔNG SỰ CỐ
+    // =========================================================================
+    private Node createIncidentOversightTab() {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(15));
+        layout.setStyle("-fx-background-color: white;");
+
+        HBox toolBar = new HBox(12);
+        toolBar.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblFilter = new Label("Lọc trạng thái:");
+        lblFilter.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+
+        cbStatusFilter.getItems().addAll("Tất cả", "Chờ tiếp nhận (PENDING)", "Đang xử lý (IN_PROGRESS)", "Đã hoàn tất (RESOLVED)");
+        cbStatusFilter.getSelectionModel().select(0);
+        cbStatusFilter.setOnAction(e -> filterTickets());
+
+        Region sp = new Region();
+        HBox.setHgrow(sp, Priority.ALWAYS);
+
+        Button btnRefresh = new Button("🔄 Làm mới");
+        btnRefresh.setOnAction(e -> loadAllTickets());
+
+        toolBar.getChildren().addAll(lblFilter, cbStatusFilter, sp, btnRefresh);
+
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("Mã sự cố");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setPrefWidth(140);
-        colCode.setSortable(true);
+        colCode.setPrefWidth(120);
 
-        TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("Phòng");
+        TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("Vị trí");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
         colRoom.setPrefWidth(90);
-        colRoom.setSortable(true);
 
         TableColumn<IncidentTicket, String> colCat = new TableColumn<>("Loại sự cố");
-        colCat.setCellValueFactory(d -> new SimpleStringProperty(
-            d.getValue().getCategoryName() != null ? d.getValue().getCategoryName() : d.getValue().getCategoryCode()));
+        colCat.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCategoryName() != null ? d.getValue().getCategoryName() : d.getValue().getCategoryCode()));
         colCat.setPrefWidth(160);
-        colCat.setSortable(true);
 
-        TableColumn<IncidentTicket, Number> colSev = new TableColumn<>("Mức độ");
-        colSev.setCellValueFactory(d -> new javafx.beans.property.SimpleIntegerProperty(d.getValue().getBaseSeverity()));
-        colSev.setCellFactory(col -> new TableCell<>() {
+        TableColumn<IncidentTicket, String> colDept = new TableColumn<>("Phòng ban");
+        colDept.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetDepartment()));
+        colDept.setCellFactory(col -> new TableCell<>() {
             @Override
-            protected void updateItem(Number item, boolean empty) {
+            protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) setGraphic(null);
-                else setGraphic(ComponentFactory.createSeverityBadge(item.intValue()));
+                else setGraphic(ComponentFactory.createDepartmentBadge(item));
             }
         });
-        colSev.setPrefWidth(95);
-        colSev.setSortable(true);
-        colSev.setComparator(Comparator.comparingInt(Number::intValue));
+        colDept.setPrefWidth(110);
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("Trạng thái");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
@@ -461,84 +378,37 @@ public class AdminView extends BorderPane implements SocketClientManager.PacketL
                 else setGraphic(ComponentFactory.createStatusBadge(item));
             }
         });
-        colStatus.setPrefWidth(110);
-        colStatus.setSortable(true);
-        colStatus.setComparator((s1, s2) -> Integer.compare(getStatusRank(s1), getStatusRank(s2)));
+        colStatus.setPrefWidth(120);
 
-        TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("Nhân sự phụ trách");
+        TableColumn<IncidentTicket, String> colReporter = new TableColumn<>("Người báo");
+        colReporter.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReporterName()));
+        colReporter.setPrefWidth(160);
+
+        TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("Cán bộ xử lý");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(
-            d.getValue().getAssignedStaffName() != null ? d.getValue().getAssignedStaffName() : "Chưa giao"
+                d.getValue().getAssignedStaffName() != null ? d.getValue().getAssignedStaffName() : "Chưa tiếp nhận"
         ));
-        colStaff.setPrefWidth(150);
-        colStaff.setSortable(true);
+        colStaff.setPrefWidth(160);
 
-        TableColumn<IncidentTicket, Number> colCount = new TableColumn<>("Số người báo");
-        colCount.setCellValueFactory(d -> new javafx.beans.property.SimpleIntegerProperty(d.getValue().getReportCount()));
-        colCount.setPrefWidth(100);
-        colCount.setSortable(true);
-        colCount.setComparator(Comparator.comparingInt(Number::intValue));
-
-        TableColumn<IncidentTicket, String> colTime = new TableColumn<>("Thời gian tạo");
-        colTime.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt()));
-        colTime.setPrefWidth(150);
-        colTime.setSortable(true);
-
-        TableColumn<IncidentTicket, Void> colAssignAction = new TableColumn<>("Giao việc / Phân công");
-        colAssignAction.setSortable(false);
-        colAssignAction.setCellFactory(col -> new TableCell<>() {
-            private final Button btnAssign = new Button("🎯 Giao việc");
-            private final Button btnReassign = new Button("🔄 Đổi người");
-            private final Label lblResolved = new Label("✓ Đã xong");
+        TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("Hành động Admin");
+        colActions.setCellFactory(col -> new TableCell<>() {
+            private final Button btnAssign = new Button("👉 Chỉ định");
+            private final Button btnChat = new Button("💬 Xem Chat");
+            private final HBox btnBox = new HBox(6, btnAssign, btnChat);
             {
-                btnAssign.setStyle("-fx-background-color: #1E5AA8; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4px; -fx-cursor: hand;");
+                btnAssign.setStyle("-fx-background-color: #F59E0B; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4; -fx-cursor: hand;");
+                btnChat.setStyle("-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4; -fx-cursor: hand;");
+
                 btnAssign.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
-                    if (t != null) openAssignDialog(t);
+                    if (t != null) openManualAssignDialog(t);
                 });
 
-                btnReassign.setStyle("-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4px; -fx-cursor: hand;");
-                btnReassign.setOnAction(e -> {
-                    IncidentTicket t = getTableView().getItems().get(getIndex());
-                    if (t != null) openAssignDialog(t);
-                });
-
-                lblResolved.setStyle("-fx-text-fill: #2E9E5B; -fx-font-weight: bold; -fx-font-size: 11px;");
-            }
-
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    IncidentTicket t = getTableView().getItems().get(getIndex());
-                    if (t != null) {
-                        if (Constants.STATUS_PENDING.equals(t.getStatus())) {
-                            setGraphic(btnAssign);
-                        } else if (Constants.STATUS_ASSIGNED.equals(t.getStatus())) {
-                            setGraphic(btnReassign);
-                        } else {
-                            setGraphic(lblResolved);
-                        }
-                    } else {
-                        setGraphic(null);
-                    }
-                }
-            }
-        });
-        colAssignAction.setPrefWidth(120);
-
-        TableColumn<IncidentTicket, Void> colChatAction = new TableColumn<>("Trao đổi");
-        colChatAction.setSortable(false);
-        colChatAction.setCellFactory(col -> new TableCell<>() {
-            private final Button btnChat = new Button("💬 Chat");
-            {
-                btnChat.setStyle("-fx-background-color: #0D9488; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 4px; -fx-cursor: hand;");
                 btnChat.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) {
-                        chatPanel.selectTicket(t.getTicketId(), t.getTicketCode() + " - Phòng " + t.getRoomLocation());
-                        tabPane.getSelectionModel().select(tabChat);
+                        auditChatPanel.openTicketChat(t);
+                        tabPane.getSelectionModel().select(tabChatAudit);
                     }
                 });
             }
@@ -546,228 +416,277 @@ public class AdminView extends BorderPane implements SocketClientManager.PacketL
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty) setGraphic(null);
-                else setGraphic(btnChat);
+                else setGraphic(btnBox);
             }
         });
-        colChatAction.setPrefWidth(85);
+        colActions.setPrefWidth(190);
 
-        allTicketsTable.getColumns().addAll(colCode, colRoom, colCat, colSev, colStatus, colStaff, colCount, colTime, colAssignAction, colChatAction);
-        allTicketsTable.getSortOrder().add(colTime);
-        colTime.setSortType(TableColumn.SortType.DESCENDING);
+        allTicketsTable.getColumns().addAll(colCode, colRoom, colCat, colDept, colStatus, colReporter, colStaff, colActions);
+        allTicketsTable.setItems(allTicketsList);
+        VBox.setVgrow(allTicketsTable, Priority.ALWAYS);
+
+        layout.getChildren().addAll(toolBar, allTicketsTable);
+        return layout;
     }
 
-    private void doBroadcastAlert() {
-        String msg = txtAlertMsg.getText().trim();
-        if (msg.isEmpty()) {
-            new Alert(Alert.AlertType.WARNING, "Vui lòng nhập nội dung phát thanh cảnh báo!").show();
+    private void filterTickets() {
+        // Simple reload
+        loadAllTickets();
+    }
+
+    private void openManualAssignDialog(IncidentTicket ticket) {
+        Dialog<User> dialog = new Dialog<>();
+        dialog.setTitle("Chỉ định Cán bộ Xử lý Trực tiếp");
+        dialog.setHeaderText(String.format("Phân công sự cố %s (%s) cho cán bộ phòng ban:",
+                ticket.getTicketCode(), ticket.getTargetDepartment()));
+
+        ButtonType btnOk = new ButtonType("Xác nhận chỉ định", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(btnOk, ButtonType.CANCEL);
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10));
+
+        ComboBox<User> cbStaff = new ComboBox<>();
+        // Lấy danh sách responders cùng department
+        for (User u : userList) {
+            if (Constants.ROLE_RESPONDER.equalsIgnoreCase(u.getRole())) {
+                if (ticket.getTargetDepartment() == null || "ALL".equalsIgnoreCase(ticket.getTargetDepartment())
+                        || ticket.getTargetDepartment().equalsIgnoreCase(u.getSpecialty()) || "ALL".equalsIgnoreCase(u.getSpecialty())) {
+                    cbStaff.getItems().add(u);
+                }
+            }
+        }
+        if (!cbStaff.getItems().isEmpty()) {
+            cbStaff.getSelectionModel().selectFirst();
+        }
+
+        TextField txtNote = new TextField("Admin BGH chỉ định xử lý ngay");
+
+        content.getChildren().addAll(new Label("Chọn cán bộ tiếp nhận:"), cbStaff, new Label("Ghi chú chỉ định:"), txtNote);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(b -> (b == btnOk) ? cbStaff.getValue() : null);
+        Optional<User> result = dialog.showAndWait();
+        result.ifPresent(staff -> {
+            Packet p = new Packet(Constants.TYPE_MANUAL_ASSIGN,
+                    String.format("MANUAL_ASSIGN|ticketId=%d|staffId=%d|note=%s",
+                            ticket.getTicketId(), staff.getUserId(), txtNote.getText().replace("|", "/")));
+            SocketClientManager.getInstance().sendPacket(p);
+        });
+    }
+
+    // =========================================================================
+    // TAB 3: QUẢN LÝ & CẤP TÀI KHOẢN DUY NHẤT BỞI ADMIN
+    // =========================================================================
+    private Node createUserManagementTab() {
+        HBox layout = new HBox(16);
+        layout.setPadding(new Insets(16));
+        layout.setStyle("-fx-background-color: #F8FAFC;");
+
+        // Form bên trái: Cấp tài khoản mới
+        VBox formCard = new VBox(12);
+        formCard.setPrefWidth(360);
+        formCard.setPadding(new Insets(16));
+        formCard.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
+
+        Label lblFormTitle = new Label("➕ CẤP TÀI KHOẢN MỚI");
+        lblFormTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        lblFormTitle.setTextFill(Color.web("#0F172A"));
+
+        Label lblFormSub = new Label("Chỉ Admin mới có quyền tạo và cấp tài khoản cho người dùng.");
+        lblFormSub.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
+
+        txtNewUsername.setPromptText("Tên đăng nhập (VD: kt_hung)");
+        txtNewPassword.setPromptText("Mật khẩu ban đầu");
+        txtNewPassword.setText("123456");
+        txtNewFullName.setPromptText("Họ và tên đầy đủ");
+        txtNewPhone.setPromptText("Số điện thoại liên hệ");
+
+        cbNewRole.getItems().addAll(Constants.ROLE_REPORTER, Constants.ROLE_RESPONDER, Constants.ROLE_ADMIN);
+        cbNewRole.getSelectionModel().select(Constants.ROLE_RESPONDER);
+        cbNewRole.setMaxWidth(Double.MAX_VALUE);
+
+        cbNewSpecialty.getItems().addAll(
+                Constants.SPECIALTY_TECHNICAL,
+                Constants.SPECIALTY_MEDICAL,
+                Constants.SPECIALTY_SECURITY,
+                Constants.SPECIALTY_NONE,
+                Constants.SPECIALTY_ALL
+        );
+        cbNewSpecialty.getSelectionModel().select(Constants.SPECIALTY_TECHNICAL);
+        cbNewSpecialty.setMaxWidth(Double.MAX_VALUE);
+
+        cbNewRole.setOnAction(e -> {
+            boolean isResp = Constants.ROLE_RESPONDER.equalsIgnoreCase(cbNewRole.getValue());
+            cbNewSpecialty.setDisable(!isResp);
+        });
+
+        Button btnCreate = new Button("CẤP TÀI KHOẢN");
+        btnCreate.setStyle("-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 9 18; -fx-background-radius: 6; -fx-cursor: hand;");
+        btnCreate.setMaxWidth(Double.MAX_VALUE);
+        btnCreate.setOnAction(e -> doCreateUser());
+
+        lblUserFormMsg.setStyle("-fx-font-size: 12px;");
+        lblUserFormMsg.setVisible(false);
+
+        formCard.getChildren().addAll(lblFormTitle, lblFormSub,
+                new Label("Tên đăng nhập:"), txtNewUsername,
+                new Label("Mật khẩu:"), txtNewPassword,
+                new Label("Họ và tên:"), txtNewFullName,
+                new Label("Số điện thoại:"), txtNewPhone,
+                new Label("Vai trò (Role):"), cbNewRole,
+                new Label("Phòng ban chuyên trách:"), cbNewSpecialty,
+                btnCreate, lblUserFormMsg);
+
+        // Bảng danh sách tài khoản bên phải
+        VBox tableCard = new VBox(10);
+        tableCard.setPadding(new Insets(16));
+        tableCard.setStyle("-fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
+
+        HBox tableTop = new HBox(12);
+        tableTop.setAlignment(Pos.CENTER_LEFT);
+        Label lblUsersTitle = new Label("DANH SÁCH TÀI KHOẢN TRÊN HỆ THỐNG");
+        lblUsersTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+
+        Region sp = new Region();
+        HBox.setHgrow(sp, Priority.ALWAYS);
+
+        Button btnRefreshUsers = new Button("🔄 Làm mới");
+        btnRefreshUsers.setOnAction(e -> loadAllUsers());
+        tableTop.getChildren().addAll(lblUsersTitle, sp, btnRefreshUsers);
+
+        TableColumn<User, String> colUname = new TableColumn<>("Username");
+        colUname.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getUsername()));
+        colUname.setPrefWidth(120);
+
+        TableColumn<User, String> colName = new TableColumn<>("Họ và tên");
+        colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
+        colName.setPrefWidth(180);
+
+        TableColumn<User, String> colRole = new TableColumn<>("Vai trò");
+        colRole.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRole()));
+        colRole.setPrefWidth(120);
+
+        TableColumn<User, String> colSpec = new TableColumn<>("Phòng ban");
+        colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
+        colSpec.setPrefWidth(130);
+
+        TableColumn<User, String> colPhone = new TableColumn<>("Số ĐT");
+        colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : ""));
+        colPhone.setPrefWidth(110);
+
+        TableColumn<User, String> colOnline = new TableColumn<>("Trạng thái");
+        colOnline.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getIsOnline() == 1 ? "🟢 Đang Online" : "⚪ Ngoại tuyến"));
+        colOnline.setPrefWidth(120);
+
+        userTable.getColumns().addAll(colUname, colName, colRole, colSpec, colPhone, colOnline);
+        userTable.setItems(userList);
+        VBox.setVgrow(userTable, Priority.ALWAYS);
+
+        tableCard.getChildren().addAll(tableTop, userTable);
+
+        layout.getChildren().addAll(formCard, tableCard);
+        return layout;
+    }
+
+    private void doCreateUser() {
+        String u = txtNewUsername.getText().trim();
+        String p = txtNewPassword.getText().trim();
+        String n = txtNewFullName.getText().trim();
+        String ph = txtNewPhone.getText().trim();
+        String r = cbNewRole.getValue();
+        String s = cbNewSpecialty.getValue();
+
+        if (u.isEmpty() || p.isEmpty() || n.isEmpty()) {
+            lblUserFormMsg.setText("❌ Vui lòng nhập đầy đủ Username, Password và Họ tên!");
+            lblUserFormMsg.setTextFill(Color.web("#DC2626"));
+            lblUserFormMsg.setVisible(true);
             return;
         }
 
-        String rawLevel = cbAlertLevel.getValue();
-        String level = rawLevel.split(" ")[0]; // Lấy CRITICAL, EVACUATION...
+        String header = String.format("ADMIN_CREATE_USER|username=%s|fullName=%s|role=%s|specialty=%s|phone=%s",
+                u, n, r, s, ph);
+        Packet packet = new Packet(Constants.TYPE_ADMIN_CREATE_USER, header, p.getBytes(StandardCharsets.UTF_8));
+        SocketClientManager.getInstance().sendPacket(packet);
+    }
 
-        String payload = String.format("ALERT|level=%s|message=%s", level, msg.replace("|", "/"));
-        SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_MULTICAST_ALERT, payload));
-
-        txtAlertMsg.clear();
-        new Alert(Alert.AlertType.INFORMATION, "✅ Đã phát cảnh báo khẩn cấp tới kênh UDP Multicast!").show();
+    private void loadStatistics(String timeRange) {
+        SocketClientManager.getInstance().sendPacket(
+                new Packet(Constants.TYPE_ADMIN_GET_STATS, "GET_STATS|timeRange=" + timeRange));
     }
 
     private void loadAllTickets() {
-        SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_GET_ALL_TICKETS, "GET_ALL"));
+        SocketClientManager.getInstance().sendPacket(
+                new Packet(Constants.TYPE_LIST_TICKETS, "LIST_TICKETS|scope=ALL"));
     }
 
-    private void loadStaffList() {
-        SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_GET_STAFF_LIST, "GET_STAFF_LIST"));
-    }
-
-    private void openAssignDialog(IncidentTicket ticket) {
-        Stage stage = new Stage();
-        stage.initModality(Modality.APPLICATION_MODAL);
-        stage.setTitle("🎯 GIAO NHIỆM VỤ / ĐIỀU PHỐI SỰ CỐ");
-
-        VBox root = new VBox(14);
-        root.setPadding(new Insets(20));
-        root.setStyle("-fx-background-color: white;");
-
-        // Header
-        Label lblHeader = new Label("🎯 PHÂN CÔNG NHÂN SỰ XỬ LÝ SỰ CỐ");
-        lblHeader.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
-        lblHeader.setTextFill(Color.web("#1E5AA8"));
-
-        // Thông tin tóm tắt sự cố
-        VBox infoBox = new VBox(6);
-        infoBox.setStyle("-fx-background-color: #F4F6F9; -fx-padding: 12px; -fx-background-radius: 6px; -fx-border-color: #E2E8F0; -fx-border-radius: 6px;");
-
-        Label lblCode = new Label("Mã sự cố: " + ticket.getTicketCode() + "   |   Phòng: " + ticket.getRoomLocation());
-        lblCode.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
-
-        Label lblCategory = new Label("Loại sự cố: " + (ticket.getCategoryName() != null ? ticket.getCategoryName() : ticket.getCategoryCode())
-            + "   |   Mức độ: " + ticket.getBaseSeverity() + "/5");
-
-        Label lblCurrent = new Label("Hiện tại phụ trách: " + (ticket.getAssignedStaffName() != null ? ticket.getAssignedStaffName() : "Chưa giao"));
-        lblCurrent.setStyle("-fx-font-style: italic; -fx-text-fill: #555;");
-
-        infoBox.getChildren().addAll(lblCode, lblCategory, lblCurrent);
-
-        // Chọn nhân viên
-        Label lblSelect = new Label("Chọn nhân sự kỹ thuật / y tế / bảo vệ:");
-        lblSelect.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
-
-        ComboBox<User> cbStaff = new ComboBox<>(staffList);
-        cbStaff.setMaxWidth(Double.MAX_VALUE);
-        cbStaff.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(User item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    String statusStr = item.getIsOnline() == 1 ? "🟢 Online" : "⚪ Offline";
-                    setText(String.format("[%s] %s  -  Tải: %d việc  (%s)",
-                        item.getSpecialty(), item.getFullName(), item.getCurrentWorkload(), statusStr));
-                }
-            }
-        });
-        cbStaff.setButtonCell(new ListCell<>() {
-            @Override
-            protected void updateItem(User item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    String statusStr = item.getIsOnline() == 1 ? "🟢 Online" : "⚪ Offline";
-                    setText(String.format("[%s] %s  (Tải: %d) - %s",
-                        item.getSpecialty(), item.getFullName(), item.getCurrentWorkload(), statusStr));
-                }
-            }
-        });
-
-        // Tự động chọn nhân viên có chuyên môn phù hợp nhất
-        for (User u : staffList) {
-            if (u.getUserId() != (ticket.getAssignedStaffId() != null ? ticket.getAssignedStaffId() : 0)) {
-                cbStaff.setValue(u);
-                break;
-            }
-        }
-
-        // Ghi chú điều phối
-        Label lblNote = new Label("Yêu cầu chỉ đạo / Ghi chú từ Ban Giám Hiệu:");
-        lblNote.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
-
-        TextField txtNote = new TextField("Ban Giám hiệu chỉ định xử lý an toàn ngay trong ca trực.");
-        txtNote.setPromptText("Nhập yêu cầu chỉ đạo...");
-
-        // Buttons
-        HBox btnBox = new HBox(12);
-        btnBox.setAlignment(Pos.CENTER_RIGHT);
-
-        Button btnCancel = new Button("HỦY BỎ");
-        btnCancel.setStyle("-fx-background-color: #E2E8F0; -fx-text-fill: #333; -fx-font-weight: bold; -fx-padding: 8 16; -fx-cursor: hand;");
-        btnCancel.setOnAction(e -> stage.close());
-
-        Button btnConfirm = new Button("XÁC NHẬN GIAO VIỆC");
-        btnConfirm.setStyle("-fx-background-color: #1E5AA8; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand;");
-        btnConfirm.setOnAction(e -> {
-            User selected = cbStaff.getValue();
-            if (selected == null) {
-                new Alert(Alert.AlertType.WARNING, "Vui lòng chọn nhân viên tiếp nhận!").show();
-                return;
-            }
-            String note = txtNote.getText().trim();
-            String payload = String.format("MANUAL_ASSIGN|ticketId=%d|staffId=%d|note=%s",
-                ticket.getTicketId(), selected.getUserId(), note.replace("|", "/"));
-            SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_MANUAL_ASSIGN, payload));
-            stage.close();
-        });
-
-        btnBox.getChildren().addAll(btnCancel, btnConfirm);
-
-        root.getChildren().addAll(lblHeader, infoBox, lblSelect, cbStaff, lblNote, txtNote, btnBox);
-
-        Scene scene = new Scene(root, 520, 370);
-        stage.setScene(scene);
-        stage.show();
-    }
-
-    private void updateKpis() {
-        int total = allTicketsList.size();
-        int pending = 0, inProg = 0, resolved = 0;
-
-        for (IncidentTicket t : allTicketsList) {
-            if (Constants.STATUS_PENDING.equals(t.getStatus())) pending++;
-            else if (Constants.STATUS_ASSIGNED.equals(t.getStatus()) || Constants.STATUS_IN_PROGRESS.equals(t.getStatus())) inProg++;
-            else if (Constants.STATUS_RESOLVED.equals(t.getStatus())) resolved++;
-        }
-
-        lblTotal.setText(String.valueOf(total));
-        lblPending.setText(String.valueOf(pending));
-        lblInProgress.setText(String.valueOf(inProg));
-        lblResolved.setText(String.valueOf(resolved));
+    private void loadAllUsers() {
+        SocketClientManager.getInstance().sendPacket(
+                new Packet(Constants.TYPE_ADMIN_GET_USERS, "ADMIN_GET_USERS"));
     }
 
     @Override
     public void onPacketReceived(Packet packet) {
-        if (packet.getType() == Constants.TYPE_LIST_TICKETS_RESP) {
-            try {
-                Type listType = new TypeToken<ArrayList<IncidentTicket>>(){}.getType();
-                List<IncidentTicket> list = gson.fromJson(packet.getHeaderPayload(), listType);
-                allTicketsList.setAll(list);
-                updateKpis();
-                if (chatPanel != null) {
-                    chatPanel.setTickets(list);
-                }
-            } catch (Exception ignored) {}
+        if (packet.getType() == Constants.TYPE_ADMIN_GET_STATS_RESP) {
+            if (packet.hasAttachment()) {
+                try {
+                    String json = new String(packet.getAttachment(), StandardCharsets.UTF_8);
+                    StatisticReport report = gson.fromJson(json, StatisticReport.class);
+                    Platform.runLater(() -> renderStatistics(report));
+                } catch (Exception ignored) {}
+            }
 
-        } else if (packet.getType() == Constants.TYPE_GET_STAFF_LIST_RESP) {
-            try {
-                Type listType = new TypeToken<ArrayList<User>>(){}.getType();
-                List<User> list = gson.fromJson(packet.getHeaderPayload(), listType);
-                staffList.setAll(list);
-            } catch (Exception ignored) {}
+        } else if (packet.getType() == Constants.TYPE_LIST_TICKETS_RESP) {
+            if (packet.hasAttachment()) {
+                try {
+                    String json = new String(packet.getAttachment(), StandardCharsets.UTF_8);
+                    Type listType = new TypeToken<List<IncidentTicket>>() {}.getType();
+                    List<IncidentTicket> list = gson.fromJson(json, listType);
+                    allTicketsList.setAll(list);
+                } catch (Exception ignored) {}
+            }
+
+        } else if (packet.getType() == Constants.TYPE_ADMIN_GET_USERS_RESP) {
+            if (packet.hasAttachment()) {
+                try {
+                    String json = new String(packet.getAttachment(), StandardCharsets.UTF_8);
+                    Type listType = new TypeToken<List<User>>() {}.getType();
+                    List<User> list = gson.fromJson(json, listType);
+                    userList.setAll(list);
+                } catch (Exception ignored) {}
+            }
 
         } else if (packet.getType() == Constants.TYPE_ADMIN_CREATE_RESP) {
             Map<String, String> p = packet.parseParams();
             String status = p.get("status");
-            String msg = p.getOrDefault("message", "");
             if ("OK".equalsIgnoreCase(status)) {
-                lblPersonnelFormMsg.setText("✅ " + msg);
-                lblPersonnelFormMsg.setTextFill(Color.web("#2E7D32"));
-                if (txtNewStaffUname != null) txtNewStaffUname.clear();
-                if (txtNewStaffPass != null) txtNewStaffPass.clear();
-                if (txtNewStaffName != null) txtNewStaffName.clear();
-                if (txtNewStaffPhone != null) txtNewStaffPhone.clear();
-                new Alert(Alert.AlertType.INFORMATION, "✅ " + msg).show();
-                loadStaffList();
+                lblUserFormMsg.setText("✅ Đã cấp mới tài khoản: " + p.get("username"));
+                lblUserFormMsg.setTextFill(Color.web("#16A34A"));
+                lblUserFormMsg.setVisible(true);
+                txtNewUsername.clear();
+                txtNewFullName.clear();
+                txtNewPhone.clear();
+                loadAllUsers();
             } else {
-                lblPersonnelFormMsg.setText("❌ " + msg);
-                lblPersonnelFormMsg.setTextFill(Color.web("#D32F2F"));
-                new Alert(Alert.AlertType.ERROR, "❌ " + msg).show();
+                lblUserFormMsg.setText("❌ " + p.getOrDefault("message", "Lỗi tạo tài khoản!"));
+                lblUserFormMsg.setTextFill(Color.web("#DC2626"));
+                lblUserFormMsg.setVisible(true);
             }
 
         } else if (packet.getType() == Constants.TYPE_MANUAL_ASSIGN_RESP) {
-            Map<String, String> p = packet.parseParams();
-            String staffName = p.getOrDefault("staffName", "nhân sự");
-            new Alert(Alert.AlertType.INFORMATION, "✅ Đã giao nhiệm vụ thành công cho " + staffName + "!").show();
             loadAllTickets();
-            loadStaffList();
+            new Alert(Alert.AlertType.INFORMATION, "✅ Đã phân công sự cố thành công!").show();
 
-        } else if (packet.getType() == Constants.TYPE_STATUS_UPDATE) {
+        } else if (packet.getType() == Constants.TYPE_DISPATCH_NOTIFY || packet.getType() == Constants.TYPE_STATUS_BROADCAST) {
             loadAllTickets();
-            loadStaffList();
-
-        } else if (packet.getType() == Constants.TYPE_CHAT_PUSH) {
-            if (chatPanel != null) {
-                chatPanel.onChatPush(packet);
-            }
-        } else if (packet.getType() == Constants.TYPE_CHAT_HISTORY_RESP) {
-            if (chatPanel != null) {
-                chatPanel.onChatHistoryResponse(packet);
-            }
+            String sel = cbTimeRange.getValue();
+            String range = "ALL";
+            if (sel != null && sel.contains("DAY")) range = "DAY";
+            loadStatistics(range);
         }
     }
 
     @Override
     public void onDisconnected() {}
 }
-

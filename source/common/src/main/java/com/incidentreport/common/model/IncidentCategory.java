@@ -1,20 +1,19 @@
 package com.incidentreport.common.model;
 
+/**
+ * Danh mục sự cố và định tuyến phòng ban chuyên trách
+ */
 public class IncidentCategory {
     private String categoryCode;
     private String categoryName;
-    private String requiredSpecialty;
-    private int defaultSeverity;
-    private int dedupWindowSeconds;
+    private String requiredSpecialty; // TECHNICAL, MEDICAL, SECURITY, ALL
 
     public IncidentCategory() {}
 
-    public IncidentCategory(String categoryCode, String categoryName, String requiredSpecialty, int defaultSeverity, int dedupWindowSeconds) {
+    public IncidentCategory(String categoryCode, String categoryName, String requiredSpecialty) {
         this.categoryCode = categoryCode;
         this.categoryName = categoryName;
         this.requiredSpecialty = requiredSpecialty;
-        this.defaultSeverity = defaultSeverity;
-        this.dedupWindowSeconds = dedupWindowSeconds;
     }
 
     public String getCategoryCode() { return categoryCode; }
@@ -26,15 +25,11 @@ public class IncidentCategory {
     public String getRequiredSpecialty() { return requiredSpecialty; }
     public void setRequiredSpecialty(String requiredSpecialty) { this.requiredSpecialty = requiredSpecialty; }
 
-    public int getDefaultSeverity() { return defaultSeverity; }
-    public void setDefaultSeverity(int defaultSeverity) { this.defaultSeverity = defaultSeverity; }
-
-    public int getDedupWindowSeconds() { return dedupWindowSeconds; }
-    public void setDedupWindowSeconds(int dedupWindowSeconds) { this.dedupWindowSeconds = dedupWindowSeconds; }
+    public String getTargetDepartment() { return requiredSpecialty; }
+    public void setTargetDepartment(String targetDepartment) { this.requiredSpecialty = targetDepartment; }
 
     @Override
     public String toString() {
         return categoryName;
     }
 }
-

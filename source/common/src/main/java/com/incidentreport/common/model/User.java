@@ -1,31 +1,39 @@
 package com.incidentreport.common.model;
 
+/**
+ * Model đại diện cho người dùng hệ thống do Admin/Server quản lý
+ */
 public class User {
     private int userId;
     private String username;
     private String passwordHash;
     private String fullName;
-    private String role;
-    private String subRole;
-    private String specialty;
+    private String role;       // ADMIN, REPORTER, RESPONDER
+    private String specialty;  // TECHNICAL, MEDICAL, SECURITY, NONE, ALL
     private String phone;
     private int isOnline;
-    private String availabilityStatus;
-    private int currentWorkload;
-    private String lastHeartbeatAt;
     private String createdAt;
 
     public User() {}
 
-    public User(int userId, String username, String fullName, String role, String subRole, String specialty) {
+    public User(int userId, String username, String fullName, String role, String specialty, String phone) {
         this.userId = userId;
         this.username = username;
         this.fullName = fullName;
         this.role = role;
-        this.subRole = subRole;
         this.specialty = specialty;
-        this.availabilityStatus = "AVAILABLE";
-        this.isOnline = 1;
+        this.phone = phone;
+        this.isOnline = 0;
+    }
+
+    public User(String username, String passwordHash, String fullName, String role, String specialty, String phone) {
+        this.username = username;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
+        this.specialty = specialty;
+        this.phone = phone;
+        this.isOnline = 0;
     }
 
     public int getUserId() { return userId; }
@@ -43,9 +51,6 @@ public class User {
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 
-    public String getSubRole() { return subRole; }
-    public void setSubRole(String subRole) { this.subRole = subRole; }
-
     public String getSpecialty() { return specialty; }
     public void setSpecialty(String specialty) { this.specialty = specialty; }
 
@@ -55,15 +60,11 @@ public class User {
     public int getIsOnline() { return isOnline; }
     public void setIsOnline(int isOnline) { this.isOnline = isOnline; }
 
-    public String getAvailabilityStatus() { return availabilityStatus; }
-    public void setAvailabilityStatus(String availabilityStatus) { this.availabilityStatus = availabilityStatus; }
-
-    public int getCurrentWorkload() { return currentWorkload; }
-    public void setCurrentWorkload(int currentWorkload) { this.currentWorkload = currentWorkload; }
-
-    public String getLastHeartbeatAt() { return lastHeartbeatAt; }
-    public void setLastHeartbeatAt(String lastHeartbeatAt) { this.lastHeartbeatAt = lastHeartbeatAt; }
-
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    @Override
+    public String toString() {
+        return String.format("[%s] %s (%s)", specialty, fullName, username);
+    }
 }

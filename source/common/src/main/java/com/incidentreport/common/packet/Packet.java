@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lớp Packet thực hiện đóng khung giao thức nhị phân (Length-Prefixed Framing Protocol):
+ * Đóng khung giao thức nhị phân chuẩn (Length-Prefixed Framing Protocol):
  * [Magic: 0xCAFE (2B)] + [Type (1B)] + [Header Len (4B)] + [Header UTF-8 (N B)] + [Attachment Len (4B)] + [Attachment Bytes (M B)]
  */
 public class Packet {
@@ -34,23 +34,21 @@ public class Packet {
     public byte getType() { return type; }
     public String getHeaderPayload() { return headerPayload; }
     public byte[] getAttachmentBytes() { return attachmentBytes; }
+    public byte[] getAttachment() { return attachmentBytes; }
     public int getAttachmentLength() { return attachmentBytes != null ? attachmentBytes.length : 0; }
     public boolean hasAttachment() { return attachmentBytes != null && attachmentBytes.length > 0; }
 
-    /**
-     * Ghi bản tin ra luồng DataOutputStream theo đúng đặc tả framing
-     */
     public void writeTo(DataOutputStream out) throws IOException {
         synchronized (out) {
             out.writeShort(magicHeader);
             out.writeByte(type);
-            
+
             byte[] headerBytes = headerPayload.getBytes(StandardCharsets.UTF_8);
             out.writeInt(headerBytes.length);
             if (headerBytes.length > 0) {
                 out.write(headerBytes);
             }
-            
+
             int attachLen = (attachmentBytes != null) ? attachmentBytes.length : 0;
             out.writeInt(attachLen);
             if (attachLen > 0) {
@@ -60,20 +58,17 @@ public class Packet {
         }
     }
 
-    /**
-     * Đọc chính xác 1 bản tin từ luồng DataInputStream
-     */
     public static Packet readFrom(DataInputStream in) throws IOException {
         short magic = in.readShort();
         if (magic != Constants.MAGIC_HEADER) {
-            throw new IOException("Sai Magic Header! Kỳ vọng 0xCAFE, nhận được: 0x" + Integer.toHexString(magic & 0xFFFF));
+            throw new IOException(String.format("Sai Magic Header: 0x%04X (kỳ vọng 0x%04X)", magic, Constants.MAGIC_HEADER));
         }
 
         byte type = in.readByte();
 
         int headerLen = in.readInt();
-        if (headerLen < 0 || headerLen > 5 * 1024 * 1024) { // Tối đa 5MB cho header
-            throw new IOException("Header length không hợp lệ: " + headerLen);
+        if (headerLen < 0 || headerLen > 64 * 1024) { // Tối đa 64KB header
+            throw new IOException("Độ dài header không hợp lệ: " + headerLen);
         }
         byte[] headerBytes = new byte[headerLen];
         if (headerLen > 0) {
@@ -82,8 +77,8 @@ public class Packet {
         String headerPayload = new String(headerBytes, StandardCharsets.UTF_8);
 
         int attachLen = in.readInt();
-        if (attachLen < 0 || attachLen > 25 * 1024 * 1024) { // Tối đa 25MB cho file đính kèm
-            throw new IOException("Attachment length không hợp lệ: " + attachLen);
+        if (attachLen < 0 || attachLen > 10 * 1024 * 1024) { // Tối đa 10MB file đính kèm
+            throw new IOException("Độ dài đính kèm quá lớn: " + attachLen);
         }
         byte[] attachmentBytes = new byte[attachLen];
         if (attachLen > 0) {
@@ -94,35 +89,35 @@ public class Packet {
     }
 
     /**
-     * Trợ giúp trích xuất tham số từ header dạng: CMD|key1=val1|key2=val2...
+     * Phân tích Header định dạng PIPE-DELIMITED: COMMAND|KEY=VALUE|KEY=VALUE
      */
     public Map<String, String> parseParams() {
         Map<String, String> map = new HashMap<>();
-        if (headerPayload == null || headerPayload.isEmpty()) return map;
-
-        String[] parts = headerPayload.split("\\|");
-        if (parts.length > 0 && !parts[0].contains("=")) {
-            map.put("COMMAND", parts[0].trim());
+        if (headerPayload == null || headerPayload.isEmpty()) {
+            return map;
         }
-        for (String part : parts) {
-            int eqIdx = part.indexOf('=');
+
+        String[] tokens = headerPayload.split("\\|");
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i].trim();
+            int eqIdx = token.indexOf('=');
             if (eqIdx > 0) {
-                String key = part.substring(0, eqIdx).trim();
-                String val = part.substring(eqIdx + 1).trim();
+                String key = token.substring(0, eqIdx).trim();
+                String val = token.substring(eqIdx + 1).trim();
                 map.put(key, val);
+            } else {
+                if (i == 0) {
+                    map.put("COMMAND", token);
+                }
+                map.put(token, "true");
             }
         }
         return map;
     }
 
-    public String getParam(String key) {
-        return parseParams().get(key);
-    }
-
     @Override
     public String toString() {
-        return String.format("Packet[type=0x%02X, headerLen=%d, attachLen=%d, header='%s']",
-            type, headerPayload.length(), attachmentBytes.length,
-            headerPayload.length() > 80 ? headerPayload.substring(0, 80) + "..." : headerPayload);
+        return String.format("Packet[Type=0x%02X, Header='%s', AttachLen=%d]",
+                type, headerPayload, getAttachmentLength());
     }
 }

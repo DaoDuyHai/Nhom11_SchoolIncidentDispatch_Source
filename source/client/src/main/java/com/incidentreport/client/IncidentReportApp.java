@@ -1,8 +1,10 @@
 package com.incidentreport.client;
 
 import com.incidentreport.client.net.SocketClientManager;
-import com.incidentreport.client.net.UDPHeartbeatSender;
+import com.incidentreport.client.ui.AdminView;
 import com.incidentreport.client.ui.LoginView;
+import com.incidentreport.client.ui.ReporterView;
+import com.incidentreport.client.ui.ResponderView;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.User;
 import com.incidentreport.common.packet.Packet;
@@ -11,11 +13,13 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+/**
+ * Ứng dụng Desktop JavaFX - Hệ thống Báo cáo & Điều phối Sự cố Trường THPT
+ */
 public class IncidentReportApp extends Application {
 
     private static Stage primaryStage;
     private static User currentUser;
-    private static UDPHeartbeatSender heartbeatSender;
 
     public static void setCurrentUser(User user) {
         currentUser = user;
@@ -25,51 +29,67 @@ public class IncidentReportApp extends Application {
         return currentUser;
     }
 
-    public static void setHeartbeatSender(UDPHeartbeatSender sender) {
-        heartbeatSender = sender;
-    }
-
-    public static UDPHeartbeatSender getHeartbeatSender() {
-        return heartbeatSender;
-    }
-
-    public static void showView(Parent root) {
+    public static void showView(Parent root, double width, double height) {
         if (primaryStage != null) {
             Scene scene = primaryStage.getScene();
             if (scene == null) {
-                scene = new Scene(root, 1080, 680);
+                scene = new Scene(root, width, height);
                 primaryStage.setScene(scene);
             } else {
                 scene.setRoot(root);
+                primaryStage.setWidth(width);
+                primaryStage.setHeight(height);
+                primaryStage.centerOnScreen();
             }
         }
     }
 
-    public static void logout() {
-        if (heartbeatSender != null) {
-            heartbeatSender.stop();
-            heartbeatSender = null;
+    public static void showMainView(User user) {
+        currentUser = user;
+        Parent mainView;
+        String titleRole = "";
+
+        if (Constants.ROLE_ADMIN.equalsIgnoreCase(user.getRole())) {
+            mainView = new AdminView(user);
+            titleRole = "Ban Giám Hiệu (Admin/Server)";
+        } else if (Constants.ROLE_RESPONDER.equalsIgnoreCase(user.getRole())) {
+            mainView = new ResponderView(user);
+            titleRole = "Cán bộ Phụ trách (" + user.getSpecialty() + ")";
+        } else {
+            mainView = new ReporterView(user);
+            titleRole = "Người báo cáo (" + user.getFullName() + ")";
         }
+
+        if (primaryStage != null) {
+            primaryStage.setTitle("Hệ thống Điều phối Sự cố THPT - " + titleRole);
+        }
+
+        showView(mainView, 1120, 720);
+    }
+
+    public static void logout() {
         SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_LOGOUT, "LOGOUT"));
         SocketClientManager.getInstance().disconnect();
         currentUser = null;
 
-        showView(new LoginView());
+        if (primaryStage != null) {
+            primaryStage.setTitle("Đăng nhập - Hệ thống Điều phối Sự cố THPT");
+        }
+        showView(new LoginView(), 520, 560);
     }
 
     @Override
     public void start(Stage stage) {
         primaryStage = stage;
-        primaryStage.setTitle("Hệ thống Báo cáo & Điều phối Sự cố Trường THPT (School Incident Dispatch)");
+        primaryStage.setTitle("Đăng nhập - Hệ thống Điều phối Sự cố THPT");
 
         primaryStage.setOnCloseRequest(e -> {
-            if (heartbeatSender != null) heartbeatSender.stop();
             SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_LOGOUT, "LOGOUT"));
             SocketClientManager.getInstance().disconnect();
             System.exit(0);
         });
 
-        Scene scene = new Scene(new LoginView(), 520, 520);
+        Scene scene = new Scene(new LoginView(), 520, 560);
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -78,4 +98,3 @@ public class IncidentReportApp extends Application {
         launch(args);
     }
 }
-

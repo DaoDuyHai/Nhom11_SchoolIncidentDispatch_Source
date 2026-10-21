@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 
+/**
+ * Tiện ích tự động khởi tạo cơ sở dữ liệu từ file schema.sql
+ */
 public class InitDatabase {
 
     public static File findFile(String relativePath) {
@@ -20,6 +23,10 @@ public class InitDatabase {
         return new File(relativePath);
     }
 
+    public static boolean initDatabase() {
+        return init();
+    }
+
     public static boolean init() {
         File schemaFile = findFile("database/schema.sql");
         if (!schemaFile.exists()) {
@@ -27,8 +34,6 @@ public class InitDatabase {
             return false;
         }
 
-        System.out.println("🔄 Bắt đầu nạp CSDL từ: " + schemaFile.getAbsolutePath());
-        
         StringBuilder sb = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(schemaFile), StandardCharsets.UTF_8))) {
             String line;
@@ -44,15 +49,11 @@ public class InitDatabase {
             return false;
         }
 
-        // Tách các câu lệnh theo dấu ;
         String[] statements = sb.toString().split(";\\s*(\\r?\\n)");
 
         try (Connection conn = DatabaseConnection.getConnection()) {
-            if (conn == null) {
-                System.err.println("❌ Không thể kết nối DB!");
-                return false;
-            }
-            conn.setAutoCommit(true); // SQLite requires auto-commit for VACUUM and PRAGMA journal_mode
+            if (conn == null) return false;
+            conn.setAutoCommit(true);
             try (Statement stmt = conn.createStatement()) {
                 for (String sql : statements) {
                     sql = sql.trim();
@@ -60,16 +61,12 @@ public class InitDatabase {
                         try {
                             stmt.execute(sql);
                         } catch (Exception ex) {
-                            System.err.println("⚠️ Cảnh báo lệnh SQL: " + sql.substring(0, Math.min(sql.length(), 60)) + "... Lỗi: " + ex.getMessage());
+                            // Ignored if table already exists
                         }
                     }
                 }
-                System.out.println("✅ Đã khởi tạo thành công 6 bảng và nạp Seed Data vào CSDL!");
+                System.out.println("✅ Đã khởi tạo thành công CSDL và nạp tài khoản mẫu!");
                 return true;
-            } catch (Exception e) {
-                System.err.println("❌ Lỗi khi thực thi SQL: " + e.getMessage());
-                e.printStackTrace();
-                return false;
             }
         } catch (Exception e) {
             System.err.println("❌ Lỗi kết nối CSDL: " + e.getMessage());
@@ -78,7 +75,12 @@ public class InitDatabase {
     }
 
     public static void main(String[] args) {
-        init();
+        System.out.println("🛠️ Đang khởi tạo CSDL SQLite...");
+        boolean success = init();
+        if (success) {
+            System.out.println("🎉 Khởi tạo hoàn tất!");
+        } else {
+            System.err.println("❌ Khởi tạo thất bại.");
+        }
     }
 }
-

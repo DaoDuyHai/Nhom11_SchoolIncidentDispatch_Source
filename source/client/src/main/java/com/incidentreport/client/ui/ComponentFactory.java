@@ -10,32 +10,29 @@ import javafx.scene.shape.Circle;
 
 public class ComponentFactory {
 
-    public static Label createSeverityBadge(int severity) {
+    public static Label createDepartmentBadge(String department) {
         Label label = new Label();
         label.setPadding(new Insets(3, 8, 3, 8));
         label.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 12px;");
 
-        switch (severity) {
-            case 1:
-                label.setText("1 Rất thấp");
+        if (department == null) department = Constants.SPECIALTY_TECHNICAL;
+
+        switch (department) {
+            case Constants.SPECIALTY_TECHNICAL:
+                label.setText("KỸ THUẬT");
                 label.setStyle(label.getStyle() + "-fx-background-color: #E3F2FD; -fx-text-fill: #1565C0;");
                 break;
-            case 2:
-                label.setText("2 Thấp");
-                label.setStyle(label.getStyle() + "-fx-background-color: #E8F5E9; -fx-text-fill: #2E7D32;");
+            case Constants.SPECIALTY_MEDICAL:
+                label.setText("Y TẾ");
+                label.setStyle(label.getStyle() + "-fx-background-color: #FCE4EC; -fx-text-fill: #C2185B;");
                 break;
-            case 3:
-                label.setText("3 Trung bình");
-                label.setStyle(label.getStyle() + "-fx-background-color: #FFF8E1; -fx-text-fill: #B26A00;");
+            case Constants.SPECIALTY_SECURITY:
+                label.setText("AN NINH");
+                label.setStyle(label.getStyle() + "-fx-background-color: #FFF3E0; -fx-text-fill: #E65100;");
                 break;
-            case 4:
-                label.setText("4 Cao");
-                label.setStyle(label.getStyle() + "-fx-background-color: #FFE0B2; -fx-text-fill: #E65100;");
-                break;
-            case 5:
             default:
-                label.setText("5 Khẩn cấp");
-                label.setStyle(label.getStyle() + "-fx-background-color: #D32F2F; -fx-text-fill: #FFFFFF;");
+                label.setText(department);
+                label.setStyle(label.getStyle() + "-fx-background-color: #EDE7F6; -fx-text-fill: #512DA8;");
                 break;
         }
         return label;
@@ -49,16 +46,12 @@ public class ComponentFactory {
         if (status == null) status = Constants.STATUS_PENDING;
 
         switch (status) {
-            case Constants.STATUS_ASSIGNED:
-                label.setText("Đã giao");
-                label.setStyle(label.getStyle() + "-fx-background-color: #FFF3CD; -fx-text-fill: #856404;");
-                break;
             case Constants.STATUS_IN_PROGRESS:
                 label.setText("Đang xử lý");
-                label.setStyle(label.getStyle() + "-fx-background-color: #D1ECF1; -fx-text-fill: #0C5460;");
+                label.setStyle(label.getStyle() + "-fx-background-color: #FFF3CD; -fx-text-fill: #856404;");
                 break;
             case Constants.STATUS_RESOLVED:
-                label.setText("Đã xử lý xong");
+                label.setText("Đã hoàn tất");
                 label.setStyle(label.getStyle() + "-fx-background-color: #D4EDDA; -fx-text-fill: #155724;");
                 break;
             case Constants.STATUS_CANCELLED:
@@ -67,8 +60,8 @@ public class ComponentFactory {
                 break;
             case Constants.STATUS_PENDING:
             default:
-                label.setText("Chờ điều phối");
-                label.setStyle(label.getStyle() + "-fx-background-color: #E9ECEF; -fx-text-fill: #495057;");
+                label.setText("Chờ tiếp nhận");
+                label.setStyle(label.getStyle() + "-fx-background-color: #FFEBEE; -fx-text-fill: #C62828;");
                 break;
         }
         return label;
@@ -83,7 +76,7 @@ public class ComponentFactory {
 
         if (isConnected) {
             circle.setFill(Color.web("#2E9E5B"));
-            label.setText("Đã kết nối");
+            label.setText("Đã kết nối Server");
             label.setStyle(label.getStyle() + "-fx-text-fill: #2E9E5B;");
         } else {
             circle.setFill(Color.web("#D32F2F"));
@@ -94,4 +87,3 @@ public class ComponentFactory {
         return box;
     }
 }
-
