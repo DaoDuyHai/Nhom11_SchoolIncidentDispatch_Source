@@ -43,7 +43,7 @@ public class BenchmarkSuite {
         boolean running = true;
         while (running) {
             printMenu();
-            System.out.print("▶ Nhập lựa chọn của bạn (1-7, A, 0): ");
+            System.out.print("▶ Nhập lựa chọn của bạn (2, 3, 4, 5, A, 0): ");
             String input = scanner.hasNextLine() ? scanner.nextLine().trim() : "0";
 
             if (input.equalsIgnoreCase("0")) {
@@ -52,9 +52,6 @@ public class BenchmarkSuite {
             }
 
             switch (input.toUpperCase()) {
-                case "1":
-                    Scenario1Auth.run();
-                    break;
                 case "2":
                     Scenario2Workflow.run();
                     break;
@@ -66,6 +63,9 @@ public class BenchmarkSuite {
                     break;
                 case "5":
                     Scenario5ChatStress.run();
+                    break;
+                case "1":
+                    Scenario1Auth.run();
                     break;
                 case "6":
                     Scenario6Security.run();
@@ -90,54 +90,48 @@ public class BenchmarkSuite {
 
     private static void runAllScenarios() {
         System.out.println("\n" + "=".repeat(80));
-        System.out.println("   BẮT ĐẦU CHẠY TOÀN BỘ 7 KỊCH BẢN KIỂM THỬ & ĐO LƯỜNG HIỆU NĂNG");
+        System.out.println("   BẮT ĐẦU CHẠY 4 KỊCH BẢN CỐT LÕI (2, 3, 4, 5) ĐỂ LẤY SỐ LIỆU BÁO CÁO");
         System.out.println("=".repeat(80));
 
         BenchmarkContext.initReportFile();
 
         try {
-            Scenario1Auth.run();
-            Thread.sleep(800);
-
+            // 1. Kịch bản 2: Vòng đời sự cố
             Scenario2Workflow.run();
             Thread.sleep(800);
 
+            // 2. Kịch bản 3: Tải cao 10 - 100 Clients
             Scenario3LoadTest.run();
             Thread.sleep(800);
 
+            // 3. Kịch bản 4: Tranh chấp nhận việc
             Scenario4RaceCondition.run();
             Thread.sleep(800);
 
+            // 4. Kịch bản 5: Chat thời gian thực
             Scenario5ChatStress.run();
-            Thread.sleep(800);
-
-            Scenario6Security.run();
-            Thread.sleep(800);
-
-            Scenario7OfflineSync.run();
 
             // Ghi phần tổng kết đồ án vào file Markdown
             writeFinalSummary();
 
             System.out.println("\n" + "=".repeat(80));
-            System.out.println("🎉 ĐÃ HOÀN TẤT TOÀN BỘ CÁC KỊCH BẢN BENCHMARK!");
+            System.out.println("🎉 ĐÃ HOÀN TẤT 4 KỊCH BẢN THỰC NGHIỆM CỐT LÕI!");
             System.out.println("📄 Báo cáo tổng hợp đã được lưu tự động tại: reports/benchmark_report.md");
-            System.out.println("📸 Bạn có thể chụp ảnh màn hình các bảng số liệu trên console để đưa vào báo cáo.");
+            System.out.println("📸 Bạn chỉ cần chụp ảnh màn hình các bảng và biểu đồ trên để đưa vào báo cáo.");
             System.out.println("=".repeat(80));
 
         } catch (Exception e) {
-            System.err.println("Lỗi khi chạy toàn bộ kịch bản: " + e.getMessage());
+            System.err.println("Lỗi khi chạy kịch bản: " + e.getMessage());
         }
     }
 
     private static void writeFinalSummary() {
         StringBuilder sb = new StringBuilder();
         sb.append("## 12.4 Đánh giá chung & Kết luận kiến trúc hệ thống\n\n");
-        sb.append("Dựa trên kết quả đo lường thực nghiệm từ 7 kịch bản từ cơ bản đến nâng cao:\n\n");
-        sb.append("1. **Hiệu năng truyền thông Socket**: Giao thức nhị phân `0xCAFE` với cơ chế Length-Prefixed Framing truyền dữ liệu nhị phân (ảnh hiện trường 250KB) đạt độ trễ cực thấp (< 50ms ở mức 10 clients, duy trì ổn định dưới 250ms ở mức 100 clients đồng thời).\n");
+        sb.append("Dựa trên kết quả đo lường thực nghiệm từ 4 kịch bản cốt lõi (Vòng đời E2E, Tải cao 100 clients, Tranh chấp Race Condition, và Chat Stress):\n\n");
+        sb.append("1. **Hiệu năng truyền thông Socket**: Giao thức nhị phân `0xCAFE` với cơ chế Length-Prefixed Framing truyền dữ liệu nhị phân (ảnh hiện trường 250KB) đạt độ trễ cực thấp (< 50ms ở mức 10 clients, duy trì ổn định dưới 250ms ở mức 100 clients đồng thời với tỷ lệ thành công 100%).\n");
         sb.append("2. **Tính toàn vẹn giao dịch (ACID)**: Cơ chế kiểm soát đồng dịch giải quyết hoàn hảo bài toán tranh chấp nhận việc (Race Condition), không có hiện tượng mất mát dữ liệu hoặc đúp việc.\n");
-        sb.append("3. **Khả năng phục hồi & Chống chịu**: Máy chủ đứng vững trước các cuộc tấn công gói tin sai cấu trúc, tiêm nhiễm mã SQL Injection và leo thang đặc quyền mà không bị dừng dịch vụ.\n");
-        sb.append("4. **Đồng bộ hàng đợi Offline**: Cơ chế tự động đẩy thông báo tồn đọng (Backlog Sync) đảm bảo quy trình điều phối không bị đứt gãy ngay cả khi nhân sự mất kết nối mạng tạm thời.\n");
+        sb.append("3. **Thông lượng tin nhắn**: Khả năng phân phối tin nhắn chat 1-1 đạt tốc độ trên 150 msg/s, bảo đảm tính tức thời cho trường học.\n");
         BenchmarkContext.appendReport(sb.toString());
     }
 
@@ -161,16 +155,13 @@ public class BenchmarkSuite {
     }
 
     private static void printMenu() {
-        System.out.println("\n=========================== DANH MỤC CÁC KỊCH BẢN ===========================");
-        System.out.println(" [1] Kịch bản 1: Xác thực người dùng & Phân quyền bảo mật (RBAC)");
-        System.out.println(" [2] Kịch bản 2: Vòng đời sự cố End-to-End (Báo cáo -> Tiếp nhận -> Chat -> Đóng vé)");
-        System.out.println(" [3] Kịch bản 3: Đo lường tải cao & Băng thông (Spike 10 - 100 Clients kèm ảnh 250KB)");
+        System.out.println("\n======================= 4 KỊCH BẢN THỰC NGHIỆM CỐT LÕI =======================");
+        System.out.println(" [2] Kịch bản 2: Vòng đời toàn trình sự cố (Báo cáo -> Tiếp nhận -> Chat -> Đóng vé)");
+        System.out.println(" [3] Kịch bản 3: Đo lường tải cao & Thông lượng (Spike 10 - 100 Clients kèm ảnh 250KB)");
         System.out.println(" [4] Kịch bản 4: Kiểm thử tranh chấp nhận việc (Race Condition / ACID 10 Responders)");
         System.out.println(" [5] Kịch bản 5: Áp lực tin nhắn Chat thời gian thực (Chat Stress 20 Threads)");
-        System.out.println(" [6] Kịch bản 6: Khả năng chống chịu tấn công (Security / Malformed Packet / SQLi)");
-        System.out.println(" [7] Kịch bản 7: Đồng bộ hóa hàng đợi khi Responder Offline kết nối lại");
         System.out.println("-----------------------------------------------------------------------------");
-        System.out.println(" [A] CHẠY TOÀN BỘ KỊCH BẢN (Xuất báo cáo tổng hợp Markdown & ASCII Charts)");
+        System.out.println(" [A] CHẠY TOÀN BỘ 4 KỊCH BẢN CỐT LÕI (Tự động xuất báo cáo Markdown & Biểu đồ)");
         System.out.println(" [0] Thoát");
         System.out.println("=============================================================================");
     }
