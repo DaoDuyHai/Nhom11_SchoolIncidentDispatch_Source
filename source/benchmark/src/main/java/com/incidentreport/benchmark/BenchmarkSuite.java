@@ -76,6 +76,9 @@ public class BenchmarkSuite {
                 case "A":
                     runAllScenarios();
                     break;
+                case "S":
+                    StressLimitFinder.main(new String[]{targetHost, String.valueOf(targetPort)});
+                    break;
                 default:
                     System.out.println("⚠️ Lựa chọn không hợp lệ, vui lòng chọn lại.");
                     break;
@@ -162,6 +165,7 @@ public class BenchmarkSuite {
         System.out.println(" [5] Kịch bản 5: Áp lực tin nhắn Chat thời gian thực (Chat Stress 20 Threads)");
         System.out.println("-----------------------------------------------------------------------------");
         System.out.println(" [A] CHẠY TOÀN BỘ 4 KỊCH BẢN CỐT LÕI (Tự động xuất báo cáo Markdown & Biểu đồ)");
+        System.out.println(" [S] DÒ TÌM GIỚI HẠN CỰC HẠN (Stress Test: 150 -> 1000 Clients)");
         System.out.println(" [0] Thoát");
         System.out.println("=============================================================================");
     }
