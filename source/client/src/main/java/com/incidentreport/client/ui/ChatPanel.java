@@ -13,6 +13,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -81,8 +82,11 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
         Node leftPane = createConversationSidebar();
         Node rightPane = createChatDetailPane();
 
+        SplitPane.setResizableWithParent(leftPane, false);
+        SplitPane.setResizableWithParent(rightPane, true);
+
         splitPane.getItems().addAll(leftPane, rightPane);
-        splitPane.setDividerPositions(0.30);
+        splitPane.setDividerPositions(0.32);
 
         setCenter(splitPane);
         setDisabledState(true);
@@ -92,6 +96,9 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
         VBox sidebar = new VBox(10);
         sidebar.getStyleClass().add("chat-sidebar");
         sidebar.setPadding(new Insets(14, 12, 14, 12));
+        sidebar.setMinWidth(220);
+        sidebar.setPrefWidth(340);
+        sidebar.setMaxWidth(800);
 
         // Header
         HBox header = new HBox(8);
@@ -123,6 +130,23 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
         convListView.getStyleClass().add("conv-list");
         VBox.setVgrow(convListView, Priority.ALWAYS);
 
+        // Triệt tiêu hoàn toàn thanh cuộn ngang không cần thiết
+        convListView.skinProperty().addListener((obs, oldVal, newVal) -> {
+            Platform.runLater(() -> {
+                for (Node node : convListView.lookupAll(".scroll-bar")) {
+                    if (node instanceof ScrollBar sb && sb.getOrientation() == Orientation.HORIZONTAL) {
+                        sb.setVisible(false);
+                        sb.setManaged(false);
+                        sb.setPrefHeight(0);
+                        sb.setMaxHeight(0);
+                        sb.visibleProperty().addListener((o, wasVis, isVis) -> {
+                            if (isVis) sb.setVisible(false);
+                        });
+                    }
+                }
+            });
+        });
+
         Label emptyLabel = new Label("Không có cuộc hội thoại nào");
         emptyLabel.setStyle("-fx-text-fill: -text-400; -fx-font-style: italic; -fx-font-size: 12px;");
         convListView.setPlaceholder(emptyLabel);
@@ -135,41 +159,39 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
                     setText(null);
                     setGraphic(null);
                 } else {
-                    HBox row = new HBox(10);
+                    HBox row = new HBox(8);
                     row.setAlignment(Pos.CENTER_LEFT);
-                    row.setPadding(new Insets(10, 8, 10, 8));
+                    row.setPadding(new Insets(6, 8, 6, 8));
+                    row.maxWidthProperty().bind(convListView.widthProperty().subtract(16));
 
                     // Left Category / Department Avatar Icon
                     StackPane iconBox = createDeptIconCircle(t.getTargetDepartment());
 
                     // Center Details
-                    VBox center = new VBox(3);
+                    VBox center = new VBox(2);
+                    center.setMinWidth(0);
                     HBox.setHgrow(center, Priority.ALWAYS);
 
-                    // 1. Tên danh mục sự cố / Tiêu đề nổi bật
+                    // Dòng 1: Tiêu đề danh mục sự cố + Huy hiệu trạng thái bên phải
+                    HBox topRow = new HBox(6);
+                    topRow.setAlignment(Pos.CENTER_LEFT);
+
                     String catTitle = t.getCategoryName();
                     if (catTitle == null || catTitle.trim().isEmpty()) {
                         catTitle = (t.getTitle() != null && !t.getTitle().trim().isEmpty()) ? t.getTitle() : "Sự cố " + t.getCategoryCode();
                     }
                     Label lblCatTitle = new Label(catTitle);
-                    lblCatTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -ink-900;");
+                    lblCatTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -ink-900;");
+                    lblCatTitle.setMinWidth(0);
+                    lblCatTitle.setMaxWidth(Double.MAX_VALUE);
+                    lblCatTitle.setTextOverrun(OverrunStyle.ELLIPSIS);
+                    HBox.setHgrow(lblCatTitle, Priority.ALWAYS);
 
-                    // 2. Dòng định danh: Mã ticket + Phòng học
-                    HBox metaRow = new HBox(6);
-                    metaRow.setAlignment(Pos.CENTER_LEFT);
+                    Label statusBadge = ComponentFactory.createStatusBadge(t.getStatus());
 
-                    Label lblCode = new Label(t.getTicketCode());
-                    lblCode.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -brass-700;");
+                    topRow.getChildren().addAll(lblCatTitle, statusBadge);
 
-                    Label lblDot = new Label("·");
-                    lblDot.setStyle("-fx-text-fill: -text-400; -fx-font-weight: bold;");
-
-                    Label lblRoom = new Label("P." + (t.getRoomLocation() != null ? t.getRoomLocation() : "N/A"));
-                    lblRoom.setStyle("-fx-font-size: 11.5px; -fx-font-weight: 600; -fx-text-fill: -text-900;");
-
-                    metaRow.getChildren().addAll(lblCode, lblDot, lblRoom);
-
-                    // 3. Dòng đối tác & trạng thái
+                    // Dòng 2: Mã ticket · Phòng học · Đối tác hội thoại
                     String partnerText;
                     if (Constants.ROLE_REPORTER.equalsIgnoreCase(currentUser.getRole())) {
                         String st = t.getAssignedStaffName() != null ? t.getAssignedStaffName() : "Chờ tiếp nhận";
@@ -177,25 +199,38 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
                         partnerText = "Cán bộ: " + np.displayName;
                     } else if (Constants.ROLE_RESPONDER.equalsIgnoreCase(currentUser.getRole())) {
                         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(t.getReporterName());
-                        partnerText = "Người báo: " + np.displayName;
+                        partnerText = "Báo bởi: " + np.displayName;
                     } else {
                         ComponentFactory.NameParts repNp = ComponentFactory.parseNameAndTitle(t.getReporterName());
                         ComponentFactory.NameParts stNp = ComponentFactory.parseNameAndTitle(t.getAssignedStaffName() != null ? t.getAssignedStaffName() : "Chưa nhận");
                         partnerText = repNp.displayName + " ⇄ " + stNp.displayName;
                     }
 
-                    HBox bottomRow = new HBox(6);
-                    bottomRow.setAlignment(Pos.CENTER_LEFT);
+                    HBox subRow = new HBox(5);
+                    subRow.setAlignment(Pos.CENTER_LEFT);
+
+                    Label lblCode = new Label(t.getTicketCode());
+                    lblCode.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -brass-700;");
+
+                    Label lblDot1 = new Label("·");
+                    lblDot1.setStyle("-fx-text-fill: -text-400; -fx-font-weight: bold; -fx-font-size: 11px;");
+
+                    Label lblRoom = new Label("P." + (t.getRoomLocation() != null ? t.getRoomLocation() : "N/A"));
+                    lblRoom.setStyle("-fx-font-size: 11px; -fx-font-weight: 600; -fx-text-fill: -text-900;");
+
+                    Label lblDot2 = new Label("·");
+                    lblDot2.setStyle("-fx-text-fill: -text-400; -fx-font-weight: bold; -fx-font-size: 11px;");
 
                     Label lblPartner = new Label(partnerText);
-                    lblPartner.setStyle("-fx-font-size: 11px; -fx-text-fill: -text-600;");
+                    lblPartner.setStyle("-fx-font-size: 11px; -fx-text-fill: -text-500;");
+                    lblPartner.setMinWidth(0);
+                    lblPartner.setMaxWidth(Double.MAX_VALUE);
+                    lblPartner.setTextOverrun(OverrunStyle.ELLIPSIS);
+                    HBox.setHgrow(lblPartner, Priority.ALWAYS);
 
-                    Label statusBadge = ComponentFactory.createStatusBadge(t.getStatus());
+                    subRow.getChildren().addAll(lblCode, lblDot1, lblRoom, lblDot2, lblPartner);
 
-                    bottomRow.getChildren().addAll(lblPartner, statusBadge);
-
-                    center.getChildren().addAll(lblCatTitle, metaRow, bottomRow);
-
+                    center.getChildren().addAll(topRow, subRow);
                     row.getChildren().addAll(iconBox, center);
 
                     // Unread indicator dot
@@ -224,7 +259,7 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
 
     private StackPane createDeptIconCircle(String dept) {
         StackPane box = new StackPane();
-        Circle circle = new Circle(16);
+        Circle circle = new Circle(14);
 
         String iconLiteral = "mdi2f-flash";
         Color iconColor = Color.web("#2D5F8F");
@@ -244,15 +279,16 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
             iconColor = Color.web("#2D5F8F");
         }
 
-        Node icon = ComponentFactory.createIcon(iconLiteral, 15, iconColor);
+        Node icon = ComponentFactory.createIcon(iconLiteral, 14, iconColor);
         box.getChildren().addAll(circle, icon);
-        box.setMinSize(32, 32);
-        box.setMaxSize(32, 32);
+        box.setMinSize(28, 28);
+        box.setMaxSize(28, 28);
         return box;
     }
 
     private Node createChatDetailPane() {
         BorderPane detailPane = new BorderPane();
+        detailPane.setMinWidth(320);
 
         // 1. Top Header
         HBox topBox = new HBox(12);

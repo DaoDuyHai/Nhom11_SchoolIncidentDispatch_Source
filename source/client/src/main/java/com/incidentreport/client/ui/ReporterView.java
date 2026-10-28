@@ -57,6 +57,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private Button btnToggleSidebar;
     private VBox brandText;
     private VBox userDetailsBox;
+    private Node userAvatarNode;
+    private Button btnLogout;
     private HBox footerBox;
 
     private final ToggleGroup navGroup = new ToggleGroup();
@@ -201,29 +203,34 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         footerBox.setAlignment(Pos.CENTER_LEFT);
         footerBox.getStyleClass().add("sidebar-footer");
 
-        Node avatar = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
+        userAvatarNode = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
+        userAvatarNode.setStyle(userAvatarNode.getStyle() + "; -fx-cursor: hand;");
+        userAvatarNode.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
+
         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(currentUser.getFullName());
 
         userDetailsBox = new VBox(2);
+        userDetailsBox.setStyle("-fx-cursor: hand;");
         HBox.setHgrow(userDetailsBox, Priority.ALWAYS);
+        userDetailsBox.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
 
         Label lblName = new Label(np.displayName);
         lblName.getStyleClass().add("user-name");
-        lblName.setTooltip(new Tooltip(currentUser.getFullName()));
+        lblName.setTooltip(new Tooltip("Nhấp để xem hồ sơ: " + currentUser.getFullName()));
 
         String subRole = np.roleOrTitle != null ? np.roleOrTitle : "Người báo cáo";
         Label lblRole = new Label(subRole);
         lblRole.getStyleClass().add("user-role");
         userDetailsBox.getChildren().addAll(lblName, lblRole);
 
-        Button btnLogout = new Button();
+        btnLogout = new Button();
         btnLogout.getStyleClass().setAll("btn-icon");
         FontIcon exitIcon = ComponentFactory.createIcon("mdi2l-logout", 18, Color.web("#AFBBD6"));
         btnLogout.setGraphic(exitIcon);
         btnLogout.setTooltip(new Tooltip("Đăng xuất"));
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        footerBox.getChildren().addAll(avatar, userDetailsBox, btnLogout);
+        footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
 
         sidebarContainer.getChildren().addAll(brandBox, navNew, navList, navChat, spacer, footerBox);
         return sidebarContainer;
@@ -271,8 +278,14 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             navChat.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
             navChat.setAlignment(Pos.CENTER);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER);
-            footerBox.setPadding(new Insets(10, 4, 10, 4));
+            footerBox.setPadding(new Insets(10, 4, 12, 4));
+
+            VBox colBox = new VBox(8);
+            colBox.setAlignment(Pos.CENTER);
+            colBox.getChildren().addAll(userAvatarNode, btnLogout);
+            footerBox.getChildren().add(colBox);
         } else {
             sidebarContainer.setPrefWidth(220);
             sidebarContainer.setMinWidth(220);
@@ -309,8 +322,10 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             navChat.setContentDisplay(ContentDisplay.LEFT);
             navChat.setAlignment(Pos.CENTER_LEFT);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER_LEFT);
             footerBox.setPadding(new Insets(10, 12, 10, 12));
+            footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
         }
     }
 
@@ -683,9 +698,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setMinWidth(85);
+        colCode.setMinWidth(75);
         colCode.setPrefWidth(95);
-        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -701,9 +715,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setMinWidth(75);
+        colRoom.setMinWidth(70);
         colRoom.setPrefWidth(85);
-        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -718,7 +731,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue()));
-        colIncident.setMinWidth(180);
+        colIncident.setMinWidth(140);
         colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -730,6 +743,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                     String catName = item.getCategoryName() != null ? item.getCategoryName() : item.getCategoryCode();
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
+                    lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
                     setGraphic(lblC);
                 }
             }
@@ -738,28 +752,25 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         TableColumn<IncidentTicket, String> colDept = new TableColumn<>("PHÒNG BAN");
         colDept.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetDepartment()));
         colDept.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
-        colDept.setMinWidth(105);
+        colDept.setMinWidth(90);
         colDept.setPrefWidth(115);
-        colDept.setMaxWidth(125);
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("TRẠNG THÁI");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
         colStatus.setCellFactory(col -> new ComponentFactory.StatusBadgeCell<>());
-        colStatus.setMinWidth(150);
-        colStatus.setPrefWidth(160);
-        colStatus.setMaxWidth(180);
+        colStatus.setMinWidth(120);
+        colStatus.setPrefWidth(155);
 
         TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("CÁN BỘ XỬ LÝ");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAssignedStaffName()));
         colStaff.setCellFactory(col -> new ComponentFactory.PersonCell<>());
-        colStaff.setMinWidth(160);
-        colStaff.setPrefWidth(200);
+        colStaff.setMinWidth(120);
+        colStaff.setPrefWidth(180);
 
         TableColumn<IncidentTicket, String> colTime = new TableColumn<>("THỜI GIAN");
         colTime.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt()));
-        colTime.setMinWidth(110);
+        colTime.setMinWidth(95);
         colTime.setPrefWidth(120);
-        colTime.setMaxWidth(135);
         colTime.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -776,9 +787,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         });
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setMinWidth(125);
+        colActions.setMinWidth(100);
         colActions.setPrefWidth(130);
-        colActions.setMaxWidth(140);
         colActions.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
             private final Button btnChat = new Button();

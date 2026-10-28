@@ -52,6 +52,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
     private Button btnToggleSidebar;
     private VBox brandText;
     private VBox userDetailsBox;
+    private Node userAvatarNode;
+    private Button btnLogout;
     private HBox footerBox;
     private Label lblQText;
     private Region spQ;
@@ -199,27 +201,32 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         footerBox.setAlignment(Pos.CENTER_LEFT);
         footerBox.getStyleClass().add("sidebar-footer");
 
-        Node avatar = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), false);
+        userAvatarNode = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), false);
+        userAvatarNode.setStyle(userAvatarNode.getStyle() + "; -fx-cursor: hand;");
+        userAvatarNode.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
+
         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(currentUser.getFullName());
 
         userDetailsBox = new VBox(2);
+        userDetailsBox.setStyle("-fx-cursor: hand;");
         HBox.setHgrow(userDetailsBox, Priority.ALWAYS);
+        userDetailsBox.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
 
         Label lblName = new Label(np.displayName);
         lblName.getStyleClass().add("user-name");
-        lblName.setTooltip(new Tooltip(currentUser.getFullName()));
+        lblName.setTooltip(new Tooltip("Nhấp để xem hồ sơ: " + currentUser.getFullName()));
 
         Label deptBadge = ComponentFactory.createDepartmentBadge(currentUser.getSpecialty());
         userDetailsBox.getChildren().addAll(lblName, deptBadge);
 
-        Button btnLogout = new Button();
+        btnLogout = new Button();
         btnLogout.getStyleClass().setAll("btn-icon");
         FontIcon exitIcon = ComponentFactory.createIcon("mdi2l-logout", 18, Color.web("#AFBBD6"));
         btnLogout.setGraphic(exitIcon);
         btnLogout.setTooltip(new Tooltip("Đăng xuất"));
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        footerBox.getChildren().addAll(avatar, userDetailsBox, btnLogout);
+        footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
 
         sidebarContainer.getChildren().addAll(brandBox, navQueue, navTasks, navChat, spacer, footerBox);
         return sidebarContainer;
@@ -273,8 +280,14 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
             navChat.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
             navChat.setAlignment(Pos.CENTER);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER);
-            footerBox.setPadding(new Insets(10, 4, 10, 4));
+            footerBox.setPadding(new Insets(10, 4, 12, 4));
+
+            VBox colBox = new VBox(8);
+            colBox.setAlignment(Pos.CENTER);
+            colBox.getChildren().addAll(userAvatarNode, btnLogout);
+            footerBox.getChildren().add(colBox);
         } else {
             sidebarContainer.setPrefWidth(220);
             sidebarContainer.setMinWidth(220);
@@ -317,8 +330,10 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
             navChat.setContentDisplay(ContentDisplay.LEFT);
             navChat.setAlignment(Pos.CENTER_LEFT);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER_LEFT);
             footerBox.setPadding(new Insets(10, 12, 10, 12));
+            footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
         }
     }
 
@@ -387,9 +402,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setMinWidth(85);
+        colCode.setMinWidth(75);
         colCode.setPrefWidth(95);
-        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -405,9 +419,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setMinWidth(75);
+        colRoom.setMinWidth(70);
         colRoom.setPrefWidth(85);
-        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -422,7 +435,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-        colIncident.setMinWidth(180);
+        colIncident.setMinWidth(140);
         colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -434,6 +447,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     String catName = item.getCategoryName() != null ? item.getCategoryName() : item.getCategoryCode();
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
+                    lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
                     setGraphic(lblC);
                 }
             }
@@ -441,8 +455,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, String> colReporter = new TableColumn<>("NGƯỜI BÁO");
         colReporter.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReporterName()));
-        colReporter.setMinWidth(160);
-        colReporter.setPrefWidth(200);
+        colReporter.setMinWidth(120);
+        colReporter.setPrefWidth(180);
         colReporter.setCellFactory(col -> new ComponentFactory.PersonCell<>(ticket ->
                 (ticket.getReporterPhone() != null && !ticket.getReporterPhone().isEmpty()) ? "ĐT: " + ticket.getReporterPhone() : ""
         ));
@@ -450,9 +464,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         // Cột thời gian chờ kèm chip cảnh báo (wait-chip / wait-chip-urgent)
         TableColumn<IncidentTicket, IncidentTicket> colWait = new TableColumn<>("CHỜ");
         colWait.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-        colWait.setMinWidth(85);
+        colWait.setMinWidth(80);
         colWait.setPrefWidth(95);
-        colWait.setMaxWidth(115);
         colWait.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(IncidentTicket item, boolean empty) {
@@ -480,9 +493,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         });
 
         TableColumn<IncidentTicket, Void> colClaim = new TableColumn<>("THAO TÁC");
-        colClaim.setMinWidth(90);
+        colClaim.setMinWidth(80);
         colClaim.setPrefWidth(95);
-        colClaim.setMaxWidth(105);
         colClaim.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
             private final Button btn = new Button();
@@ -587,9 +599,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setMinWidth(85);
+        colCode.setMinWidth(75);
         colCode.setPrefWidth(95);
-        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -605,9 +616,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setMinWidth(75);
+        colRoom.setMinWidth(70);
         colRoom.setPrefWidth(85);
-        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -622,7 +632,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-        colIncident.setMinWidth(180);
+        colIncident.setMinWidth(140);
         colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -634,6 +644,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     String catName = item.getCategoryName() != null ? item.getCategoryName() : item.getCategoryCode();
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
+                    lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
                     setGraphic(lblC);
                 }
             }
@@ -642,22 +653,20 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("TRẠNG THÁI");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
         colStatus.setCellFactory(col -> new ComponentFactory.StatusBadgeCell<>());
-        colStatus.setMinWidth(150);
-        colStatus.setPrefWidth(160);
-        colStatus.setMaxWidth(180);
+        colStatus.setMinWidth(120);
+        colStatus.setPrefWidth(155);
 
         TableColumn<IncidentTicket, String> colReporter = new TableColumn<>("NGƯỜI BÁO");
         colReporter.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReporterName()));
-        colReporter.setMinWidth(160);
-        colReporter.setPrefWidth(200);
+        colReporter.setMinWidth(120);
+        colReporter.setPrefWidth(180);
         colReporter.setCellFactory(col -> new ComponentFactory.PersonCell<>(ticket ->
                 (ticket.getReporterPhone() != null && !ticket.getReporterPhone().isEmpty()) ? "ĐT: " + ticket.getReporterPhone() : ""
         ));
 
         TableColumn<IncidentTicket, Void> colChatAction = new TableColumn<>("TRAO ĐỔI");
-        colChatAction.setMinWidth(90);
+        colChatAction.setMinWidth(80);
         colChatAction.setPrefWidth(95);
-        colChatAction.setMaxWidth(105);
         colChatAction.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
             private final Button btnChat = new Button();
@@ -700,9 +709,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         });
 
         TableColumn<IncidentTicket, Void> colResolve = new TableColumn<>("XỬ LÝ XONG");
-        colResolve.setMinWidth(95);
+        colResolve.setMinWidth(85);
         colResolve.setPrefWidth(105);
-        colResolve.setMaxWidth(125);
         colResolve.setCellFactory(col -> new TableCell<>() {
             private final Button btnDone = new Button();
             private final Label doneChip = new Label("Đã xong");

@@ -1,6 +1,8 @@
 package com.incidentreport.client.ui;
 
+import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.common.Constants;
+import com.incidentreport.common.model.User;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
@@ -8,17 +10,23 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.stage.Window;
 import javafx.util.Duration;
 import org.kordamp.ikonli.javafx.FontIcon;
 
@@ -392,5 +400,145 @@ public class ComponentFactory {
                 setAlignment(Pos.CENTER_LEFT);
             }
         }
+    }
+
+    // =========================================================================
+    // HỘP THOẠI HỒ SƠ TÀI KHOẢN (USER PROFILE DIALOG)
+    // =========================================================================
+
+    public static void showUserProfileDialog(Window owner, User user) {
+        if (user == null) return;
+
+        Dialog<Void> dialog = new Dialog<>();
+        if (owner != null) dialog.initOwner(owner);
+        dialog.setTitle("Thông tin tài khoản");
+        applyTheme(dialog.getDialogPane());
+
+        // Bổ sung CANCEL_CLOSE ButtonType để JavaFX cho phép đóng hộp thoại
+        ButtonType closeButtonType = new ButtonType("Đóng", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().add(closeButtonType);
+
+        // Ẩn thanh nút mặc định của JavaFX DialogPane để sử dụng thanh nút tùy biến đẹp mắt
+        Node defaultCloseBtn = dialog.getDialogPane().lookupButton(closeButtonType);
+        if (defaultCloseBtn != null) {
+            defaultCloseBtn.setVisible(false);
+            defaultCloseBtn.setManaged(false);
+        }
+
+        VBox content = new VBox(16);
+        content.setPadding(new Insets(20, 24, 20, 24));
+        content.setPrefWidth(460);
+        content.setMinWidth(460);
+
+        // Header: Avatar lớn nền vàng đồng mềm mại + Tên chữ mực xanh sẫm + Role Badge
+        HBox header = new HBox(16);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane bigAvatar = new StackPane();
+        bigAvatar.setPrefSize(52, 52);
+        bigAvatar.setMinSize(52, 52);
+        bigAvatar.setMaxSize(52, 52);
+        // Nền vàng kem đồng #F7EECD, viền vàng kim #CBA447, chữ vàng đồng đậm #8F6208 -> hoàn toàn khác màu tên chữ mực sẫm #14264A
+        bigAvatar.setStyle("-fx-background-color: #F7EECD; -fx-background-radius: 999; -fx-border-color: -brass-500; -fx-border-width: 2; -fx-border-radius: 999;");
+        Label avText = new Label(extractInitials(user.getFullName()));
+        avText.setStyle("-fx-text-fill: #8F6208; -fx-font-weight: bold; -fx-font-size: 17px;");
+        bigAvatar.getChildren().add(avText);
+
+        VBox titleBox = new VBox(4);
+        Label lblName = new Label(user.getFullName());
+        lblName.setStyle("-fx-font-family: 'Lora', 'Georgia', serif; -fx-font-size: 16.5px; -fx-font-weight: bold; -fx-text-fill: -ink-900;");
+
+        HBox badgesRow = new HBox(6);
+        badgesRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label roleBadge = new Label(user.getRole() != null ? user.getRole().toUpperCase() : "USER");
+        roleBadge.setStyle("-fx-background-color: -brass-100; -fx-text-fill: -brass-700; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
+        badgesRow.getChildren().add(roleBadge);
+
+        if (user.getSpecialty() != null && !Constants.SPECIALTY_NONE.equalsIgnoreCase(user.getSpecialty()) && !"ALL".equalsIgnoreCase(user.getSpecialty())) {
+            Label deptBadge = createDepartmentBadge(user.getSpecialty());
+            badgesRow.getChildren().add(deptBadge);
+        }
+
+        titleBox.getChildren().addAll(lblName, badgesRow);
+        header.getChildren().addAll(bigAvatar, titleBox);
+
+        Region div1 = new Region();
+        div1.getStyleClass().add("divider");
+
+        // Chi tiết thông tin
+        VBox infoBox = new VBox(11);
+        infoBox.setStyle("-fx-background-color: white; -fx-padding: 16 18; -fx-background-radius: 8; -fx-border-color: -paper-300; -fx-border-radius: 8;");
+
+        HBox onlineRow = new HBox(8);
+        onlineRow.setAlignment(Pos.CENTER_LEFT);
+        FontIcon iconOnline = createIcon("mdi2c-check-circle", 15, Color.web("#2F6F55"));
+        Label lblKeyOnline = new Label("Trạng thái:");
+        lblKeyOnline.setStyle("-fx-text-fill: -text-600; -fx-font-size: 12px; -fx-min-width: 105;");
+        Label lblValOnline = new Label("Đang trực tuyến (Online)");
+        lblValOnline.setStyle("-fx-text-fill: -st-resolved; -fx-font-size: 12px; -fx-font-weight: 600;");
+        onlineRow.getChildren().addAll(iconOnline, lblKeyOnline, lblValOnline);
+
+        infoBox.getChildren().addAll(
+                createProfileInfoRow("Tên đăng nhập:", "@" + user.getUsername(), "mdi2a-account-group"),
+                createProfileInfoRow("Họ và tên:", user.getFullName(), "mdi2c-clipboard-text-outline"),
+                createProfileInfoRow("Số điện thoại:", (user.getPhone() != null && !user.getPhone().isEmpty()) ? user.getPhone() : "Chưa cập nhật", "mdi2p-phone"),
+                createProfileInfoRow("Vai trò:", getRoleDisplayName(user.getRole()), "mdi2s-shield-search"),
+                createProfileInfoRow("Phòng ban trực:", (user.getSpecialty() != null ? user.getSpecialty() : "Không"), "mdi2w-wrench"),
+                onlineRow
+        );
+
+        // Nút bấm: Đóng & Đăng xuất
+        HBox btnRow = new HBox(12);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        Button btnLogout = new Button("Đăng xuất");
+        btnLogout.getStyleClass().addAll("btn-secondary", "btn-sm");
+        btnLogout.setGraphic(createIcon("mdi2l-logout", 14, Color.web("#A8402F")));
+        btnLogout.setStyle("-fx-text-fill: -st-pending;");
+        btnLogout.setOnAction(e -> {
+            dialog.setResult(null);
+            dialog.close();
+            IncidentReportApp.logout();
+        });
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button btnClose = new Button("Đóng");
+        btnClose.getStyleClass().addAll("btn-primary", "btn-sm");
+        btnClose.setOnAction(e -> {
+            dialog.setResult(null);
+            dialog.close();
+        });
+
+        btnRow.getChildren().addAll(btnLogout, spacer, btnClose);
+
+        content.getChildren().addAll(header, div1, infoBox, btnRow);
+        dialog.getDialogPane().setContent(content);
+        dialog.showAndWait();
+    }
+
+    private static HBox createProfileInfoRow(String label, String value, String iconLiteral) {
+        HBox row = new HBox(8);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        FontIcon icon = createIcon(iconLiteral, 15, Color.web("#8A6218"));
+
+        Label lblKey = new Label(label);
+        lblKey.setStyle("-fx-text-fill: -text-600; -fx-font-size: 12px; -fx-min-width: 105;");
+
+        Label lblVal = new Label(value != null ? value : "-");
+        lblVal.setStyle("-fx-text-fill: -text-900; -fx-font-size: 12px; -fx-font-weight: 600;");
+
+        row.getChildren().addAll(icon, lblKey, lblVal);
+        return row;
+    }
+
+    public static String getRoleDisplayName(String role) {
+        if (Constants.ROLE_ADMIN.equalsIgnoreCase(role)) return "Ban Giám hiệu (Quản trị viên)";
+        if (Constants.ROLE_RESPONDER.equalsIgnoreCase(role)) return "Cán bộ chuyên môn phụ trách";
+        if (Constants.ROLE_REPORTER.equalsIgnoreCase(role)) return "Giáo viên / Học sinh (Người báo)";
+        return role != null ? role : "Người dùng";
     }
 }

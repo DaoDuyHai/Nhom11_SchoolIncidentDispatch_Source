@@ -55,6 +55,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
     private Button btnToggleSidebar;
     private VBox brandText;
     private VBox userDetailsBox;
+    private Node userAvatarNode;
+    private Button btnLogout;
     private HBox footerBox;
 
     private final ToggleGroup navGroup = new ToggleGroup();
@@ -216,29 +218,34 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         footerBox.setAlignment(Pos.CENTER_LEFT);
         footerBox.getStyleClass().add("sidebar-footer");
 
-        Node avatar = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
+        userAvatarNode = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
+        userAvatarNode.setStyle(userAvatarNode.getStyle() + "; -fx-cursor: hand;");
+        userAvatarNode.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
+
         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(currentUser.getFullName());
 
         userDetailsBox = new VBox(2);
+        userDetailsBox.setStyle("-fx-cursor: hand;");
         HBox.setHgrow(userDetailsBox, Priority.ALWAYS);
+        userDetailsBox.setOnMouseClicked(e -> ComponentFactory.showUserProfileDialog(getScene().getWindow(), currentUser));
 
         Label lblName = new Label(np.displayName);
         lblName.getStyleClass().add("user-name");
-        lblName.setTooltip(new Tooltip(currentUser.getFullName()));
+        lblName.setTooltip(new Tooltip("Nhấp để xem hồ sơ: " + currentUser.getFullName()));
 
         String subRole = np.roleOrTitle != null ? np.roleOrTitle + " · ADMIN" : "ADMIN";
         Label badgeAdmin = new Label(subRole);
         badgeAdmin.setStyle("-fx-background-color: -brass-100; -fx-text-fill: -brass-700; -fx-padding: 1 6; -fx-background-radius: 4; -fx-font-size: 10px; -fx-font-weight: bold;");
         userDetailsBox.getChildren().addAll(lblName, badgeAdmin);
 
-        Button btnLogout = new Button();
+        btnLogout = new Button();
         btnLogout.getStyleClass().setAll("btn-icon");
         FontIcon exitIcon = ComponentFactory.createIcon("mdi2l-logout", 18, Color.web("#AFBBD6"));
         btnLogout.setGraphic(exitIcon);
         btnLogout.setTooltip(new Tooltip("Đăng xuất"));
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        footerBox.getChildren().addAll(avatar, userDetailsBox, btnLogout);
+        footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
 
         sidebarContainer.getChildren().addAll(brandBox, navStats, navOversight, navUsers, navChatAudit, spacer, footerBox);
         return sidebarContainer;
@@ -289,8 +296,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
             navChatAudit.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
             navChatAudit.setAlignment(Pos.CENTER);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER);
-            footerBox.setPadding(new Insets(10, 4, 10, 4));
+            footerBox.setPadding(new Insets(10, 4, 12, 4));
+
+            VBox colBox = new VBox(8);
+            colBox.setAlignment(Pos.CENTER);
+            colBox.getChildren().addAll(userAvatarNode, btnLogout);
+            footerBox.getChildren().add(colBox);
         } else {
             sidebarContainer.setPrefWidth(220);
             sidebarContainer.setMinWidth(220);
@@ -330,8 +343,10 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
             navChatAudit.setContentDisplay(ContentDisplay.LEFT);
             navChatAudit.setAlignment(Pos.CENTER_LEFT);
 
+            footerBox.getChildren().clear();
             footerBox.setAlignment(Pos.CENTER_LEFT);
             footerBox.setPadding(new Insets(10, 12, 10, 12));
+            footerBox.getChildren().addAll(userAvatarNode, userDetailsBox, btnLogout);
         }
     }
 
@@ -633,9 +648,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setMinWidth(85);
+        colCode.setMinWidth(75);
         colCode.setPrefWidth(95);
-        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -650,9 +664,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setMinWidth(75);
+        colRoom.setMinWidth(70);
         colRoom.setPrefWidth(85);
-        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -667,7 +680,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-        colIncident.setMinWidth(180);
+        colIncident.setMinWidth(140);
         colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -679,6 +692,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     String catName = item.getCategoryName() != null ? item.getCategoryName() : item.getCategoryCode();
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
+                    lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
                     setGraphic(lblC);
                 }
             }
@@ -687,33 +701,30 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         TableColumn<IncidentTicket, String> colDept = new TableColumn<>("PHÒNG BAN");
         colDept.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetDepartment()));
         colDept.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
-        colDept.setMinWidth(105);
+        colDept.setMinWidth(90);
         colDept.setPrefWidth(115);
-        colDept.setMaxWidth(125);
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("TRẠNG THÁI");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
         colStatus.setCellFactory(col -> new ComponentFactory.StatusBadgeCell<>());
-        colStatus.setMinWidth(150);
-        colStatus.setPrefWidth(160);
-        colStatus.setMaxWidth(180);
+        colStatus.setMinWidth(120);
+        colStatus.setPrefWidth(155);
 
         TableColumn<IncidentTicket, String> colReporter = new TableColumn<>("NGƯỜI BÁO");
         colReporter.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReporterName()));
-        colReporter.setMinWidth(160);
-        colReporter.setPrefWidth(200);
+        colReporter.setMinWidth(120);
+        colReporter.setPrefWidth(180);
         colReporter.setCellFactory(col -> new ComponentFactory.PersonCell<>());
 
         TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("CÁN BỘ XỬ LÝ");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAssignedStaffName()));
-        colStaff.setMinWidth(160);
-        colStaff.setPrefWidth(200);
+        colStaff.setMinWidth(120);
+        colStaff.setPrefWidth(180);
         colStaff.setCellFactory(col -> new ComponentFactory.PersonCell<>());
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setMinWidth(125);
+        colActions.setMinWidth(100);
         colActions.setPrefWidth(130);
-        colActions.setMaxWidth(140);
         colActions.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
             private final Button btnAssign = new Button();
@@ -1072,15 +1083,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colUser = new TableColumn<>("NGƯỜI DÙNG");
         colUser.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
-        colUser.setMinWidth(180);
+        colUser.setMinWidth(140);
         colUser.setPrefWidth(220);
         colUser.setCellFactory(col -> new ComponentFactory.PersonCell<>(user -> "@" + user.getUsername()));
 
         TableColumn<User, String> colRole = new TableColumn<>("VAI TRÒ");
         colRole.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRole()));
-        colRole.setMinWidth(100);
+        colRole.setMinWidth(90);
         colRole.setPrefWidth(120);
-        colRole.setMaxWidth(130);
         colRole.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String role, boolean empty) {
@@ -1104,22 +1114,19 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colSpec = new TableColumn<>("PHÒNG BAN");
         colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
-        colSpec.setMinWidth(105);
+        colSpec.setMinWidth(90);
         colSpec.setPrefWidth(115);
-        colSpec.setMaxWidth(130);
         colSpec.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
 
         TableColumn<User, String> colPhone = new TableColumn<>("SỐ ĐT");
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : "-"));
-        colPhone.setMinWidth(110);
+        colPhone.setMinWidth(95);
         colPhone.setPrefWidth(120);
-        colPhone.setMaxWidth(140);
 
         TableColumn<User, Integer> colOnline = new TableColumn<>("TRẠNG THÁI");
         colOnline.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getIsOnline()));
-        colOnline.setMinWidth(110);
+        colOnline.setMinWidth(95);
         colOnline.setPrefWidth(120);
-        colOnline.setMaxWidth(130);
         colOnline.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(Integer online, boolean empty) {
