@@ -156,7 +156,7 @@
 }
 
 /* ---------- 6. BADGES ---------- */
-.badge { -fx-padding: 3 10; -fx-background-radius: 999; -fx-font-size: 11.5px; -fx-font-weight: bold; -fx-graphic-text-gap: 6; }
+.badge { -fx-padding: 2.5 8; -fx-background-radius: 999; -fx-font-size: 11px; -fx-font-weight: 600; -fx-graphic-text-gap: 5; }
 .badge-pending   { -fx-background-color: -st-pending-bg;   -fx-text-fill: -st-pending; }
 .badge-progress  { -fx-background-color: -st-progress-bg;  -fx-text-fill: -st-progress; }
 .badge-resolved  { -fx-background-color: -st-resolved-bg;  -fx-text-fill: -st-resolved; }
@@ -170,16 +170,17 @@
 .wait-chip        { -fx-padding: 2 8; -fx-background-radius: 999; -fx-background-color: -st-cancelled-bg; -fx-text-fill: -st-cancelled; -fx-font-size: 11.5px; -fx-font-weight: bold; }
 .wait-chip-urgent { -fx-background-color: -st-pending-bg; -fx-text-fill: -st-pending; }
 
-.avatar { -fx-background-color: -ink-100; -fx-background-radius: 999; -fx-text-fill: -ink-900; -fx-font-size: 11px; -fx-font-weight: bold; -fx-alignment: center; -fx-min-width: 30; -fx-min-height: 30; -fx-max-width: 30; -fx-max-height: 30; }
+.avatar { -fx-background-color: -ink-100; -fx-background-radius: 999; -fx-text-fill: -ink-900; -fx-font-size: 11px; -fx-font-weight: bold; -fx-alignment: center; -fx-min-width: 26; -fx-min-height: 26; -fx-max-width: 26; -fx-max-height: 26; }
 .avatar-brass { -fx-background-color: transparent; -fx-border-color: -brass-500; -fx-border-width: 1.5; -fx-border-radius: 999; -fx-text-fill: white; }
 
 /* ---------- 7. SIDEBAR & SHELL ---------- */
-.sidebar { -fx-background-color: -ink-900; -fx-pref-width: 255; -fx-min-width: 255; -fx-max-width: 255; }
-.sidebar .brand-title { -fx-font-family: "Lora", "Georgia", serif; -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white; }
+.sidebar { -fx-background-color: -ink-900; -fx-pref-width: 220; -fx-min-width: 64; -fx-max-width: 260; }
+.sidebar-collapsed { -fx-pref-width: 64; -fx-min-width: 64; -fx-max-width: 64; }
+.sidebar .brand-title { -fx-font-family: "Lora", "Georgia", serif; -fx-font-size: 19px; -fx-font-weight: bold; -fx-text-fill: white; }
 .sidebar .brand-sub   { -fx-font-size: 11px; -fx-text-fill: #AFBBD6; }
-.sidebar .user-name   { -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12.5px; }
-.sidebar .user-role   { -fx-text-fill: #AFBBD6; -fx-font-size: 11.5px; }
-.sidebar-footer { -fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent; -fx-padding: 12 14; }
+.sidebar .user-name   { -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px; }
+.sidebar .user-role   { -fx-text-fill: #AFBBD6; -fx-font-size: 11px; }
+.sidebar-footer { -fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent; -fx-padding: 10 12; }
 
 .nav-item {
     -fx-background-color: transparent;

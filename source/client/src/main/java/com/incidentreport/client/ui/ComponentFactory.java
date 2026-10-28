@@ -14,6 +14,7 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -125,12 +126,13 @@ public class ComponentFactory {
     public static Label createStatusBadge(String status) {
         Label badge = new Label();
         badge.getStyleClass().add("badge");
+        badge.setMinWidth(Region.USE_PREF_SIZE);
 
         if (status == null) status = Constants.STATUS_PENDING;
 
         Circle dot = new Circle(3.5);
         badge.setGraphic(dot);
-        badge.setGraphicTextGap(6);
+        badge.setGraphicTextGap(5);
 
         switch (status) {
             case Constants.STATUS_IN_PROGRESS:
@@ -213,6 +215,26 @@ public class ComponentFactory {
             char last = parts[parts.length - 1].charAt(0);
             return ("" + first + last).toUpperCase();
         }
+    }
+
+    /**
+     * Định dạng thời gian ngắn gọn (14:50 · 28/10) để vừa vặn trong bảng, không bị tràn dòng hay cắt chữ.
+     * Chi tiết thời gian đầy đủ được hiển thị trong Tooltip khi rê chuột.
+     */
+    public static String formatShortTime(String isoTime) {
+        if (isoTime == null || isoTime.trim().isEmpty()) return "N/A";
+        String trimmed = isoTime.trim();
+        try {
+            if (trimmed.length() >= 16) {
+                String datePart = trimmed.substring(0, 10);
+                String timePart = trimmed.substring(11, 16);
+                String[] dp = datePart.split("-");
+                if (dp.length == 3) {
+                    return timePart + " · " + dp[2] + "/" + dp[1];
+                }
+            }
+        } catch (Exception ignored) {}
+        return trimmed;
     }
 
     public static HBox createConnectionIndicator(boolean isConnected) {
@@ -347,10 +369,10 @@ public class ComponentFactory {
                 NameParts np = parseNameAndTitle(fullName);
                 Node avatar = createInitialsAvatar(fullName, false);
 
-                VBox textBox = new VBox(2);
                 Label lblName = new Label(np.displayName);
-                lblName.setStyle("-fx-font-weight: bold; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
-                textBox.getChildren().add(lblName);
+                lblName.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
+
+                box.getChildren().addAll(avatar, lblName);
 
                 String sub = null;
                 if (subTextExtractor != null && getTableRow() != null && getTableRow().getItem() != null) {
@@ -359,15 +381,12 @@ public class ComponentFactory {
                 if (sub == null || sub.trim().isEmpty()) {
                     sub = np.roleOrTitle;
                 }
-                if (sub != null && !sub.trim().isEmpty()) {
-                    Label lblSub = new Label(sub);
-                    lblSub.getStyleClass().add("muted");
-                    lblSub.setStyle("-fx-font-size: 11px; -fx-text-fill: -text-600;");
-                    textBox.getChildren().add(lblSub);
-                }
 
-                box.getChildren().addAll(avatar, textBox);
-                setTooltip(new Tooltip(fullName + (sub != null && !sub.equals(np.roleOrTitle) ? " · " + sub : "")));
+                String tooltipText = fullName;
+                if (sub != null && !sub.trim().isEmpty() && !fullName.contains(sub)) {
+                    tooltipText += " · " + sub;
+                }
+                setTooltip(new Tooltip(tooltipText));
                 setGraphic(box);
                 setText(null);
                 setAlignment(Pos.CENTER_LEFT);

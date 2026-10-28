@@ -49,7 +49,16 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private final User currentUser;
     private final Gson gson = new Gson();
 
-    // Khung điều hướng Sidebar
+    // Khung điều hướng Sidebar & collapsible state
+    private boolean isSidebarCollapsed = false;
+    private VBox sidebarContainer;
+    private HBox brandBox;
+    private StackPane brandCircle;
+    private Button btnToggleSidebar;
+    private VBox brandText;
+    private VBox userDetailsBox;
+    private HBox footerBox;
+
     private final ToggleGroup navGroup = new ToggleGroup();
     private final ToggleButton navNew = new ToggleButton("Báo sự cố mới");
     private final ToggleButton navList = new ToggleButton("Sự cố của tôi");
@@ -134,57 +143,69 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     }
 
     private VBox createSidebar() {
-        VBox sidebar = new VBox(8);
-        sidebar.getStyleClass().add("sidebar");
-        sidebar.setPadding(new Insets(16, 0, 0, 0));
+        sidebarContainer = new VBox(8);
+        sidebarContainer.getStyleClass().add("sidebar");
+        sidebarContainer.setPadding(new Insets(16, 0, 0, 0));
 
-        // Brand
-        HBox brand = new HBox(10);
-        brand.setAlignment(Pos.CENTER_LEFT);
-        brand.setPadding(new Insets(0, 16, 16, 16));
+        // Brand Area
+        brandBox = new HBox(8);
+        brandBox.setAlignment(Pos.CENTER_LEFT);
+        brandBox.setPadding(new Insets(0, 12, 16, 12));
 
-        StackPane brandCircle = new StackPane();
+        brandCircle = new StackPane();
         brandCircle.setPrefSize(34, 34);
-        brandCircle.setStyle("-fx-border-color: -brass-500; -fx-border-width: 1.5; -fx-border-radius: 999;");
+        brandCircle.setMinSize(34, 34);
+        brandCircle.setMaxSize(34, 34);
+        brandCircle.setStyle("-fx-border-color: -brass-500; -fx-border-width: 1.5; -fx-border-radius: 999; -fx-cursor: hand;");
         FontIcon schoolIcon = ComponentFactory.createIcon("mdi2s-school", 18, Color.web("#E3BE6A"));
         brandCircle.getChildren().add(schoolIcon);
+        brandCircle.setOnMouseClicked(e -> toggleSidebar());
 
-        VBox brandText = new VBox(1);
+        brandText = new VBox(1);
         Label lblTitle = new Label("SIDS");
         lblTitle.getStyleClass().add("brand-title");
         Label lblSub = new Label("Sổ trực sự cố");
         lblSub.getStyleClass().add("brand-sub");
         brandText.getChildren().addAll(lblTitle, lblSub);
+        HBox.setHgrow(brandText, Priority.ALWAYS);
 
-        brand.getChildren().addAll(brandCircle, brandText);
+        btnToggleSidebar = new Button();
+        btnToggleSidebar.getStyleClass().setAll("btn-icon");
+        btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu-open", 18, Color.web("#AFBBD6")));
+        btnToggleSidebar.setTooltip(new Tooltip("Thu gọn menu (kéo thụt vào)"));
+        btnToggleSidebar.setOnAction(e -> toggleSidebar());
+
+        brandBox.getChildren().addAll(brandCircle, brandText, btnToggleSidebar);
 
         // Nav items
         navNew.getStyleClass().add("nav-item");
         navNew.setToggleGroup(navGroup);
         navNew.setGraphic(ComponentFactory.createIcon("mdi2f-file-plus", 16, Color.web("#C9D3E8")));
+        navNew.setTooltip(new Tooltip("Báo sự cố mới"));
 
         navList.getStyleClass().add("nav-item");
         navList.setToggleGroup(navGroup);
         navList.setGraphic(ComponentFactory.createIcon("mdi2f-format-list-bulleted", 16, Color.web("#C9D3E8")));
+        navList.setTooltip(new Tooltip("Sự cố của tôi"));
 
         navChat.getStyleClass().add("nav-item");
         navChat.setToggleGroup(navGroup);
         navChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text", 16, Color.web("#C9D3E8")));
+        navChat.setTooltip(new Tooltip("Trao đổi 1-1"));
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         // Footer User Bar
-        HBox footer = new HBox(8);
-        footer.setAlignment(Pos.CENTER_LEFT);
-        footer.getStyleClass().add("sidebar-footer");
+        footerBox = new HBox(8);
+        footerBox.setAlignment(Pos.CENTER_LEFT);
+        footerBox.getStyleClass().add("sidebar-footer");
 
         Node avatar = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
-
         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(currentUser.getFullName());
 
-        VBox userDetails = new VBox(2);
-        HBox.setHgrow(userDetails, Priority.ALWAYS);
+        userDetailsBox = new VBox(2);
+        HBox.setHgrow(userDetailsBox, Priority.ALWAYS);
 
         Label lblName = new Label(np.displayName);
         lblName.getStyleClass().add("user-name");
@@ -193,7 +214,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         String subRole = np.roleOrTitle != null ? np.roleOrTitle : "Người báo cáo";
         Label lblRole = new Label(subRole);
         lblRole.getStyleClass().add("user-role");
-        userDetails.getChildren().addAll(lblName, lblRole);
+        userDetailsBox.getChildren().addAll(lblName, lblRole);
 
         Button btnLogout = new Button();
         btnLogout.getStyleClass().setAll("btn-icon");
@@ -202,10 +223,95 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         btnLogout.setTooltip(new Tooltip("Đăng xuất"));
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        footer.getChildren().addAll(avatar, userDetails, btnLogout);
+        footerBox.getChildren().addAll(avatar, userDetailsBox, btnLogout);
 
-        sidebar.getChildren().addAll(brand, navNew, navList, navChat, spacer, footer);
-        return sidebar;
+        sidebarContainer.getChildren().addAll(brandBox, navNew, navList, navChat, spacer, footerBox);
+        return sidebarContainer;
+    }
+
+    private void toggleSidebar() {
+        isSidebarCollapsed = !isSidebarCollapsed;
+        applySidebarState();
+    }
+
+    private void applySidebarState() {
+        if (isSidebarCollapsed) {
+            sidebarContainer.setPrefWidth(64);
+            sidebarContainer.setMinWidth(64);
+            sidebarContainer.setMaxWidth(64);
+            sidebarContainer.getStyleClass().add("sidebar-collapsed");
+
+            // Khi thu gọn: Ẩn circle và text, hiển thị DUY NHẤT nút Hamburger Menu 38x38px căn giữa
+            brandCircle.setVisible(false);
+            brandCircle.setManaged(false);
+            brandText.setVisible(false);
+            brandText.setManaged(false);
+
+            btnToggleSidebar.setVisible(true);
+            btnToggleSidebar.setManaged(true);
+            btnToggleSidebar.setPrefSize(38, 38);
+            btnToggleSidebar.setMinSize(38, 38);
+            btnToggleSidebar.setMaxSize(38, 38);
+            btnToggleSidebar.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-background-radius: 6;");
+            btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu", 22, Color.web("#E3BE6A")));
+            btnToggleSidebar.setTooltip(new Tooltip("Mở rộng menu (kéo ra)"));
+
+            brandBox.setAlignment(Pos.CENTER);
+            brandBox.setPadding(new Insets(0, 0, 16, 0));
+
+            userDetailsBox.setVisible(false);
+            userDetailsBox.setManaged(false);
+
+            navNew.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navNew.setAlignment(Pos.CENTER);
+
+            navList.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navList.setAlignment(Pos.CENTER);
+
+            navChat.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navChat.setAlignment(Pos.CENTER);
+
+            footerBox.setAlignment(Pos.CENTER);
+            footerBox.setPadding(new Insets(10, 4, 10, 4));
+        } else {
+            sidebarContainer.setPrefWidth(220);
+            sidebarContainer.setMinWidth(220);
+            sidebarContainer.setMaxWidth(260);
+            sidebarContainer.getStyleClass().remove("sidebar-collapsed");
+
+            // Khi mở rộng: Hiển thị đầy đủ Logo + Chữ + Nút thu gọn
+            brandCircle.setVisible(true);
+            brandCircle.setManaged(true);
+            brandText.setVisible(true);
+            brandText.setManaged(true);
+
+            btnToggleSidebar.setVisible(true);
+            btnToggleSidebar.setManaged(true);
+            btnToggleSidebar.setPrefSize(28, 28);
+            btnToggleSidebar.setMinSize(28, 28);
+            btnToggleSidebar.setMaxSize(28, 28);
+            btnToggleSidebar.setStyle("-fx-background-color: transparent;");
+            btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu-open", 18, Color.web("#AFBBD6")));
+            btnToggleSidebar.setTooltip(new Tooltip("Thu gọn menu (kéo thụt vào)"));
+
+            brandBox.setAlignment(Pos.CENTER_LEFT);
+            brandBox.setPadding(new Insets(0, 12, 16, 12));
+
+            userDetailsBox.setVisible(true);
+            userDetailsBox.setManaged(true);
+
+            navNew.setContentDisplay(ContentDisplay.LEFT);
+            navNew.setAlignment(Pos.CENTER_LEFT);
+
+            navList.setContentDisplay(ContentDisplay.LEFT);
+            navList.setAlignment(Pos.CENTER_LEFT);
+
+            navChat.setContentDisplay(ContentDisplay.LEFT);
+            navChat.setAlignment(Pos.CENTER_LEFT);
+
+            footerBox.setAlignment(Pos.CENTER_LEFT);
+            footerBox.setPadding(new Insets(10, 12, 10, 12));
+        }
     }
 
     private HBox createTopbar() {
@@ -573,9 +679,13 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         toolBar.getChildren().addAll(segGroupContainer, sp, btnRefresh);
 
         // Bảng dữ liệu gộp cột
+        ticketTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setPrefWidth(130);
+        colCode.setMinWidth(85);
+        colCode.setPrefWidth(95);
+        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -591,7 +701,9 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setPrefWidth(95);
+        colRoom.setMinWidth(75);
+        colRoom.setPrefWidth(85);
+        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -606,7 +718,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue()));
-        colIncident.setPrefWidth(170);
+        colIncident.setMinWidth(180);
+        colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(IncidentTicket item, boolean empty) {
@@ -625,21 +738,28 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         TableColumn<IncidentTicket, String> colDept = new TableColumn<>("PHÒNG BAN");
         colDept.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetDepartment()));
         colDept.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
-        colDept.setPrefWidth(110);
+        colDept.setMinWidth(105);
+        colDept.setPrefWidth(115);
+        colDept.setMaxWidth(125);
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("TRẠNG THÁI");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
         colStatus.setCellFactory(col -> new ComponentFactory.StatusBadgeCell<>());
-        colStatus.setPrefWidth(130);
+        colStatus.setMinWidth(150);
+        colStatus.setPrefWidth(160);
+        colStatus.setMaxWidth(180);
 
         TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("CÁN BỘ XỬ LÝ");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAssignedStaffName()));
         colStaff.setCellFactory(col -> new ComponentFactory.PersonCell<>());
-        colStaff.setPrefWidth(190);
+        colStaff.setMinWidth(160);
+        colStaff.setPrefWidth(200);
 
         TableColumn<IncidentTicket, String> colTime = new TableColumn<>("THỜI GIAN");
         colTime.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt()));
-        colTime.setPrefWidth(155);
+        colTime.setMinWidth(110);
+        colTime.setPrefWidth(120);
+        colTime.setMaxWidth(135);
         colTime.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -648,17 +768,20 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                     setText(null);
                     setTooltip(null);
                 } else {
-                    setText(item);
+                    setText(ComponentFactory.formatShortTime(item));
+                    setStyle("-fx-font-size: 12px; -fx-text-fill: -text-600;");
                     setTooltip(new Tooltip("Thời gian tạo: " + item));
                 }
             }
         });
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setPrefWidth(150);
+        colActions.setMinWidth(125);
+        colActions.setPrefWidth(130);
+        colActions.setMaxWidth(140);
         colActions.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
-            private final Button btnChat = new Button("Chat");
+            private final Button btnChat = new Button();
             private final Button btnCancel = new Button();
             private final HBox btnBox = new HBox(6, btnDetail, btnChat, btnCancel);
 
@@ -671,8 +794,9 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                     if (t != null) openDetailDialog(t);
                 });
 
-                btnChat.getStyleClass().addAll("btn-secondary", "btn-sm");
-                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 14, Color.web("#14264A")));
+                btnChat.getStyleClass().setAll("btn-icon");
+                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 16, Color.web("#14264A")));
+                btnChat.setTooltip(new Tooltip("Nhắn tin trao đổi 1-1"));
 
                 btnCancel.getStyleClass().setAll("btn-icon");
                 btnCancel.setGraphic(ComponentFactory.createIcon("mdi2c-close-circle-outline", 16, Color.web("#A8402F")));
@@ -694,6 +818,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                         confirmCancelTicket(t);
                     }
                 });
+
+                btnBox.setAlignment(Pos.CENTER_LEFT);
             }
 
             @Override
@@ -702,11 +828,15 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                 if (empty) {
                     setGraphic(null);
                 } else {
+                    btnBox.getChildren().clear();
+                    btnBox.getChildren().addAll(btnDetail, btnChat);
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     boolean canCancel = (t != null && Constants.STATUS_PENDING.equalsIgnoreCase(t.getStatus()));
-                    btnCancel.setVisible(canCancel);
-                    btnCancel.setManaged(canCancel);
+                    if (canCancel) {
+                        btnBox.getChildren().add(btnCancel);
+                    }
                     setGraphic(btnBox);
+                    setAlignment(Pos.CENTER_LEFT);
                 }
             }
         });

@@ -306,7 +306,7 @@ public class IncidentDetailDialog extends Dialog<Void> {
                         if (onResolve != null) {
                             Button btnResolve = new Button("Báo cáo hoàn tất");
                             btnResolve.getStyleClass().addAll("btn-success", "btn-sm");
-                            btnResolve.setGraphic(ComponentFactory.createIcon("mdi2c-check-bold", 15, Color.WHITE));
+                            btnResolve.setGraphic(ComponentFactory.createIcon("mdi2c-check-circle", 15, Color.WHITE));
                             btnResolve.setOnAction(e -> {
                                 close();
                                 onResolve.accept(ticket);

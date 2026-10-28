@@ -47,7 +47,16 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
     private final User currentUser;
     private final Gson gson = new Gson();
 
-    // Sidebar navigation
+    // Sidebar navigation & collapsible state
+    private boolean isSidebarCollapsed = false;
+    private VBox sidebarContainer;
+    private HBox brandBox;
+    private StackPane brandCircle;
+    private Button btnToggleSidebar;
+    private VBox brandText;
+    private VBox userDetailsBox;
+    private HBox footerBox;
+
     private final ToggleGroup navGroup = new ToggleGroup();
     private final ToggleButton navStats = new ToggleButton("Thống kê");
     private final ToggleButton navOversight = new ToggleButton("Giám sát & phân công");
@@ -144,61 +153,74 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
     }
 
     private VBox createSidebar() {
-        VBox sidebar = new VBox(8);
-        sidebar.getStyleClass().add("sidebar");
-        sidebar.setPadding(new Insets(16, 0, 0, 0));
+        sidebarContainer = new VBox(8);
+        sidebarContainer.getStyleClass().add("sidebar");
+        sidebarContainer.setPadding(new Insets(16, 0, 0, 0));
 
-        // Brand
-        HBox brand = new HBox(10);
-        brand.setAlignment(Pos.CENTER_LEFT);
-        brand.setPadding(new Insets(0, 16, 16, 16));
+        // Brand Area
+        brandBox = new HBox(8);
+        brandBox.setAlignment(Pos.CENTER_LEFT);
+        brandBox.setPadding(new Insets(0, 12, 16, 12));
 
-        StackPane brandCircle = new StackPane();
+        brandCircle = new StackPane();
         brandCircle.setPrefSize(34, 34);
-        brandCircle.setStyle("-fx-border-color: -brass-500; -fx-border-width: 1.5; -fx-border-radius: 999;");
+        brandCircle.setMinSize(34, 34);
+        brandCircle.setMaxSize(34, 34);
+        brandCircle.setStyle("-fx-border-color: -brass-500; -fx-border-width: 1.5; -fx-border-radius: 999; -fx-cursor: hand;");
         FontIcon schoolIcon = ComponentFactory.createIcon("mdi2s-school", 18, Color.web("#E3BE6A"));
         brandCircle.getChildren().add(schoolIcon);
+        brandCircle.setOnMouseClicked(e -> toggleSidebar());
 
-        VBox brandText = new VBox(1);
+        brandText = new VBox(1);
         Label lblTitle = new Label("SIDS");
         lblTitle.getStyleClass().add("brand-title");
         Label lblSub = new Label("Sổ trực sự cố");
         lblSub.getStyleClass().add("brand-sub");
         brandText.getChildren().addAll(lblTitle, lblSub);
+        HBox.setHgrow(brandText, Priority.ALWAYS);
 
-        brand.getChildren().addAll(brandCircle, brandText);
+        btnToggleSidebar = new Button();
+        btnToggleSidebar.getStyleClass().setAll("btn-icon");
+        btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu-open", 18, Color.web("#AFBBD6")));
+        btnToggleSidebar.setTooltip(new Tooltip("Thu gọn menu (kéo thụt vào)"));
+        btnToggleSidebar.setOnAction(e -> toggleSidebar());
+
+        brandBox.getChildren().addAll(brandCircle, brandText, btnToggleSidebar);
 
         // Nav Items
         navStats.getStyleClass().add("nav-item");
         navStats.setToggleGroup(navGroup);
         navStats.setGraphic(ComponentFactory.createIcon("mdi2c-chart-box", 16, Color.web("#C9D3E8")));
+        navStats.setTooltip(new Tooltip("Thống kê sự cố"));
 
         navOversight.getStyleClass().add("nav-item");
         navOversight.setToggleGroup(navGroup);
         navOversight.setGraphic(ComponentFactory.createIcon("mdi2c-clipboard-text-search", 16, Color.web("#C9D3E8")));
+        navOversight.setTooltip(new Tooltip("Giám sát & phân công"));
 
         navUsers.getStyleClass().add("nav-item");
         navUsers.setToggleGroup(navGroup);
         navUsers.setGraphic(ComponentFactory.createIcon("mdi2a-account-group", 16, Color.web("#C9D3E8")));
+        navUsers.setTooltip(new Tooltip("Quản lý tài khoản"));
 
         navChatAudit.getStyleClass().add("nav-item");
         navChatAudit.setToggleGroup(navGroup);
         navChatAudit.setGraphic(ComponentFactory.createIcon("mdi2m-message-text", 16, Color.web("#C9D3E8")));
+        navChatAudit.setTooltip(new Tooltip("Kiểm toán hội thoại 1-1"));
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         // Footer User Bar
-        HBox footer = new HBox(8);
-        footer.setAlignment(Pos.CENTER_LEFT);
-        footer.getStyleClass().add("sidebar-footer");
+        footerBox = new HBox(8);
+        footerBox.setAlignment(Pos.CENTER_LEFT);
+        footerBox.getStyleClass().add("sidebar-footer");
 
         Node avatar = ComponentFactory.createInitialsAvatar(currentUser.getFullName(), true);
-
         ComponentFactory.NameParts np = ComponentFactory.parseNameAndTitle(currentUser.getFullName());
 
-        VBox userDetails = new VBox(2);
-        HBox.setHgrow(userDetails, Priority.ALWAYS);
+        userDetailsBox = new VBox(2);
+        HBox.setHgrow(userDetailsBox, Priority.ALWAYS);
 
         Label lblName = new Label(np.displayName);
         lblName.getStyleClass().add("user-name");
@@ -207,7 +229,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         String subRole = np.roleOrTitle != null ? np.roleOrTitle + " · ADMIN" : "ADMIN";
         Label badgeAdmin = new Label(subRole);
         badgeAdmin.setStyle("-fx-background-color: -brass-100; -fx-text-fill: -brass-700; -fx-padding: 1 6; -fx-background-radius: 4; -fx-font-size: 10px; -fx-font-weight: bold;");
-        userDetails.getChildren().addAll(lblName, badgeAdmin);
+        userDetailsBox.getChildren().addAll(lblName, badgeAdmin);
 
         Button btnLogout = new Button();
         btnLogout.getStyleClass().setAll("btn-icon");
@@ -216,10 +238,101 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         btnLogout.setTooltip(new Tooltip("Đăng xuất"));
         btnLogout.setOnAction(e -> IncidentReportApp.logout());
 
-        footer.getChildren().addAll(avatar, userDetails, btnLogout);
+        footerBox.getChildren().addAll(avatar, userDetailsBox, btnLogout);
 
-        sidebar.getChildren().addAll(brand, navStats, navOversight, navUsers, navChatAudit, spacer, footer);
-        return sidebar;
+        sidebarContainer.getChildren().addAll(brandBox, navStats, navOversight, navUsers, navChatAudit, spacer, footerBox);
+        return sidebarContainer;
+    }
+
+    private void toggleSidebar() {
+        isSidebarCollapsed = !isSidebarCollapsed;
+        applySidebarState();
+    }
+
+    private void applySidebarState() {
+        if (isSidebarCollapsed) {
+            sidebarContainer.setPrefWidth(64);
+            sidebarContainer.setMinWidth(64);
+            sidebarContainer.setMaxWidth(64);
+            sidebarContainer.getStyleClass().add("sidebar-collapsed");
+
+            // Khi thu gọn: Ẩn circle và text, hiển thị DUY NHẤT nút Hamburger Menu 38x38px căn giữa
+            brandCircle.setVisible(false);
+            brandCircle.setManaged(false);
+            brandText.setVisible(false);
+            brandText.setManaged(false);
+
+            btnToggleSidebar.setVisible(true);
+            btnToggleSidebar.setManaged(true);
+            btnToggleSidebar.setPrefSize(38, 38);
+            btnToggleSidebar.setMinSize(38, 38);
+            btnToggleSidebar.setMaxSize(38, 38);
+            btnToggleSidebar.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-background-radius: 6;");
+            btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu", 22, Color.web("#E3BE6A")));
+            btnToggleSidebar.setTooltip(new Tooltip("Mở rộng menu (kéo ra)"));
+
+            brandBox.setAlignment(Pos.CENTER);
+            brandBox.setPadding(new Insets(0, 0, 16, 0));
+
+            userDetailsBox.setVisible(false);
+            userDetailsBox.setManaged(false);
+
+            navStats.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navStats.setAlignment(Pos.CENTER);
+
+            navOversight.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navOversight.setAlignment(Pos.CENTER);
+
+            navUsers.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navUsers.setAlignment(Pos.CENTER);
+
+            navChatAudit.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            navChatAudit.setAlignment(Pos.CENTER);
+
+            footerBox.setAlignment(Pos.CENTER);
+            footerBox.setPadding(new Insets(10, 4, 10, 4));
+        } else {
+            sidebarContainer.setPrefWidth(220);
+            sidebarContainer.setMinWidth(220);
+            sidebarContainer.setMaxWidth(260);
+            sidebarContainer.getStyleClass().remove("sidebar-collapsed");
+
+            // Khi mở rộng: Hiển thị đầy đủ Logo + Chữ + Nút thu gọn
+            brandCircle.setVisible(true);
+            brandCircle.setManaged(true);
+            brandText.setVisible(true);
+            brandText.setManaged(true);
+
+            btnToggleSidebar.setVisible(true);
+            btnToggleSidebar.setManaged(true);
+            btnToggleSidebar.setPrefSize(28, 28);
+            btnToggleSidebar.setMinSize(28, 28);
+            btnToggleSidebar.setMaxSize(28, 28);
+            btnToggleSidebar.setStyle("-fx-background-color: transparent;");
+            btnToggleSidebar.setGraphic(ComponentFactory.createIcon("mdi2m-menu-open", 18, Color.web("#AFBBD6")));
+            btnToggleSidebar.setTooltip(new Tooltip("Thu gọn menu (kéo thụt vào)"));
+
+            brandBox.setAlignment(Pos.CENTER_LEFT);
+            brandBox.setPadding(new Insets(0, 12, 16, 12));
+
+            userDetailsBox.setVisible(true);
+            userDetailsBox.setManaged(true);
+
+            navStats.setContentDisplay(ContentDisplay.LEFT);
+            navStats.setAlignment(Pos.CENTER_LEFT);
+
+            navOversight.setContentDisplay(ContentDisplay.LEFT);
+            navOversight.setAlignment(Pos.CENTER_LEFT);
+
+            navUsers.setContentDisplay(ContentDisplay.LEFT);
+            navUsers.setAlignment(Pos.CENTER_LEFT);
+
+            navChatAudit.setContentDisplay(ContentDisplay.LEFT);
+            navChatAudit.setAlignment(Pos.CENTER_LEFT);
+
+            footerBox.setAlignment(Pos.CENTER_LEFT);
+            footerBox.setPadding(new Insets(10, 12, 10, 12));
+        }
     }
 
     private HBox createTopbar() {
@@ -516,9 +629,13 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         filterCard.getChildren().addAll(txtSearchTicket, cbStatusFilter, cbDeptFilter, sp, lblFilterCount, btnRefresh);
 
         // Columns
+        allTicketsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
         TableColumn<IncidentTicket, String> colCode = new TableColumn<>("MÃ");
         colCode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTicketCode()));
-        colCode.setPrefWidth(105);
+        colCode.setMinWidth(85);
+        colCode.setPrefWidth(95);
+        colCode.setMaxWidth(110);
         colCode.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -533,7 +650,9 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<IncidentTicket, String> colRoom = new TableColumn<>("PHÒNG");
         colRoom.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRoomLocation()));
-        colRoom.setPrefWidth(95);
+        colRoom.setMinWidth(75);
+        colRoom.setPrefWidth(85);
+        colRoom.setMaxWidth(100);
         colRoom.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -548,7 +667,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<IncidentTicket, IncidentTicket> colIncident = new TableColumn<>("SỰ CỐ");
         colIncident.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-        colIncident.setPrefWidth(170);
+        colIncident.setMinWidth(180);
+        colIncident.setPrefWidth(240);
         colIncident.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(IncidentTicket item, boolean empty) {
@@ -567,28 +687,36 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         TableColumn<IncidentTicket, String> colDept = new TableColumn<>("PHÒNG BAN");
         colDept.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetDepartment()));
         colDept.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
-        colDept.setPrefWidth(110);
+        colDept.setMinWidth(105);
+        colDept.setPrefWidth(115);
+        colDept.setMaxWidth(125);
 
         TableColumn<IncidentTicket, String> colStatus = new TableColumn<>("TRẠNG THÁI");
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStatus()));
         colStatus.setCellFactory(col -> new ComponentFactory.StatusBadgeCell<>());
-        colStatus.setPrefWidth(130);
+        colStatus.setMinWidth(150);
+        colStatus.setPrefWidth(160);
+        colStatus.setMaxWidth(180);
 
         TableColumn<IncidentTicket, String> colReporter = new TableColumn<>("NGƯỜI BÁO");
         colReporter.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReporterName()));
-        colReporter.setPrefWidth(190);
+        colReporter.setMinWidth(160);
+        colReporter.setPrefWidth(200);
         colReporter.setCellFactory(col -> new ComponentFactory.PersonCell<>());
 
         TableColumn<IncidentTicket, String> colStaff = new TableColumn<>("CÁN BỘ XỬ LÝ");
         colStaff.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAssignedStaffName()));
-        colStaff.setPrefWidth(190);
+        colStaff.setMinWidth(160);
+        colStaff.setPrefWidth(200);
         colStaff.setCellFactory(col -> new ComponentFactory.PersonCell<>());
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setPrefWidth(150);
+        colActions.setMinWidth(125);
+        colActions.setPrefWidth(130);
+        colActions.setMaxWidth(140);
         colActions.setCellFactory(col -> new TableCell<>() {
             private final Button btnDetail = new Button();
-            private final Button btnAssign = new Button("Chỉ định");
+            private final Button btnAssign = new Button();
             private final Button btnChat = new Button();
             private final HBox btnBox = new HBox(6, btnDetail, btnAssign, btnChat);
 
@@ -601,7 +729,9 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     if (t != null) openDetailDialog(t);
                 });
 
-                btnAssign.getStyleClass().addAll("btn-brass", "btn-sm");
+                btnAssign.getStyleClass().setAll("btn-icon");
+                btnAssign.setGraphic(ComponentFactory.createIcon("mdi2a-account-arrow-right", 16, Color.web("#8F6208")));
+                btnAssign.setTooltip(new Tooltip("Chỉ định cán bộ xử lý"));
                 btnAssign.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openManualAssignDialog(t);
@@ -619,6 +749,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                         switchTab(3, "Kiểm toán hội thoại 1-1", "Chế độ kiểm toán: theo dõi đầy đủ nội dung trao đổi giữa hai bên.");
                     }
                 });
+
+                btnBox.setAlignment(Pos.CENTER_LEFT);
             }
 
             @Override
@@ -627,19 +759,40 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 if (empty) {
                     setGraphic(null);
                 } else {
+                    btnBox.getChildren().clear();
+                    btnBox.getChildren().add(btnDetail);
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     boolean canAssign = (t != null && !Constants.STATUS_RESOLVED.equalsIgnoreCase(t.getStatus())
                             && !Constants.STATUS_CANCELLED.equalsIgnoreCase(t.getStatus()));
-                    btnAssign.setVisible(canAssign);
-                    btnAssign.setManaged(canAssign);
+                    if (canAssign) {
+                        btnBox.getChildren().add(btnAssign);
+                    }
+                    btnBox.getChildren().add(btnChat);
                     setGraphic(btnBox);
+                    setAlignment(Pos.CENTER_LEFT);
                 }
             }
         });
 
         allTicketsTable.getColumns().addAll(colCode, colRoom, colIncident, colDept, colStatus, colReporter, colStaff, colActions);
         allTicketsTable.setRowFactory(tv -> {
-            TableRow<IncidentTicket> row = new TableRow<>();
+            TableRow<IncidentTicket> row = new TableRow<>() {
+                @Override
+                protected void updateItem(IncidentTicket item, boolean empty) {
+                    super.updateItem(item, empty);
+                    getStyleClass().removeAll("row-tech", "row-medical", "row-security");
+                    if (item != null && !empty) {
+                        String dept = item.getTargetDepartment();
+                        if (Constants.SPECIALTY_TECHNICAL.equalsIgnoreCase(dept)) {
+                            getStyleClass().add("row-tech");
+                        } else if (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)) {
+                            getStyleClass().add("row-medical");
+                        } else if (Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)) {
+                            getStyleClass().add("row-security");
+                        }
+                    }
+                }
+            };
             row.setOnMouseClicked(event -> {
                 if (event.getClickCount() == 2 && !row.isEmpty()) {
                     openDetailDialog(row.getItem());
@@ -649,25 +802,6 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         });
         allTicketsTable.setItems(filteredTickets);
         VBox.setVgrow(allTicketsTable, Priority.ALWAYS);
-
-        // Row factory
-        allTicketsTable.setRowFactory(tv -> new TableRow<>() {
-            @Override
-            protected void updateItem(IncidentTicket item, boolean empty) {
-                super.updateItem(item, empty);
-                getStyleClass().removeAll("row-tech", "row-medical", "row-security");
-                if (item != null && !empty) {
-                    String dept = item.getTargetDepartment();
-                    if (Constants.SPECIALTY_TECHNICAL.equalsIgnoreCase(dept)) {
-                        getStyleClass().add("row-tech");
-                    } else if (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)) {
-                        getStyleClass().add("row-medical");
-                    } else if (Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)) {
-                        getStyleClass().add("row-security");
-                    }
-                }
-            }
-        });
 
         layout.getChildren().addAll(filterCard, allTicketsTable);
         return layout;
@@ -934,14 +1068,19 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         tableTop.getChildren().addAll(lblUsersTitle, sp, btnRefreshUsers);
 
         // Columns
+        userTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
         TableColumn<User, String> colUser = new TableColumn<>("NGƯỜI DÙNG");
         colUser.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
+        colUser.setMinWidth(180);
         colUser.setPrefWidth(220);
         colUser.setCellFactory(col -> new ComponentFactory.PersonCell<>(user -> "@" + user.getUsername()));
 
         TableColumn<User, String> colRole = new TableColumn<>("VAI TRÒ");
         colRole.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRole()));
+        colRole.setMinWidth(100);
         colRole.setPrefWidth(120);
+        colRole.setMaxWidth(130);
         colRole.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String role, boolean empty) {
@@ -954,7 +1093,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     if (Constants.ROLE_ADMIN.equalsIgnoreCase(role)) {
                         b.setStyle("-fx-background-color: -brass-100; -fx-text-fill: -brass-700;");
                     } else if (Constants.ROLE_REPORTER.equalsIgnoreCase(role)) {
-                        b.setStyle("-fx-background-color: -ink-100; -fx-text-fill: -ink-900;");
+                        b.setStyle("-fx-background-color: -ink-100; -ink-900;");
                     } else {
                         b.setStyle("-fx-background-color: -dept-tech-bg; -fx-text-fill: -dept-tech;");
                     }
@@ -965,16 +1104,22 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colSpec = new TableColumn<>("PHÒNG BAN");
         colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
-        colSpec.setPrefWidth(110);
+        colSpec.setMinWidth(105);
+        colSpec.setPrefWidth(115);
+        colSpec.setMaxWidth(130);
         colSpec.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
 
         TableColumn<User, String> colPhone = new TableColumn<>("SỐ ĐT");
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : "-"));
+        colPhone.setMinWidth(110);
         colPhone.setPrefWidth(120);
+        colPhone.setMaxWidth(140);
 
         TableColumn<User, Integer> colOnline = new TableColumn<>("TRẠNG THÁI");
         colOnline.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getIsOnline()));
+        colOnline.setMinWidth(110);
         colOnline.setPrefWidth(120);
+        colOnline.setMaxWidth(130);
         colOnline.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(Integer online, boolean empty) {

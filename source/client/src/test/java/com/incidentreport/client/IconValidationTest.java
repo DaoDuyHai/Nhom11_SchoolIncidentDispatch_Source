@@ -41,7 +41,6 @@ public class IconValidationTest {
                 "mdi2c-clipboard-text-outline",
                 "mdi2i-inbox-arrow-down",
                 "mdi2i-inbox-outline",
-                "mdi2c-check-bold",
                 "mdi2w-wrench-outline",
                 "mdi2w-water",
                 "mdi2f-flash",
@@ -53,7 +52,11 @@ public class IconValidationTest {
                 "mdi2h-help-circle-outline",
                 "mdi2p-phone",
                 "mdi2c-clock-outline",
-                "mdi2a-account-arrow-right"
+                "mdi2a-account-arrow-right",
+                "mdi2m-menu",
+                "mdi2m-menu-open",
+                "mdi2c-chevron-left",
+                "mdi2c-chevron-right"
         );
 
         for (String iconLiteral : icons) {
