@@ -21,7 +21,7 @@ import java.util.Properties;
  */
 public class BenchmarkContext {
 
-    private static String targetHost = "26.51.180.99";
+    private static String targetHost = "26.239.191.202";
     private static int targetPort = 5000;
     private static final String REPORT_FILE = "reports/benchmark_report.md";
     private static boolean initialized = false;
@@ -71,7 +71,7 @@ public class BenchmarkContext {
             try (FileInputStream fis = new FileInputStream(configFile)) {
                 Properties props = new Properties();
                 props.load(fis);
-                targetHost = props.getProperty("server.host", "26.51.180.99").trim();
+                targetHost = props.getProperty("server.host", "26.239.191.202").trim();
                 targetPort = Integer.parseInt(props.getProperty("server.port", "5000").trim());
                 System.out.printf("⚙️ [NetBeans Run] Đã nạp cấu hình từ %s -> Target Server: %s:%d\n",
                         configFile.getPath(), targetHost, targetPort);
