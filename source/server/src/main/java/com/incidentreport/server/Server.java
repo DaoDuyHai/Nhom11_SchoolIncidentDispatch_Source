@@ -2,6 +2,7 @@ package com.incidentreport.server;
 
 import com.incidentreport.common.Constants;
 import com.incidentreport.service.CategoryDAO;
+import com.incidentreport.service.DatabaseConnection;
 import com.incidentreport.service.InitDatabase;
 import com.incidentreport.service.UserDAO;
 
@@ -65,6 +66,16 @@ public class Server {
 
         // 2. Đảm bảo CSDL và bảng biểu sẵn sàng (giữ nguyên dữ liệu)
         try {
+            if (DatabaseConnection.getCustomDbUrl() == null) {
+                String dbProp = props.getProperty("database.url");
+                if (dbProp != null && !dbProp.trim().isEmpty()) {
+                    File dbF = InitDatabase.findFile(dbProp);
+                    DatabaseConnection.setCustomDbUrl("jdbc:sqlite:" + dbF.getAbsolutePath());
+                }
+            }
+            System.out.println("🗄️ CSDL đang sử dụng: " + (DatabaseConnection.getCustomDbUrl() != null
+                    ? DatabaseConnection.getCustomDbUrl()
+                    : DatabaseConnection.getDatabaseFile().getAbsolutePath()));
             InitDatabase.initDatabase();
         } catch (Exception e) {
             System.err.println("⚠️ Kiểm tra CSDL: " + e.getMessage());
