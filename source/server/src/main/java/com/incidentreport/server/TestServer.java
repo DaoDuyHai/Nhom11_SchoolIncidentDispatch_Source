@@ -17,6 +17,11 @@ import java.io.File;
 public class TestServer {
 
     public static void main(String[] args) {
+        try {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err), true, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+
         System.out.println("============================================================================");
         System.out.println("   🛡️ SIDS TEST SERVER - MÁY CHỦ KIỂM THỬ & ĐO LƯỜNG HIỆU NĂNG             ");
         System.out.println("   Kiến trúc: Cô lập hoàn toàn cơ sở dữ liệu kiểm thử                      ");
@@ -35,3 +40,4 @@ public class TestServer {
         Server.main(args);
     }
 }
+

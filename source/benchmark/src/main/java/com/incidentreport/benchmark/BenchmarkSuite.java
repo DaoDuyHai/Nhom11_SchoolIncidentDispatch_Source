@@ -35,7 +35,7 @@ public class BenchmarkSuite {
             System.err.println("   ▶ Bạn có muốn tiếp tục vào Menu để thử lại không? (Y/N): ");
         }
 
-        Scanner scanner = new Scanner(System.in);
+        Scanner scanner = new Scanner(System.in, java.nio.charset.StandardCharsets.UTF_8);
 
         // Khởi tạo file báo cáo Markdown
         BenchmarkContext.initReportFile();
@@ -43,7 +43,7 @@ public class BenchmarkSuite {
         boolean running = true;
         while (running) {
             printMenu();
-            System.out.print("👉 Nhập lựa chọn của bạn (1-7, A, 0): ");
+            System.out.print("▶ Nhập lựa chọn của bạn (1-7, A, 0): ");
             String input = scanner.hasNextLine() ? scanner.nextLine().trim() : "0";
 
             if (input.equalsIgnoreCase("0")) {

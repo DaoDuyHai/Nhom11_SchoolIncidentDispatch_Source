@@ -1,8 +1,11 @@
 package com.incidentreport.benchmark;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -23,6 +26,17 @@ public class BenchmarkContext {
     private static final String REPORT_FILE = "reports/benchmark_report.md";
     private static boolean initialized = false;
 
+    static {
+        initEncoding();
+    }
+
+    public static void initEncoding() {
+        try {
+            System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+    }
+
     public static File findFile(String relativePath) {
         File f = new File(relativePath);
         if (f.exists()) return f;
@@ -34,6 +48,7 @@ public class BenchmarkContext {
     }
 
     public static synchronized void initTarget(String[] args) {
+        initEncoding();
         if (initialized && (args == null || args.length == 0)) {
             return;
         }

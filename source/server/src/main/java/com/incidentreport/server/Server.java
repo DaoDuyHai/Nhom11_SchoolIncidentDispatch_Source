@@ -28,6 +28,11 @@ public class Server {
     private static ServerSocket serverSocket;
 
     public static void main(String[] args) {
+        try {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err), true, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+
         System.out.println("============================================================================");
         System.out.println("   HỆ THỐNG ĐIỀU PHỐI SỰ CỐ TRƯỜNG THPT - CENTRAL DISPATCH & ADMIN SERVER  ");
         System.out.println("   Kiến trúc: TCP Socket chuẩn Senior - Clean Architecture                  ");
