@@ -21,6 +21,11 @@ import java.util.Map;
  */
 public class Scenario6Security {
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         System.out.println("\n" + "=".repeat(80));
         System.out.println("   KỊCH BẢN 6: KIỂM ĐỊNH AN TOÀN BẢO MẬT & KHẢ NĂNG CHỐNG CHỊU TẤN CÔNG");
@@ -137,3 +142,4 @@ public class Scenario6Security {
         BenchmarkContext.appendReport(md.toString());
     }
 }
+

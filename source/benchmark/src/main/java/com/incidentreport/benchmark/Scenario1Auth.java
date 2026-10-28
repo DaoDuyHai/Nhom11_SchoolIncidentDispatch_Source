@@ -17,6 +17,11 @@ import java.util.Map;
  */
 public class Scenario1Auth {
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         System.out.println("\n" + "=".repeat(80));
         System.out.println("   KỊCH BẢN 1: XÁC THỰC NGƯỜI DÙNG & PHÂN QUYỀN HỆ THỐNG (RBAC)");
@@ -171,3 +176,4 @@ public class Scenario1Auth {
         BenchmarkContext.appendReport(md.toString());
     }
 }
+

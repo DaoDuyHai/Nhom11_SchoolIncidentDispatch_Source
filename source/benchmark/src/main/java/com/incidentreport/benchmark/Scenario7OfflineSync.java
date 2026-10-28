@@ -17,6 +17,11 @@ import java.util.Map;
  */
 public class Scenario7OfflineSync {
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         System.out.println("\n" + "=".repeat(80));
         System.out.println("   KỊCH BẢN 7: ĐỒNG BỘ HÓA SỰ CỐ TỒN ĐỌNG KHI RESPONDER KẾT NỐI LẠI");
@@ -122,3 +127,4 @@ public class Scenario7OfflineSync {
         BenchmarkContext.appendReport(md.toString());
     }
 }
+

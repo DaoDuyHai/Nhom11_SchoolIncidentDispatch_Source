@@ -23,6 +23,11 @@ public class Scenario3LoadTest {
         Arrays.fill(ATTACHMENT_250KB, (byte) 0xEE);
     }
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static class LoadResult {
         public int clientCount;
         public int totalRequests;
@@ -259,3 +264,4 @@ public class Scenario3LoadTest {
         BenchmarkContext.appendReport(md.toString());
     }
 }
+

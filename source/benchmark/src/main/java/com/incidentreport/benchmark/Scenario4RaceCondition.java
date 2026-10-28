@@ -29,6 +29,11 @@ public class Scenario4RaceCondition {
             "kt_hai", "kt_kien", "kt_thang", "kt_viet", "kt_huy"
     };
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         int responderCount = 10;
         System.out.println("\n" + "=".repeat(80));
@@ -146,3 +151,4 @@ public class Scenario4RaceCondition {
         }
     }
 }
+

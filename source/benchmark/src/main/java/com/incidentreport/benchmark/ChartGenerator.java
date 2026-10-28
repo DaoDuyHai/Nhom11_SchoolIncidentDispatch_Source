@@ -121,3 +121,4 @@ public class ChartGenerator {
         return sb.toString();
     }
 }
+

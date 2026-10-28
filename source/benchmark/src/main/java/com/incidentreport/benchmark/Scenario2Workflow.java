@@ -27,6 +27,11 @@ public class Scenario2Workflow {
         Arrays.fill(SAMPLE_IMAGE_250KB, (byte) 0xCC);
     }
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         System.out.println("\n" + "=".repeat(80));
         System.out.println("   KỊCH BẢN 2: VÒNG ĐỜI TOÀN TRÌNH SỰ CỐ (END-TO-END WORKFLOW)");
@@ -164,3 +169,4 @@ public class Scenario2Workflow {
         BenchmarkContext.appendReport(md.toString());
     }
 }
+

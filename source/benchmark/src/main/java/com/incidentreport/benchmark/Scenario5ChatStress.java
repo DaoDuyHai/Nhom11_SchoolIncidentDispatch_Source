@@ -27,6 +27,11 @@ public class Scenario5ChatStress {
 
     private static final Gson gson = new Gson();
 
+    public static void main(String[] args) {
+        BenchmarkContext.initTarget(args);
+        run();
+    }
+
     public static void run() {
         int clientCount = 20;
         int msgsPerClient = 15;
@@ -140,3 +145,4 @@ public class Scenario5ChatStress {
         }
     }
 }
+

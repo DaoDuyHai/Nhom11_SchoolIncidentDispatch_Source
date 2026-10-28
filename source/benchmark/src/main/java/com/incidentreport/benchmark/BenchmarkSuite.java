@@ -19,19 +19,9 @@ import java.util.Scanner;
 public class BenchmarkSuite {
 
     public static void main(String[] args) {
-        String targetHost = Constants.DEFAULT_SERVER_HOST;
-        int targetPort = Constants.TCP_PORT;
-
-        if (args.length >= 1 && !args[0].trim().isEmpty()) {
-            targetHost = args[0].trim();
-        }
-        if (args.length >= 2 && !args[1].trim().isEmpty()) {
-            try {
-                targetPort = Integer.parseInt(args[1].trim());
-            } catch (Exception ignored) {}
-        }
-
-        BenchmarkContext.setTarget(targetHost, targetPort);
+        BenchmarkContext.initTarget(args);
+        String targetHost = BenchmarkContext.getTargetHost();
+        int targetPort = BenchmarkContext.getTargetPort();
 
         printBanner(targetHost, targetPort);
 
@@ -185,3 +175,4 @@ public class BenchmarkSuite {
         System.out.println("=============================================================================");
     }
 }
+
