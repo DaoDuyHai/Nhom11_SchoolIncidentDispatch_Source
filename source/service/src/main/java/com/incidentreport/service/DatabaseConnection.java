@@ -10,6 +10,16 @@ import java.sql.SQLException;
  */
 public class DatabaseConnection {
 
+    private static String customDbUrl = null;
+
+    public static void setCustomDbUrl(String url) {
+        customDbUrl = url;
+    }
+
+    public static String getCustomDbUrl() {
+        return customDbUrl;
+    }
+
     public static File getDatabaseFile() {
         File dbFile = new File("database/incident_report.db");
         if (dbFile.exists()) return dbFile;
@@ -21,11 +31,35 @@ public class DatabaseConnection {
     }
 
     public static Connection getConnection() {
-        File dbFile = getDatabaseFile();
-        if (!dbFile.getParentFile().exists()) {
-            dbFile.getParentFile().mkdirs();
+        String dbUrl;
+        if (customDbUrl != null && !customDbUrl.trim().isEmpty()) {
+            if (customDbUrl.startsWith("jdbc:sqlite:")) {
+                String rawPath = customDbUrl.substring("jdbc:sqlite:".length()).trim();
+                File f = new File(rawPath);
+                if (!f.isAbsolute()) {
+                    File resolved = InitDatabase.findFile(rawPath);
+                    if (resolved.getParentFile() != null && !resolved.getParentFile().exists()) {
+                        resolved.getParentFile().mkdirs();
+                    }
+                    dbUrl = "jdbc:sqlite:" + resolved.getAbsolutePath();
+                } else {
+                    dbUrl = customDbUrl;
+                }
+            } else {
+                dbUrl = customDbUrl;
+            }
+        } else {
+            String sysProp = System.getProperty("sqlite.db.url");
+            if (sysProp != null && !sysProp.trim().isEmpty()) {
+                dbUrl = sysProp.trim();
+            } else {
+                File dbFile = getDatabaseFile();
+                if (!dbFile.getParentFile().exists()) {
+                    dbFile.getParentFile().mkdirs();
+                }
+                dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+            }
         }
-        String dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
 
         try {
             Class.forName("org.sqlite.JDBC");

@@ -1,35 +1,30 @@
 {
+  "description": "Bảng tham chiếu quy tắc định tuyến phòng ban chuyên trách (Đồng bộ với bảng CSDL incident_categories)",
   "routes": [
     {
-      "incidentType": "FIGHT",
-      "departments": ["SECURITY"],
-      "priority": "URGENT"
+      "categoryCode": "FACILITY",
+      "categoryName": "Hỏng thiết bị lớp học (Quạt, Đèn, Máy chiếu)",
+      "targetDepartment": "TECHNICAL"
     },
     {
-      "incidentType": "BULLYING",
-      "departments": ["SECURITY"],
-      "priority": "URGENT"
+      "categoryCode": "WATER",
+      "categoryName": "Sự cố Điện nước (Vỡ ống nước, Mất nước)",
+      "targetDepartment": "TECHNICAL"
     },
     {
-      "incidentType": "FIRE",
-      "departments": ["SECURITY", "ADMIN"],
-      "priority": "URGENT"
+      "categoryCode": "ELECTRIC",
+      "categoryName": "Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)",
+      "targetDepartment": "TECHNICAL"
     },
     {
-      "incidentType": "MEDICAL_EMERGENCY",
-      "departments": ["MEDICAL"],
-      "priority": "URGENT"
+      "categoryCode": "MEDICAL",
+      "categoryName": "Cấp cứu Y tế (Học sinh ngất, Chấn thương, Sốt)",
+      "targetDepartment": "MEDICAL"
     },
     {
-      "incidentType": "EQUIPMENT",
-      "departments": ["FACILITY"],
-      "priority": "NORMAL"
-    },
-    {
-      "incidentType": "OTHER",
-      "departments": ["ADMIN"],
-      "priority": "LOW"
+      "categoryCode": "SECURITY",
+      "categoryName": "An ninh Trật tự (Xô xát, Người lạ đột nhập, Trộm cắp)",
+      "targetDepartment": "SECURITY"
     }
   ]
 }
-

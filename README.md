@@ -1,220 +1,431 @@
 # HỆ THỐNG BÁO CÁO & ĐIỀU PHỐI SỰ CỐ TRƯỜNG HỌC
-## (SCHOOL INCIDENT DISPATCH SYSTEM - PHIÊN BẢN CỐT LÕI / BASIC CORE)
+## SCHOOL INCIDENT DISPATCH SYSTEM (SIDS) - BASIC CORE ARCHITECTURE
 
-> **Mục tiêu phiên bản:** Tập trung vào các nghiệp vụ cốt lõi và thiết thực nhất của hệ thống mạng Client - Server: **Báo cáo sự cố $\rightarrow$ Tự động đẩy đúng tài khoản của phòng ban chuyên trách $\rightarrow$ Nhận việc (Online/Offline) $\rightarrow$ Chat 1-1 giữa người báo & người nhận (tự dọn dẹp khi xong) $\rightarrow$ Thống kê & Xuất báo cáo đa chiều $\rightarrow$ Quản trị tập trung tại Server (Admin).**  
-> Loại bỏ các thuật toán phức tạp chưa cần thiết (chống đói, chống trùng lặp, heartbeat rớt mạng) để hệ thống hoạt động ổn định, dễ hiểu, dễ demo trên NetBeans và phát triển từng bước.
+> **Đề tài Môn học:** Lập trình Mạng (Network Programming)  
+> **Nền tảng & Công nghệ:** Java 17, Maven Multi-Module, JavaFX GUI, Raw TCP Sockets, Length-Prefixed Binary Protocol (`0xCAFE`), SQLite WAL Mode, Salted SHA-256 Hashing.  
+> **Triết lý thiết kế:** Tối giản cốt lõi, tường minh, chuẩn mực kỹ thuật, cách ly môi trường kiểm thử tự động và CSDL thực tế, sẵn sàng chạy ngay trên Apache NetBeans hoặc thông qua kịch bản lệnh Windows Batch.
 
 ---
 
-## 1. MÔ HÌNH KIẾN TRÚC & NGUYÊN TẮC THIẾT KẾ
+## MỤC LỤC
+1. [Mô hình Kiến trúc & Nguyên tắc Hoạt động](#1-mô-hình-kiến-trúc--nguyên-tắc-hoạt-động)
+2. [Các Chức năng Nghiệp vụ Cốt lõi](#2-các-chức-năng-nghiệp-vụ-cốt-lõi)
+3. [Giao thức Truyền thông Nhị phân (Binary Framing Protocol)](#3-giao-thức-truyền-thông-nhị-phân-binary-framing-protocol)
+4. [Thiết kế Cơ sở Dữ liệu & Cơ chế Bảo mật](#4-thiết-kế-cơ-sở-dữ-liệu--cơ-chế-bảo-mật)
+5. [Cấu trúc Thư mục Dự án (Maven Multi-Module)](#5-cấu-trúc-thư-mục-dự-án-maven-multi-module)
+6. [Danh sách Tài khoản Cấp sẵn (50 Tài khoản Thực tế)](#6-danh-sách-tài-khoản-cấp-sẵn-50-tài-khoản-thực-tế)
+7. [Hướng dẫn Biên dịch & Khởi chạy Hệ thống](#7-hướng-dẫn-biên-dịch--khởi-chạy-hệ-thống)
+8. [Kịch bản Kiểm thử Nghiệp vụ Mẫu (E2E Test Scenarios)](#8-kịch-bản-kiểm-thử-nghiệp-vụ-mẫu-e2e-test-scenarios)
+9. [Bộ Kiểm thử Tự động & Cách ly Dữ liệu (Automated Test Suite)](#9-bộ-kiểm-thử-tự-động--cách-ly-dữ-liệu-automated-test-suite)
+
+---
+
+## 1. MÔ HÌNH KIẾN TRÚC & NGUYÊN TẮC HOẠT ĐỘNG
+
+Hệ thống được xây dựng theo mô hình **Client - Server tập trung** qua kết nối **TCP Socket 2 chiều (Duplex Streaming)**. Server đóng vai trò trung tâm điều hành kiêm giao diện quản trị toàn diện của Ban Giám Hiệu trường học.
 
 ```
-                   ┌──────────────────────────────────────────────┐
-                   │           SERVER (KIÊM ADMIN HỆ THỐNG)       │
-                   │  - Tiếp nhận kết nối Socket từ các Client    │
-                   │  - Là người DUY NHẤT tạo & cấp tài khoản     │
-                   │  - 🎯 TỰ ĐỘNG ĐẨY ĐÚNG TÀI KHOẢN PHÒNG BAN   │
-                   │  - Lưu trữ tin nhắn để Admin xem lại/giám sát│
-                   │  - Lưu hàng đợi sự cố cho nhân sự Offline    │
-                   │  - 📊 THỐNG KÊ & XUẤT BÁO CÁO ĐA CHU KỲ      │
-                   └──────────────────────┬───────────────────────┘
-                                          │
-                     ┌────────────────────┴────────────────────┐
-                     ▼                                         ▼
-         ┌────────────────────────┐               ┌────────────────────────┐
-         │     REPORTER CLIENT    │    TCP Chat   │    RESPONDER CLIENT    │
-         │   (Giáo viên / Học sinh│ ◄───────────► │  (Kỹ thuật/Y tế/Bảo vệ)│
-         │ - Gửi báo cáo sự cố    │     (1 - 1)   │ - Nhận ca đúng phòng   │
-         │ - Nhận phản hồi        │               │ - Nhận việc ngay / sau │
-         │ - Chat trao đổi sự cố  │               │ - Đánh dấu hoàn thành  │
-         └────────────────────────┘               └────────────────────────┘
+                   ┌─────────────────────────────────────────────────────────┐
+                   │             CENTRAL TCP SERVER & ADMIN CONSOLE          │
+                   │  - Lắng nghe kết nối TCP Socket trên cổng 5000          │
+                   │  - Quản lý phiên đa luồng (ExecutorService ThreadPool)  │
+                   │  - Cấp phát tài khoản tập trung (Không đăng ký tự do)   │
+                   │  - 🎯 Tự động định tuyến sự cố về đúng phòng ban        │
+                   │  - Quản lý hàng đợi nhận việc Online & tích lũy Offline │
+                   │  - 🔒 Xử lý nhận việc nguyên tử (Atomic Claiming)       │
+                   │  - 💬 Relay tin nhắn 1-1 & Lưu vết kiểm toán sự cố      │
+                   │  - 📊 Bộ lọc đa tiêu chí thời gian thực & Thống kê CSV  │
+                   └───────────────────────────┬─────────────────────────────┘
+                                               │
+                                               │ (TCP Binary Protocol: 0xCAFE)
+                                               │
+                     ┌─────────────────────────┴─────────────────────────┐
+                     ▼                                                   ▼
+         ┌────────────────────────┐                          ┌────────────────────────┐
+         │     REPORTER CLIENT    │         TCP Chat         │    RESPONDER CLIENT    │
+         │  (Giáo viên / Học sinh)│ ◄──────────────────────► │ (Kỹ thuật/Y tế/Bảo vệ) │
+         │ - Gửi báo cáo kèm ảnh  │    (Trực tiếp 1 - 1)     │ - Nhận ca đúng chuyên  │
+         │ - Theo dõi trạng thái  │                          │ - Nhận việc Online/Off │
+         │ - ❌ Hủy ca chờ xử lý  │                          │ - Chat hướng dẫn xử lý │
+         │ - Chat Split-Pane 1-1  │                          │ - Hoàn tất & ghi chú   │
+         └────────────────────────┘                          └────────────────────────┘
 ```
 
-### 1.1. Server chính là Admin (Quản trị tập trung)
-* **Server đóng vai trò trung tâm điều hành:** Server vừa là máy chủ Socket tiếp nhận dữ liệu mạng, vừa là nơi quản trị tối cao (Admin). 
-* Server có toàn quyền:
-  * Quản lý, khởi tạo và cấp phát tài khoản cho toàn bộ người dùng trong trường.
-  * Giám sát mọi sự cố phát sinh tại các phòng học.
-  * **Tự động định tuyến và phân phối:** Căn cứ vào bản chất sự cố để đẩy thông báo đến đúng các tài khoản thuộc phòng ban phụ trách, không gửi tràn lan.
-  * Theo dõi và xem lại toàn bộ nội dung trao đổi (Chat) giữa các bên để phục vụ công tác thanh tra, hậu kiểm.
-  * **Thống kê số liệu và xuất báo cáo** định kỳ theo ngày, tháng, quý, năm phục vụ công tác quản lý của Ban Giám Hiệu.
+### 1.1. Server kiêm Admin Quản trị Tập trung
+* **Quản trị độc quyền người dùng:** Nhà trường không cho phép tự đăng ký tài khoản tự do trên mạng nhằm bảo đảm tính kỷ luật và bảo mật học đường. Toàn bộ tài khoản do Ban Giám Hiệu (Admin) khởi tạo và phân quyền theo phòng ban.
+* **Bộ điều phối sự cố tự động (Incident Dispatcher):** Phân tích danh mục sự cố và đẩy ngay lập tức đến các nhân sự chuyên trách, không gửi thông báo rác tới các phòng ban không liên quan.
+* **Kiểm soát tính nhất quán & Lưu vết kiểm toán:** Toàn bộ tin nhắn chat, lịch sử tiếp nhận và thời gian hoàn thành đều được lưu vết đầy đủ trong CSDL SQLite để Ban Giám Hiệu kiểm tra lại bất cứ lúc nào.
 
-### 1.2. Phân loại 2 nhóm Client tương tác
-1. **Người báo cáo (Reporter):** Giáo viên, học sinh tại các lớp học/phòng chức năng.
-2. **Người xử lý (Responder):** Nhân sự trực thuộc các phòng ban chuyên môn:
-   * **Phòng Kỹ thuật / Thiết bị (TECHNICAL):** Sửa chữa điện, nước, đèn, quạt, máy chiếu, bàn ghế.
-   * **Phòng Y tế (MEDICAL):** Xử lý học sinh ngất xỉu, chấn thương, sốt, cấp cứu học đường.
-   * **Đội Bảo vệ / An ninh (SECURITY):** Giải quyết xô xát, trộm cắp, người lạ đột nhập.
-
----
-
-## 2. CÁC CHỨC NĂNG CỐT LÕI (CORE FEATURES)
-
-### 2.1. Quản lý Tài khoản Tập trung (Chỉ Admin/Server cấp)
-* **Không đăng ký tự do:** Đảm bảo an ninh môi trường giáo dục, học sinh và giáo viên không thể tự tạo tài khoản bừa bãi.
-* **Chỉ Admin (Server) là người duy nhất tạo tài khoản:** Ban Quản trị/Server khởi tạo danh sách tài khoản kèm mật khẩu ban đầu và phân bổ về từng phòng ban/lớp học.
-* **Bỏ cơ chế khôi phục mật khẩu phức tạp:** Không dùng OTP hay email rườm rà. Nếu người dùng quên mật khẩu, liên hệ trực tiếp Admin/Server để cấp lại hoặc đặt lại mật khẩu mới.
+### 1.2. Phân loại 3 Nhóm Vai trò Người dùng (RBAC)
+1. **`ADMIN` (Ban Giám Hiệu / Quản trị viên Trung tâm):**
+   * Quản lý danh sách người dùng toàn trường (Thêm mới, Đặt lại mật khẩu, Giám sát trạng thái Online/Offline).
+   * Giám sát danh sách toàn bộ sự cố với bộ lọc thời gian thực: lọc theo từ khóa tìm kiếm, lọc theo trạng thái (`PENDING`, `IN_PROGRESS`, `RESOLVED`, `CANCELLED`), lọc theo phòng ban (`TECHNICAL`, `MEDICAL`, `SECURITY`).
+   * Can thiệp điều phối thủ công (Re-assign ticket) cho nhân sự phụ trách khi cần thiết.
+   * Xem thống kê đa chu kỳ (Hôm nay, Tháng này, Quý này, Năm nay, Toàn thời gian) và xuất dữ liệu ra file chuẩn định dạng **CSV (UTF-8 BOM)**.
+2. **`REPORTER` (Giáo viên bộ môn, Giáo viên chủ nhiệm, Lớp trưởng, Cán bộ lớp):**
+   * Khởi tạo báo cáo sự cố kèm phòng học, phân loại, mô tả chi tiết và hình ảnh hiện trường đính kèm.
+   * Theo dõi danh sách sự cố đã gửi và tiến độ xử lý của nhà trường.
+   * **Chức năng Hủy báo cáo (`❌ Hủy báo cáo`):** Cho phép người báo hủy các sự cố đang ở trạng thái `PENDING` nếu gửi nhầm hoặc sự cố đã tự khắc phục, có hộp thoại xác nhận an toàn.
+   * Trao đổi trực tiếp 1-1 với nhân sự phụ trách tiếp nhận thông qua giao diện Chat Split-Pane chuyên nghiệp.
+3. **`RESPONDER` (Nhân sự các phòng ban chuyên môn):**
+   * **Phòng Kỹ thuật & Cơ sở vật chất (`TECHNICAL`):** Tiếp nhận sự cố hỏng quạt, bóng đèn, máy chiếu, chập điện, vỡ đường ống nước, hỏng bàn ghế, cửa kính.
+   * **Phòng Y tế học đường (`MEDICAL`):** Tiếp nhận các ca sơ cứu học sinh ngất xỉu, chấn thương thể dục, sốt cao, cấp cứu học đường.
+   * **Đội Bảo vệ & An ninh trật tự (`SECURITY`):** Tiếp nhận giải quyết các vụ việc xô xát, mất trật tự, người lạ đột nhập, mất cắp tài sản.
+   * Xem hàng đợi sự cố chờ tiếp nhận của phòng ban mình, bấm **"Nhận việc"**, cập nhật trạng thái `IN_PROGRESS` $\rightarrow$ `RESOLVED` kèm ghi chú nghiệm thu.
 
 ---
 
-### 2.2. Tạo & Gửi Báo Cáo Sự Cố (Incident Reporting)
-* Người dùng (Reporter) mở Client, điền thông tin sự cố:
-  * **Vị trí:** Phòng học hoặc khu vực (ví dụ: `A101`, `A201`, `Lab Hoá`, `Sân bóng`...).
-  * **Loại sự cố:** Thiết bị/Điện nước, Y tế hoặc An ninh trật tự.
-  * **Mô tả chi tiết:** Dấu hiệu sự cố (khói khét, mất điện, vỡ ống nước...).
-  * **Ảnh đính kèm:** Cho phép đính kèm ảnh chụp hiện trường để kỹ thuật viên dễ nhận diện.
-* Báo cáo được đóng gói và gửi qua TCP Socket tới Server ngay lập tức.
+## 2. CÁC CHỨC NĂNG NGHIỆP VỤ CỐT LÕI
+
+### 2.1. Đăng nhập Tập trung & Quản lý Tài khoản Phân quyền
+* Tài khoản được cấp bởi Admin với vai trò (`REPORTER`, `RESPONDER`, `ADMIN`) và chuyên môn phòng ban (`TECHNICAL`, `MEDICAL`, `SECURITY`, `NONE`, `ALL`).
+* Mật khẩu được mã hóa an toàn bằng thuật toán **SHA-256 kết hợp Chuỗi Salt bí mật** (`SIDS_SALT_2026_SECURE_#$!`).
+* Quản lý phiên đăng nhập chặt chẽ trên Socket TCP, tự động cập nhật cờ `is_online` khi kết nối hoặc ngắt kết nối.
+
+### 2.2. Báo cáo Sự cố Hiện trường Kèm Hình ảnh
+* Người báo nhập thông tin: Vị trí phòng học (ví dụ: `A201`, `Lab Hóa`, `Sân bóng`), Phân loại sự cố, Tiêu đề và Mô tả chi tiết.
+* Hỗ trợ đính kèm ảnh chụp hiện trường (`.jpg`, `.png`). Dữ liệu ảnh được nén nhị phân đưa trực tiếp vào payload nhị phân của gói tin TCP và lưu trữ an toàn tại thư mục `uploads/` trên Server.
+
+### 2.3. Tự động Định tuyến Phòng ban & Cơ chế Xử lý Online / Offline
+* **Định tuyến chuyên biệt (Targeted Dispatching):** Khi sự cố mới được tạo, Server tra cứu danh mục và chỉ đẩy thông báo (`TYPE_DISPATCH_NOTIFY`) tới các tài khoản thuộc đúng phòng ban phụ trách:
+  * Sự cố Điện nước, Quạt, Đèn, Máy chiếu $\rightarrow$ Gửi đến các nhân viên **Kỹ thuật (`TECHNICAL`)**.
+  * Sự cố Cấp cứu, Chấn thương học sinh $\rightarrow$ Gửi đến nhân viên **Y tế (`MEDICAL`)**.
+  * Sự cố Xô xát, Mất an ninh $\rightarrow$ Gửi đến nhân viên **Bảo vệ (`SECURITY`)**.
+* **Tích lũy hàng đợi Offline (Offline Backlog Delivery):**
+  * Nhân sự đang trực tuyến (`Online`): Nhận thông báo ngay lập tức trên màn hình.
+  * Nhân sự đang ngoại tuyến (`Offline`): Sự cố được lưu trữ an toàn trong CSDL SQLite. Khi nhân sự bật ứng dụng đăng nhập, hệ thống tự động tải toàn bộ danh sách sự cố tồn đọng thuộc phòng ban của họ để tiếp nhận ngay.
+* **Tiếp nhận Nguyên tử (Atomic Claiming):**
+  * Sử dụng câu lệnh SQL điều kiện: `UPDATE incident_tickets SET assigned_staff_id=?, status='IN_PROGRESS' WHERE ticket_id=? AND status='PENDING' AND target_department=?`.
+  * Tránh hoàn toàn tình trạng xung đột (Race Condition) khi hai nhân viên cùng nhấn "Nhận việc" tại một thời điểm.
+
+### 2.4. Quyền Hủy Báo Cáo Chờ Xử Lý (Reporter Cancel Ticket)
+* Người gửi báo cáo có toàn quyền hủy yêu cầu của mình nếu sự cố chưa được kỹ thuật viên nhận (`status = PENDING`).
+* Nhấp nút `❌ Hủy`, ứng dụng hiển thị hộp thoại xác nhận: *"Bạn có chắc chắn muốn hủy sự cố này không?"*.
+* Khi xác nhận, sự cố chuyển sang trạng thái `CANCELLED`, Server phát bản tin đồng bộ giải phóng sự cố khỏi hàng đợi của các nhân sự phòng ban.
+
+### 2.5. Giao diện Chat Split-Pane 1-1 (Master-Detail Messenger)
+* Thiết kế hiện đại dạng Split-Pane chia làm 2 cột:
+  * **Cột trái (Sidebar):** Danh sách các phiên trò chuyện theo Ticket. Hiển thị mã sự cố, tiêu đề tóm tắt, tên đối tác trao đổi, huy hiệu trạng thái màu, chấm đỏ báo tin nhắn chưa đọc, ô tìm kiếm nhanh và nút lọc ca Đang xử lý / Đã đóng.
+  * **Cột phải (Chat Area):** Khung chat dạng bong bóng tin nhắn (Bong bóng xanh bên phải cho người gửi, bong bóng xám bên trái cho đối phương), hiển thị thời gian gửi, tiêu đề sự cố tóm tắt ở đầu trang.
+* **Khóa phiên tự động khi hoàn thành:** Khi sự cố chuyển sang trạng thái `RESOLVED`, phiên chat hiển thị thanh thông báo màu vàng `🔒 Sự cố đã hoàn tất. Phiên chat đã đóng.` và tự động vô hiệu hóa ô nhập văn bản để giữ nguyên vẹn nội dung làm bằng chứng nghiệm thu.
+* **Lưu trữ kiểm toán cho Admin:** Mọi tin nhắn trao đổi được lưu trữ bền vững trong bảng `chat_messages`, Admin có thể xem lại toàn bộ lịch sử trao đổi bất kỳ lúc nào.
+
+### 2.6. Bảng Điều khiển Giám sát & Báo cáo Thống kê Đa chu kỳ (Admin Oversight)
+* **Bộ lọc đa tiêu chí thời gian thực (Real-time Filtering):** Kết hợp đồng thời 3 tiêu chí thông qua JavaFX `FilteredList` & `SortedList`:
+  1. *Tìm kiếm văn bản:* Lọc tức thì theo Mã sự cố, Tiêu đề, Vị trí phòng học, Tên người báo hoặc Người xử lý.
+  2. *Bộ lọc Trạng thái:* Tất cả, Chờ tiếp nhận (`PENDING`), Đang xử lý (`IN_PROGRESS`), Đã hoàn tất (`RESOLVED`), Đã hủy (`CANCELLED`).
+  3. *Bộ lọc Phòng ban:* Tất cả, Kỹ thuật (`TECHNICAL`), Y tế (`MEDICAL`), An ninh (`SECURITY`).
+* **Thống kê chuyên sâu đa chu kỳ:**
+  * Các chu kỳ lọc: Hôm nay (`DAY`), Tháng này (`MONTH`), Quý này (`QUARTER`), Năm học này (`YEAR`), Tất cả (`ALL`).
+  * Thống kê tỷ lệ hoàn thành, thời gian xử lý trung bình, biểu đồ cơ cấu sự cố theo phòng ban.
+* **Xuất Báo cáo CSV Chuẩn Quốc tế:**
+  * Bấm nút **"Xuất Báo Cáo (CSV)"**, hệ thống xuất danh sách sự cố tương ứng theo chu kỳ đã chọn.
+  * Tích hợp mã Byte Order Mark **UTF-8 BOM (`\ufeff`)**, bảo đảm hiển thị tiếng Việt có dấu hoàn hảo trên Microsoft Excel, LibreOffice hoặc Google Sheets.
 
 ---
 
-### 2.3. Tự Động Đẩy Đúng Tài Khoản Của Phòng Ban Phụ Trách & Cơ Chế Online / Offline
-* **Tự động phân phối đích danh theo phòng ban (Targeted Department Push):**
-  * Server phân tích loại sự cố trong gói tin và **tự động đẩy bản tin đến đúng danh sách tài khoản thuộc phòng ban chuyên trách**, tuyệt đối không phát tán bừa bãi:
-    * Sự cố **Điện, Nước, Thiết bị hỏng** $\rightarrow$ Tự động đẩy thẳng về các tài khoản của **Phòng Kỹ Thuật (`TECHNICAL`)**.
-    * Sự cố **Học sinh ngất, Chấn thương, Cấp cứu** $\rightarrow$ Tự động đẩy thẳng về các tài khoản của **Phòng Y Tế (`MEDICAL`)**.
-    * Sự cố **Xô xát, Mất trật tự, Người lạ** $\rightarrow$ Tự động đẩy thẳng về các tài khoản của **Đội Bảo Vệ (`SECURITY`)**.
-  * *Lợi ích:* Kỹ thuật viên không bị làm phiền bởi các ca y tế, bảo vệ không bị lẫn lộn sự cố hỏng quạt trần $\rightarrow$ Đúng người, đúng việc, xử lý nhanh chóng.
-* **Cơ chế nhận sự cố Online / Offline (Đơn giản & Đảm bảo không sót việc):**
-  * **Tài khoản đang Online:** Khi có sự cố mới thuộc phạm vi chuyên môn, Server đẩy ngay lập tức thông báo về màn hình Client của nhân sự đang trực tuyến để họ bấm nhận việc.
-  * **Tài khoản đang Offline:** Sự cố được lưu trữ an toàn trong cơ sở dữ liệu trên Server. Ngay khi nhân viên của phòng ban đó bật máy và đăng nhập (Online), Server sẽ tự động truy vấn và đẩy toàn bộ danh sách sự cố chưa xử lý thuộc phòng ban đó về máy để nhân viên tiếp nhận.
-  * *Không cần hàng đợi chống đói hay điểm ưu tiên phức tạp:* Mọi sự cố đều được lưu vết đầy đủ theo thứ tự thời gian gửi.
+## 3. GIAO THỨC TRUYỀN THÔNG NHỊ PHÂN (BINARY FRAMING PROTOCOL)
+
+Hệ thống sử dụng giao thức đóng khung nhị phân định độ dài (Length-Prefixed Framing Protocol) chạy trên nền TCP Socket thuần (Raw TCP Socket), loại bỏ hoàn toàn hiện tượng dính gói hoặc phân mảnh gói tin trong luồng stream mạng.
+
+### 3.1. Cấu trúc Gói tin Nhị phân (Binary Packet Framing)
+Mỗi bản tin trao đổi giữa Client và Server được đóng gói theo cấu trúc byte chuẩn mực như sau:
+
+| Vị trí Byte | Kiểu dữ liệu | Tên trường | Ý nghĩa Kỹ thuật |
+| :---: | :---: | :--- | :--- |
+| **0 .. 1** | `short` (2 Bytes) | **Magic Header** | Giá trị định danh cố định: **`0xCAFE`** |
+| **2** | `byte` (1 Byte) | **Message Type** | Mã loại bản tin (OpCode) |
+| **3 .. 6** | `int` (4 Bytes) | **Header Length** | Độ dài chuỗi Header UTF-8 ($N$ bytes) |
+| **7 .. $6+N$** | `byte[]` ($N$ Bytes) | **Header Payload** | Dữ liệu văn bản chứa các tham số (Command/JSON/Query string) |
+| **$7+N$ .. $10+N$** | `int` (4 Bytes) | **Attach Length** | Độ dài khối nhị phân đính kèm ($M$ bytes, $= 0$ nếu không có) |
+| **$11+N$ .. Cuối** | `byte[]` ($M$ Bytes) | **Attachment Bytes** | Dữ liệu đính kèm (Ảnh hiện trường `.jpg`/`.png` hoặc JSON mảng lớn) |
+
+### 3.2. Bảng Mã Bản tin Hoạt động (Protocol OpCodes)
+
+| OpCode | Tên Hằng số | Chiều truyền | Mô tả Nghiệp vụ |
+| :---: | :--- | :---: | :--- |
+| `0x01` | `TYPE_LOGIN` | Client $\rightarrow$ Server | Gửi thông tin đăng nhập (`username`, `password`) |
+| `0x11` | `TYPE_LOGIN_RESP` | Server $\rightarrow$ Client | Trả lời đăng nhập kèm thông tin vai trò, họ tên, chuyên môn |
+| `0x02` | `TYPE_SUBMIT_INCIDENT` | Reporter $\rightarrow$ Server | Gửi sự cố mới kèm ảnh chụp nhị phân hiện trường |
+| `0x12` | `TYPE_SUBMIT_RESP` | Server $\rightarrow$ Reporter | Xác nhận tiếp nhận sự cố kèm Mã sự cố vừa tạo |
+| `0x03` | `TYPE_DISPATCH_NOTIFY` | Server $\rightarrow$ Responder | Thông báo đẩy sự cố mới đến đúng phòng ban chuyên trách |
+| `0x04` | `TYPE_CLAIM_TASK` | Responder $\rightarrow$ Server | Yêu cầu nhận xử lý sự cố (Atomic Claim) |
+| `0x14` | `TYPE_CLAIM_RESP` | Server $\rightarrow$ Responder | Kết quả nhận việc (`OK` hoặc `ALREADY_TAKEN`) |
+| `0x05` | `TYPE_STATUS_UPDATE` | Client $\rightarrow$ Server | Cập nhật trạng thái sự cố (`IN_PROGRESS`, `RESOLVED`, `CANCELLED`) |
+| `0x15` | `TYPE_STATUS_BROADCAST`| Server $\rightarrow$ Clients | Phát thanh trạng thái sự cố tới các bên liên quan |
+| `0x06` | `TYPE_LIST_TICKETS` | Client $\rightarrow$ Server | Truy vấn danh sách sự cố theo phạm vi (`MY`, `DEPARTMENT`, `ALL`) |
+| `0x16` | `TYPE_LIST_TICKETS_RESP`| Server $\rightarrow$ Client | Trả về mảng JSON danh sách sự cố tương ứng |
+| `0x07` | `TYPE_CHAT_SEND` | Client $\rightarrow$ Server | Gửi tin nhắn 1-1 cho một sự cố |
+| `0x17` | `TYPE_CHAT_PUSH` | Server $\rightarrow$ Target Client| Đẩy tin nhắn tức thì tới người nhận đang online |
+| `0x08` | `TYPE_CHAT_HISTORY` | Client $\rightarrow$ Server | Tải toàn bộ lịch sử tin nhắn của một sự cố |
+| `0x18` | `TYPE_CHAT_HISTORY_RESP`| Server $\rightarrow$ Client | Trả về mảng JSON lịch sử tin nhắn phục vụ hiển thị |
+| `0x09` | `TYPE_ADMIN_CREATE_USER`| Admin $\rightarrow$ Server | Admin tạo tài khoản người dùng mới |
+| `0x19` | `TYPE_ADMIN_CREATE_RESP`| Server $\rightarrow$ Admin | Kết quả tạo tài khoản |
+| `0x0A` | `TYPE_ADMIN_GET_USERS` | Admin $\rightarrow$ Server | Tải danh sách người dùng toàn trường |
+| `0x1A` | `TYPE_ADMIN_GET_USERS_RESP`| Server $\rightarrow$ Admin | Trả về JSON danh sách người dùng toàn trường |
+| `0x0B` | `TYPE_ADMIN_GET_STATS` | Admin $\rightarrow$ Server | Yêu cầu báo cáo thống kê theo chu kỳ thời gian |
+| `0x1B` | `TYPE_ADMIN_GET_STATS_RESP`| Server $\rightarrow$ Admin | Trả về JSON tổng hợp số liệu thống kê & danh sách sự cố |
+| `0x0E` | `TYPE_MANUAL_ASSIGN` | Admin $\rightarrow$ Server | Admin can thiệp điều phối chỉ định nhân viên xử lý |
+| `0x1E` | `TYPE_MANUAL_ASSIGN_RESP`| Server $\rightarrow$ Admin | Kết quả phân công chỉ định |
+| `0x0C` | `TYPE_LOGOUT` | Client $\rightarrow$ Server | Đăng xuất và đóng phiên an toàn |
+| `0x0F` | `TYPE_ERROR` | Server $\rightarrow$ Client | Báo lỗi nghiệp vụ hoặc định dạng gói tin |
 
 ---
 
-### 2.4. Kênh Chat Trao Đổi Trực Tiếp 1-1 (Tự động xóa sau khi xong)
-* **Giao tiếp đúng đối tượng:**
-  * Khung Chat mở riêng biệt giữa **Người gửi báo cáo (Reporter)** và **Nhân sự tiếp nhận xử lý (Responder)** của sự cố đó.
-  * Hai bên có thể nhắn tin trao đổi trực tiếp: hướng dẫn xử lý tạm thời (ngắt cầu dao), hẹn thời gian có mặt, cập nhật tiến độ sửa chữa.
-* **Tự động xóa sau khi kết thúc:**
-  * Khi sự cố được nhân sự xử lý xong và đánh dấu **"Hoàn thành" (Resolved)**, phiên trao đổi kết thúc và đoạn chat sẽ tự động dọn dẹp/xóa trên giao diện của cả 2 Client để tránh rác màn hình.
-* **Server/Admin có quyền xem lại:**
-  * Toàn bộ lịch sử tin nhắn vẫn được lưu trữ tại Server. Ban Giám Hiệu / Quản trị viên Server có thể tra cứu và xem lại toàn bộ nội dung trao đổi bất cứ lúc nào để đánh giá trách nhiệm và chất lượng xử lý.
+## 4. THIẾT KẾ CƠ SỞ DỮ LIỆU & CƠ CHẾ BẢO MẬT
+
+Cơ sở dữ liệu được xây dựng trên nền **SQLite** với kiến trúc phân tách rõ ràng giữa cấu trúc bảng (DDL) và dữ liệu mẫu khởi tạo (DML).
+
+### 4.1. Phân Tách DDL & DML Chuyên Nghiệp
+* **`database/schema.sql` (Chỉ chứa DDL):**
+  * Định nghĩa 4 bảng cốt lõi: `users`, `incident_categories`, `incident_tickets`, `chat_messages`.
+  * Kích hoạt chế độ ghi nhật ký trước **WAL (`PRAGMA journal_mode = WAL;`)** giúp đọc và ghi đồng thời tốc độ cao, không khóa database.
+  * Kích hoạt kiểm tra toàn vẹn khóa ngoại **Foreign Keys (`PRAGMA foreign_keys = ON;`)**.
+  * Thiết lập các ràng buộc `CHECK` và chỉ mục tối ưu truy vấn: `idx_tickets_status`, `idx_tickets_reporter`, `idx_tickets_staff`, `idx_chat_ticket`.
+* **`database/seed_data.sql` (Chỉ chứa DML):**
+  * Nạp sẵn **5 danh mục sự cố cốt lõi** và **50 tài khoản người dùng thực tế**.
+  * **100% để trống bảng `incident_tickets` và `chat_messages`**: Tạo điều kiện tốt nhất để người dùng và giảng viên tự tay thao tác kiểm thử từ đầu mà không bị lẫn lộn dữ liệu cũ.
+
+### 4.2. Cơ chế Mã hóa Mật khẩu Salted SHA-256
+Hệ thống áp dụng chuẩn băm bảo mật:
+$$\text{PasswordHash} = \text{SHA-256}(\text{RawPassword} + \text{":"} + \text{SYSTEM\_SALT})$$
+* **Chuỗi Salt bí mật:** `SIDS_SALT_2026_SECURE_#$!`
+* **Cơ chế Legacy Auto-Upgrade:** Khi người dùng cũ đăng nhập với mật khẩu thô hoặc băm chưa có salt, hệ thống tự động nhận diện và cập nhật chuỗi hash salted vào CSDL ngay trong lần đăng nhập đầu tiên.
+
+### 4.3. Kiến trúc Cách ly Môi trường Kiểm thử Tự động (Test Isolation)
+Hệ thống phân tách rạch ròi 2 file CSDL vật lý:
+1. **`database/incident_report.db` (CSDL Chính / Demo):**
+   * Được ứng dụng chính (`Server.java`, `Main.java`) sử dụng khi chạy thực tế hoặc chấm điểm trên NetBeans.
+   * Chứa 50 tài khoản sạch, 0 sự cố tồn dư.
+2. **`database/test_incident_report.db` (CSDL Kiểm thử):**
+   * Được các bộ kiểm thử tự động JUnit (`ChatMessageTest`, `TicketRoutingAndStatisticsTest`, v.v.) sử dụng.
+   * Hàm `InitDatabase.resetDatabase()` tự động trỏ kết nối vào CSDL kiểm thử này. Mọi hành vi tạo dữ liệu giả lập, xóa bảng trong test case **tuyệt đối không bao giờ làm ảnh hưởng hay làm biến đổi CSDL chính**.
 
 ---
 
-### 2.5. Thống Kê Đa Chiều & Xuất Báo Cáo Định Kỳ (Admin Analytics & Reporting)
-Server (Admin) được trang bị module thống kê và báo cáo chuyên sâu phục vụ công tác thanh tra, bảo trì cơ sở vật chất và đánh giá an toàn trường học:
-* **Bộ lọc thời gian linh hoạt (Time-based Filters):**
-  * **Theo Ngày (Daily):** Thống kê số lượng ca phát sinh trong ngày, ca đã hoàn thành, ca còn tồn đọng cần bàn giao ca trực.
-  * **Theo Tháng (Monthly):** Theo dõi số lượng sự cố trung bình mỗi tháng để chuẩn bị vật tư thay thế.
-  * **Theo Quý / Học kỳ (Quarterly / Semester):** Báo cáo sơ kết học kỳ I, học kỳ II phục vụ hội nghị giao ban trường học.
-  * **Theo Năm (Annually):** Báo cáo tổng kết toàn năm học nhằm đánh giá chất lượng và mức độ xuống cấp của cơ sở hạ tầng.
-* **Phân tích theo Phòng ban & Khu vực (Distribution Analytics):**
-  * Cơ cấu sự cố theo bộ phận: tỷ lệ % sự cố Kỹ thuật, Y tế, An ninh.
-  * Điểm nóng khu vực (Top Incident Locations): Liệt kê các phòng học hay bị hỏng hóc nhất (ví dụ: Lab Lý, phòng A201) để nhà trường lên kế hoạch bảo dưỡng phòng ngừa.
-* **Chỉ số hiệu suất xử lý:** Thời gian xử lý trung bình của từng phòng ban; tỷ lệ hoàn thành đúng hạn.
-* **Xuất báo cáo (Export Report):**
-  * Xuất trực tiếp dữ liệu thống kê ra file chuẩn định dạng **CSV / Excel (`.csv`)** để lưu trữ hoặc nộp báo cáo lên Sở Giáo dục.
-
----
-
-## 3. CẤU TRÚC THƯ MỤC SOURCE CODE
-
-Toàn bộ dự án nằm trọn vẹn trong thư mục `source`, tổ chức theo mô hình Maven đa mô-đun chuẩn mực:
+## 5. CẤU TRÚC THƯ MỤC DỰ ÁN (MAVEN MULTI-MODULE)
 
 ```
 baitaplon/
-├── source/                                 <-- MỞ THƯ MỤC NÀY TRONG NETBEANS
-│   ├── pom.xml                             <-- File cấu hình tổng (Maven Parent)
-│   ├── common/                             <-- Dùng chung: Constants, Models, Packet
-│   │   └── src/main/java/com/incidentreport/common/
-│   ├── service/                            <-- Kết nối SQLite & Nghiệp vụ DAO
-│   │   └── src/main/java/com/incidentreport/service/
-│   ├── server/                             <-- Máy chủ trung tâm (Server / Admin)
-│   │   └── src/main/java/com/incidentreport/server/Server.java
-│   └── client/                             <-- Ứng dụng giao diện JavaFX
-│       └── src/main/java/com/incidentreport/client/IncidentReportApp.java
+├── config/
+│   └── server.properties                       <-- Cấu hình Port TCP (5000), Timeout, MaxThreads
 ├── database/
-│   └── incident_report.db                  <-- File CSDL SQLite (Tự động khởi tạo)
-├── README.md                               <-- TÀI LIỆU DUY NHẤT CỦA DỰ ÁN
-├── run_server.bat                          <-- File chạy nhanh Server
-└── run_client.bat                          <-- File chạy nhanh Client
+│   ├── schema.sql                              <-- File DDL tạo bảng, khóa ngoại, chỉ mục
+│   ├── seed_data.sql                           <-- File DML nạp 50 người dùng & 5 danh mục
+│   ├── incident_report.db                      <-- File CSDL chính cho Demo thực tế
+│   └── test_incident_report.db                 <-- File CSDL độc lập cho kiểm thử tự động
+├── source/                                     <-- [MỞ THƯ MỤC NÀY TRONG NETBEANS]
+│   ├── pom.xml                                 <-- Maven Parent POM (JDK 17 release cấu hình)
+│   ├── common/                                 <-- Sub-module 1: Mô hình & Giao thức nhị phân
+│   │   └── src/main/java/com/incidentreport/common/
+│   │       ├── Constants.java                  <-- Hằng số Magic 0xCAFE, OpCodes, Roles
+│   │       ├── model/                          <-- Các DTO: User, IncidentTicket, ChatMessage...
+│   │       └── packet/Packet.java              <-- Bộ đóng gói/giải mã Length-Prefixed Binary
+│   ├── service/                                <-- Sub-module 2: Tầng DAO & CSDL SQLite
+│   │   └── src/main/java/com/incidentreport/service/
+│   │       ├── DatabaseConnection.java         <-- Kết nối SQLite đa luồng WAL Mode
+│   │       ├── InitDatabase.java               <-- Tự động khởi tạo DB từ schema & seed_data
+│   │       ├── UserDAO.java                    <-- Đăng nhập, Salted SHA-256, Quản lý tài khoản
+│   │       ├── TicketDAO.java                  <-- Tạo, Nhận việc nguyên tử, Thống kê chu kỳ
+│   │       ├── ChatMessageDAO.java             <-- Lưu và đọc tin nhắn chat 1-1
+│   │       └── CategoryDAO.java                <-- Định tuyến sự cố theo phòng ban
+│   ├── server/                                 <-- Sub-module 3: TCP Server & Admin Daemon
+│   │   └── src/main/java/com/incidentreport/server/
+│   │       ├── Server.java                     <-- Điểm khởi chạy Server chính (Shift+F6)
+│   │       ├── ClientHandler.java              <-- Xử lý luồng kết nối từng Client (RBAC)
+│   │       └── ServerSessionManager.java       <-- Quản lý danh sách kết nối Socket Online
+│   └── client/                                 <-- Sub-module 4: Ứng dụng Desktop JavaFX
+│       └── src/main/java/com/incidentreport/client/
+│           ├── IncidentReportApp.java          <-- Điểm khởi chạy giao diện chính (Shift+F6)
+│           ├── Main.java                       <-- Lớp khởi chạy bổ trợ
+│           ├── net/SocketClientManager.java    <-- Quản lý Socket nền & Luồng đọc gói tin TCP
+│           └── ui/
+│               ├── LoginView.java              <-- Màn hình Đăng nhập hiện đại
+│               ├── ReporterView.java           <-- Giao diện Giáo viên/Học sinh (Báo sự cố & Hủy ca)
+│               ├── ResponderView.java          <-- Giao diện Kỹ thuật/Y tế/Bảo vệ (Nhận việc)
+│               ├── AdminView.java              <-- Bảng điều khiển Admin (Lọc tức thì & Xuất CSV)
+│               └── ChatPanel.java              <-- Giao diện Chat Split-Pane 1-1 chuyên nghiệp
+├── run_server.bat                              <-- Script chạy nhanh Server bằng 1 cú nhấp chuột
+├── run_client.bat                              <-- Script chạy nhanh Client bằng 1 cú nhấp chuột
+└── README.md                                   <-- TÀI LIỆU TOÀN DIỆN CỦA DỰ ÁN
 ```
 
 ---
 
-## 4. HƯỚNG DẪN MỞ VÀ CHẠY DỰ ÁN TRÊN APACHE NETBEANS
+## 6. DANH SÁCH TÀI KHOẢN CẤP SẴN (50 TÀI KHOẢN THỰC TẾ)
 
-Hệ thống được thiết kế hoàn toàn tương thích và tối ưu hóa để chạy trực tiếp trên **Apache NetBeans (phiên bản 12, 17, 18, 19, 20+)** sử dụng **JDK 17**.
+Tất cả 50 tài khoản đã được nạp sẵn vào CSDL với mật khẩu mặc định: **`123456`**. Dưới đây là các tài khoản tiêu biểu theo từng nhóm vai trò và phòng ban:
 
-### Bước 1: Mở dự án trong NetBeans
-1. Mở phần mềm **Apache NetBeans**.
-2. Trên thanh menu, chọn `File` $\rightarrow$ `Open Project...` (hoặc phím tắt `Ctrl + Shift + O`).
-3. Điều hướng tới thư mục bài tập lớn của bạn:
-   ```
-   D:\Filecode\Laptrinhmang\baitaplon\source
-   ```
-4. Chọn thư mục **`source`** và nhấn nút **Open Project**.
-   > *NetBeans sẽ tự động nhận diện đây là một Maven Multi-Module Project và hiển thị đầy đủ các sub-modules: `common`, `service`, `server`, `client`, `simulator`.*
+### 6.1. Ban Giám Hiệu / Quản trị viên Trung tâm (`ADMIN`)
+| Tên Đăng Nhập | Mật Khẩu | Họ và Tên | Vai Trò | Phòng Ban | Nhiệm Vụ |
+| :--- | :---: | :--- | :---: | :---: | :--- |
+| **`admin_bgh`** | `123456` | Thầy Nguyễn Văn An | `ADMIN` | Ban Giám Hiệu | Hiệu trưởng - Quản trị tập trung toàn trường |
+| **`admin_pht`** | `123456` | Cô Lê Thị Mai Hương | `ADMIN` | Ban Giám Hiệu | Phó Hiệu trưởng - Quản lý cơ sở vật chất |
 
----
+### 6.2. Người Báo Cáo - Giáo Viên & Cán Bộ Lớp (`REPORTER`)
+| Tên Đăng Nhập | Mật Khẩu | Họ và Tên | Vai Trò | Đối tượng Đại diện |
+| :--- | :---: | :--- | :---: | :--- |
+| **`gv_lan`** | `123456` | Cô Trần Thị Lan | `REPORTER` | Giáo viên chủ nhiệm lớp 10A2 |
+| **`gv_hung`** | `123456` | Thầy Đỗ Quốc Hùng | `REPORTER` | Giáo viên Toán - GVCN 11A1 |
+| **`gv_hoa`** | `123456` | Cô Phạm Quỳnh Hoa | `REPORTER` | Giáo viên Hóa học - Phụ trách Phòng Thí nghiệm |
+| **`gv_duc`** | `123456` | Thầy Bùi Minh Đức | `REPORTER` | Giáo viên Tin học - Phụ trách Phòng máy 1 |
+| **`hs_minh`** | `123456` | Lê Hoàng Minh | `REPORTER` | Lớp trưởng 10A2 |
+| **`hs_anh`** | `123456` | Nguyễn Phương Anh | `REPORTER` | Bí thư Chi đoàn 10A2 |
+| **`hs_khoa`** | `123456` | Trần Đăng Khoa | `REPORTER` | Lớp phó Lao động 11A1 |
+| **`hs_trang`** | `123456` | Vũ Huyền Trang | `REPORTER` | Lớp trưởng 11B3 |
 
-### Bước 2: Build dự án lần đầu
-1. Nhấp chuột phải vào Project gốc **`incident-report-system`** ở cây thư mục bên trái NetBeans.
-2. Chọn **`Clean and Build`**.
-3. Chờ NetBeans biên dịch các module và tải các thư viện phụ thuộc (JavaFX, SQLite JDBC, Gson). Quá trình hoàn tất khi xuất hiện thông báo `BUILD SUCCESS`.
+*(Ngoài ra còn có các giáo viên `gv_dung`, `gv_phuong`, `gv_thanh`, `gv_hang`, `gv_tuan`, `gv_quang`, `gv_yen`, `gv_linh` và học sinh `hs_nam`, `hs_vy`, `hs_dat`, `hs_nga`, `hs_long`, `hs_chi`, `hs_hoang`, `hs_thao`).*
 
----
+### 6.3. Người Xử Lý - Phòng Kỹ Thuật & Thiết Bị (`RESPONDER` - `TECHNICAL`)
+| Tên Đăng Nhập | Mật Khẩu | Họ và Tên | Chuyên Môn |
+| :--- | :---: | :--- | :--- |
+| **`kt_tuan`** | `123456` | Anh Hoàng Văn Tuấn | Kỹ thuật Điện 1 (Sửa chập điện, quạt, đèn) |
+| **`kt_nam`** | `123456` | Anh Ngô Bảo Nam | Kỹ thuật Thiết bị (Máy chiếu, màn hình) |
+| **`kt_dung`** | `123456` | Anh Phan Anh Dũng | Kỹ thuật Điện nước 2 (Đường ống nước, vòi nước) |
+| **`kt_phong`** | `123456` | Anh Đặng Thanh Phong | Kỹ thuật Mạng & Máy tính phòng Lab |
+| **`kt_son`** | `123456` | Anh Vũ Thái Sơn | Kỹ thuật mộc bàn ghế, cửa kính phòng học |
 
-### Bước 3: Khởi chạy Server (Admin) trên NetBeans
-1. Tại cây thư mục dự án bên trái, mở rộng module **`server`**.
-2. Tìm đến file mã nguồn chính của Server:
-   `Source Packages` $\rightarrow$ `com.incidentreport.server` $\rightarrow$ **`Server.java`**.
-3. Nhấp chuột phải vào file **`Server.java`** $\rightarrow$ Chọn **`Run File`** (hoặc ấn `Shift + F6`).
-4. Khung Output của NetBeans sẽ hiển thị thông báo:
-   ```
-   ✅ [TCP SERVER] Đang lắng nghe kết nối trên cổng TCP 5000...
-   ✅ Máy chủ sẵn sàng tiếp nhận điều phối sự cố!
-   ```
+*(Cùng các nhân viên kỹ thuật: `kt_hai`, `kt_kien`, `kt_thang`, `kt_viet`, `kt_huy`).*
 
----
+### 6.4. Người Xử Lý - Phòng Y Tế Học Đường (`RESPONDER` - `MEDICAL`)
+| Tên Đăng Nhập | Mật Khẩu | Họ và Tên | Chuyên Môn |
+| :--- | :---: | :--- | :--- |
+| **`yte_mai`** | `123456` | Cô Vũ Tuyết Mai | Trưởng phòng Y tế học đường |
+| **`yte_huong`** | `123456` | Cô Nguyễn Thu Hương | Bác sĩ học đường trực sơ cứu |
+| **`yte_linh`** | `123456` | Cô Đỗ Thùy Linh | Điều dưỡng viên sơ cứu chấn thương |
+| **`yte_thao`** | `123456` | Cô Phạm Thanh Thảo | Chuyên viên tư vấn tâm lý học sinh |
 
-### Bước 4: Khởi chạy Client (Người dùng / Kỹ thuật viên) trên NetBeans
-1. Tại cây thư mục dự án bên trái, mở rộng module **`client`**.
-2. Tìm đến file khởi chạy Client:
-   `Source Packages` $\rightarrow$ `com.incidentreport.client` $\rightarrow$ **`Main.java`** (hoặc `IncidentReportApp.java`).
-3. Nhấp chuột phải vào file **`Main.java`** $\rightarrow$ Chọn **`Run File`** (hoặc ấn `Shift + F6`).
-4. Cửa sổ giao diện đồ họa JavaFX sẽ xuất hiện.
-   > **Mẹo kiểm thử thực tế:** Bạn có thể lặp lại thao tác **`Run File`** trên `Main.java` nhiều lần để mở đồng thời 2 hoặc 3 cửa sổ Client cùng lúc (ví dụ: 1 cửa sổ đăng nhập tài khoản Giáo viên để báo sự cố, 1 cửa sổ đăng nhập Kỹ thuật viên để nhận sự cố và chat thử).
+*(Cùng các nhân viên y tế: `yte_nhung`, `yte_tam`, `yte_ngoc`).*
 
----
+### 6.5. Người Xử Lý - Đội Bảo Vệ & An Ninh (`RESPONDER` - `SECURITY`)
+| Tên Đăng Nhập | Mật Khẩu | Họ và Tên | Chuyên Môn |
+| :--- | :---: | :--- | :--- |
+| **`bv_son`** | `123456` | Bác Trương Sơn | Đội trưởng Bảo vệ & An ninh trật tự |
+| **`bv_duc`** | `123456` | Bác Hoàng Văn Đức | Bảo vệ trực Cổng chính A |
+| **`bv_thanh`** | `123456` | Bác Đinh Công Thành | Bảo vệ trực Cổng phụ B |
+| **`bv_hung`** | `123456` | Chú Vũ Mạnh Hùng | Tuần tra Nhà xe học sinh & Khuôn viên |
+| **`bv_tien`** | `123456` | Chú Lê Minh Tiến | Giám sát Camera an ninh trung tâm |
 
-## 5. DANH SÁCH TÀI KHOẢN MẪU ĐƯỢC ADMIN CẤP SẴN
-
-Hệ thống đã nạp sẵn danh sách tài khoản theo đúng các vai trò và phòng ban chuyên trách (Mật khẩu mặc định cho tất cả: **`123456`**):
-
-| Tên Đăng Nhập | Họ và Tên | Vai Trò | Phòng Ban / Chuyên Môn | Nhiệm Vụ |
-| :--- | :--- | :---: | :---: | :--- |
-| **`admin_bgh`** | Thầy Nguyễn Văn An | `ADMIN` | Quản trị tập trung | Ban Giám Hiệu / Quản trị hệ thống Server |
-| **`gv_lan`** | Cô Trần Thị Lan | `REPORTER` | Giáo viên 10A2 | Báo cáo các sự cố tại lớp học |
-| **`hs_minh`** | Lê Hoàng Minh | `REPORTER` | Lớp trưởng 10A2 | Báo cáo sự cố thiết bị / sự vụ học sinh |
-| **`kt_tuan`** | Anh Hoàng Văn Tuấn | `RESPONDER` | **Phòng Kỹ Thuật (TECHNICAL)** | Nhận sửa chữa điện nước, quạt, máy chiếu |
-| **`kt_nam`** | Anh Ngô Bảo Nam | `RESPONDER` | **Phòng Kỹ Thuật (TECHNICAL)** | Kỹ thuật viên thiết bị |
-| **`yte_mai`** | Cô Vũ Tuyết Mai | `RESPONDER` | **Phòng Y Tế (MEDICAL)** | Nhân viên y tế học đường, sơ cứu |
-| **`bv_son`** | Bác Trương Sơn | `RESPONDER` | **Đội Bảo Vệ (SECURITY)** | Đội trưởng an ninh trật tự trường học |
+*(Cùng các nhân viên bảo vệ: `bv_loi`, `bv_binh`).*
 
 ---
 
-## 6. KỊCH BẢN KIỂM THỬ MẪU (TEST SCENARIO)
+## 7. HƯỚNG DẪN BIÊN DỊCH & KHỞI CHẠY HỆ THỐNG
 
-1. **Bước 1 (Báo sự cố):** 
-   * Mở Client 1 $\rightarrow$ Đăng nhập bằng `gv_lan` / `123456`.
-   * Vào tab *"Báo sự cố mới"*: Chọn phòng `A201`, Loại sự cố: `Sự cố Điện nguy hiểm`, Mô tả: *"Chập cầu dao phát tia lửa điện"*, bấm **Gửi báo cáo**.
-2. **Bước 2 (Server tự động đẩy đúng tài khoản phòng ban):**
-   * Server nhận sự cố và nhận diện đây là sự cố điện $\rightarrow$ **tự động chỉ đẩy bản tin về các tài khoản thuộc Phòng Kỹ Thuật (TECHNICAL)** (như `kt_tuan`, `kt_nam`), các tài khoản Y tế hay Bảo vệ hoàn toàn không bị ảnh hưởng.
-   * Mở Client 2 $\rightarrow$ Đăng nhập bằng kỹ thuật viên `kt_tuan` / `123456`.
-   * Màn hình của `kt_tuan` lập tức nhận được thông báo sự cố phòng `A201` $\rightarrow$ Bấm **"Nhận nhiệm vụ"**.
-3. **Bước 3 (Trao đổi trực tiếp 1 - 1):**
-   * Cả 2 Client (cô Lan và anh Tuấn) cùng chuyển sang tab **Chat**.
-   * Anh Tuấn nhắn: *"Em đang mang dụng cụ lên phòng A201, cô ngắt át phụ trước giúp em ạ!"*.
-   * Cô Lan nhắn phản hồi: *"Cô vừa ngắt át rồi nhé Tuấn!"*.
-4. **Bước 4 (Hoàn thành & Dọn dẹp):**
-   * Anh Tuấn sau khi sửa xong bấm **"Hoàn thành"** và nhập ghi chú *"Đã thay át mới an toàn"*.
-   * Phiên chat hoàn tất và tự động dọn dẹp trên cả 2 màn hình Client.
-   * Trên Server, Admin mở nhật ký vẫn kiểm tra được trọn vẹn toàn bộ tiến độ và nội dung trao đổi của ca xử lý này.
-5. **Bước 5 (Admin Thống kê & Xuất báo cáo):**
-   * Tại màn hình Server/Admin, mở tab Thống kê:
-   * Chọn xem thống kê sự cố theo ngày, tháng, quý hoặc năm.
-   * Xem biểu đồ phân bố sự cố theo phòng ban và danh sách các phòng học hay xảy ra hỏng hóc nhất.
-   * Bấm nút **"Xuất báo cáo (CSV)"** để kết xuất dữ liệu lưu trữ hồ sơ thanh tra.
+### Cách 1: Khởi Chạy Trên Apache NetBeans (Khuyên dùng cho Giảng viên / Chấm điểm)
 
+Hệ thống được thiết kế hoàn toàn tương thích và tối ưu hóa để chạy trực tiếp trên **Apache NetBeans (từ bản 12 đến 20+)** với **JDK 17**:
+
+1. **Mở dự án:**
+   * Mở phần mềm NetBeans $\rightarrow$ Menu `File` $\rightarrow$ `Open Project...` (`Ctrl + Shift + O`).
+   * Chọn thư mục:
+     ```
+     D:\Filecode\Laptrinhmang\baitaplon\source
+     ```
+   * Nhấn nút **Open Project**. NetBeans sẽ tự động nhận diện Parent Project `incident-report-system` và 4 sub-modules (`common`, `service`, `server`, `client`).
+2. **Biên dịch dự án lần đầu:**
+   * Nhấp chuột phải vào dự án gốc **`incident-report-system`** $\rightarrow$ Chọn **`Clean and Build`**.
+   * Chờ vài giây cho đến khi khung Output hiển thị `BUILD SUCCESS`.
+3. **Chạy Server (Admin):**
+   * Mở rộng module **`server`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.server`.
+   * Nhấp chuột phải vào file **`Server.java`** $\rightarrow$ Chọn **`Run File`** (hoặc phím tắt **`Shift + F6`**).
+   * Server sẽ khởi động và thông báo:
+     ```
+     ======================================================================
+       HỆ THỐNG ĐIỀU PHỐI SỰ CỐ TRƯỜNG HỌC (SERVER TRUNG TÂM)
+     ======================================================================
+     ✅ [TCP SERVER] Đang lắng nghe kết nối trên cổng TCP 5000...
+     ✅ Máy chủ sẵn sàng tiếp nhận điều phối sự cố!
+     ```
+4. **Chạy Client (Giao diện người dùng):**
+   * Mở rộng module **`client`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.client`.
+   * Nhấp chuột phải vào file **`IncidentReportApp.java`** $\rightarrow$ Chọn **`Run File`** (**`Shift + F6`**).
+   * Màn hình Đăng nhập JavaFX sẽ xuất hiện ngay lập tức.
+   * *Mẹo kiểm thử thực tế:* Bạn có thể ấn **`Shift + F6`** nhiều lần trên `IncidentReportApp.java` để mở đồng thời 2 hoặc 3 cửa sổ Client cùng lúc (ví dụ: 1 cửa sổ giáo viên báo sự cố, 1 cửa sổ kỹ thuật viên nhận việc để trải nghiệm tính năng đẩy thông báo và chat thời gian thực).
+
+---
+
+### Cách 2: Khởi Chạy Nhanh Bằng Kịch Bản Windows Batch Script
+
+Dự án cung cấp sẵn 2 kịch bản chạy nhanh ở thư mục gốc:
+
+1. **Khởi động Server:** Nhấp đúp chuột vào file **`run_server.bat`**. Cửa sổ điều khiển Server sẽ khởi động ngay lập tức trên cổng 5000.
+2. **Khởi động Client:** Nhấp đúp chuột vào file **`run_client.bat`** (có thể mở nhiều lần để chạy nhiều Client độc lập).
+
+---
+
+## 8. KỊCH BẢN KIỂM THỬ NGHIỆP VỤ MẪU (E2E TEST SCENARIOS)
+
+Dưới đây là các kịch bản kiểm thử mẫu hoàn chỉnh, mô phỏng đúng các tình huống thực tế trong trường học:
+
+### Kịch bản 1: Báo Sự Cố Điện $\rightarrow$ Tự Động Định Tuyến Phòng Kỹ Thuật $\rightarrow$ Nhận Việc & Chat 1-1
+1. **Bước 1 (Gửi báo cáo):**
+   * Mở Client 1 $\rightarrow$ Đăng nhập bằng tài khoản Giáo viên: `gv_lan` / `123456`.
+   * Tại tab *"Báo sự cố mới"*:
+     * Vị trí: `Phòng A201 (Tầng 2 nhà A)`.
+     * Danh mục: `Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)`.
+     * Tiêu đề: `Chập át-tô-mát góc cuối lớp`.
+     * Mô tả: `Cầu dao bốc khói khét và phát tia lửa điện, lớp đã tắt thiết bị`.
+     * Bấm nút **"Gửi Báo Cáo"**.
+2. **Bước 2 (Server tự động đẩy đúng phòng ban chuyên trách):**
+   * Server phân tích thấy sự cố thuộc chuyên môn `TECHNICAL` $\rightarrow$ Tự động đẩy bản tin tức thì đến nhân sự phòng Kỹ thuật đang online (`kt_tuan`, `kt_nam`), các tài khoản Y tế (`yte_mai`) hay Bảo vệ (`bv_son`) hoàn toàn không bị ảnh hưởng.
+   * Mở Client 2 $\rightarrow$ Đăng nhập bằng kỹ thuật viên: `kt_tuan` / `123456`.
+   * Tab *"Chờ tiếp nhận"* của `kt_tuan` hiển thị ngay sự cố của phòng `A201`.
+   * `kt_tuan` bấm nút **"Nhận việc"** $\rightarrow$ Sự cố chuyển sang trạng thái `IN_PROGRESS` và gán cho `kt_tuan`.
+3. **Bước 3 (Giao tiếp trực tiếp 1-1 qua Chat Split-Pane):**
+   * Cả 2 màn hình Client (Cô Lan và Anh Tuấn) cùng chuyển sang tab **"Trò chuyện (Chat)"**.
+   * Bên cột trái xuất hiện phiên chat tương ứng với sự cố phòng A201 kèm chấm đỏ thông báo tin nhắn mới.
+   * Anh Tuấn nhắn: *"Em đang chuẩn bị đồ nghề lên tầng 2, cô ngắt át phụ phía ngoài giúp em trước nhé!"*.
+   * Cô Lan nhắn phản hồi: *"Cô vừa ngắt át tổng hành lang rồi Tuấn nhé!"*.
+   * Tin nhắn được đẩy tức thì qua luồng TCP, hiển thị dạng bong bóng tin nhắn Messenger chuyên nghiệp.
+4. **Bước 4 (Nghiệm thu & Tự động khóa phiên chat):**
+   * Anh Tuấn sửa xong, chuyển trạng thái sự cố sang **"Hoàn thành" (RESOLVED)** kèm ghi chú *"Đã thay át-tô-mát 32A mới an toàn"*.
+   * Khung chat lập tức hiển thị thanh thông báo: `🔒 Sự cố đã hoàn tất. Phiên chat đã đóng.` và vô hiệu hóa ô nhập liệu để lưu trữ bằng chứng.
+
+---
+
+### Kịch bản 2: Người Báo Hủy Ca Chờ Xử Lý (Reporter Cancel Ticket)
+1. Mở Client $\rightarrow$ Đăng nhập bằng học sinh: `hs_minh` / `123456`.
+2. Tạo sự cố: Vị trí `A102`, Danh mục `Hỏng thiết bị lớp học`, Tiêu đề `Quạt trần số 2 không quay`.
+3. Nhận ra học sinh lớp khác vừa cắm nhầm phích cắm phụ và quạt đã quay bình thường.
+4. Tại danh sách sự cố đã gửi (trạng thái `PENDING`), bấm nút **`❌ Hủy`**.
+5. Hộp thoại xác nhận xuất hiện: *"Bạn có chắc chắn muốn hủy sự cố này không?"* $\rightarrow$ Chọn **OK**.
+6. Sự cố chuyển sang trạng thái `CANCELLED` và tự động biến mất khỏi hàng đợi tiếp nhận của phòng Kỹ thuật.
+
+---
+
+### Kịch bản 3: Ban Giám Hiệu (Admin) Lọc Đa Tiêu Chí & Xuất Báo Cáo CSV
+1. Mở Client $\rightarrow$ Đăng nhập bằng tài khoản Hiệu trưởng: `admin_bgh` / `123456`.
+2. Giao diện xuất hiện đầy đủ các tab quản trị cao cấp:
+   * **Tab Giám sát sự cố:**
+     * Nhập vào ô tìm kiếm: `A201` $\rightarrow$ Bảng tự động lọc tức thì sự cố tại phòng A201.
+     * Chọn ComboBox trạng thái: `IN_PROGRESS` hoặc `RESOLVED` $\rightarrow$ Bảng phản hồi ngay lập tức.
+     * Xem chi tiết sự cố và nút chỉ định thủ công (Re-assign) cho nhân sự khác khi ca bị chậm tiến độ.
+   * **Tab Thống kê & Báo cáo:**
+     * Chọn chu kỳ thời gian: `Hôm nay (DAY)`, `Tháng này (MONTH)`, `Năm nay (YEAR)`.
+     * Xem tỷ lệ giải quyết sự cố và biểu đồ cơ cấu theo từng phòng ban.
+     * Bấm nút **"Xuất Báo Cáo (CSV)"** $\rightarrow$ File CSV được tạo với chuẩn mã hóa UTF-8 BOM, mở trực tiếp trên Excel hiển thị tiếng Việt sắc nét.
+   * **Tab Quản lý người dùng:**
+     * Admin có thể cấp tài khoản mới hoặc đặt lại mật khẩu cho giáo viên, học sinh khi quên mật khẩu.
+
+---
+
+## 9. BỘ KIỂM THỬ TỰ ĐỘNG & CÁCH LY DỮ LIỆU (AUTOMATED TEST SUITE)
+
+Dự án tích hợp đầy đủ hệ thống kiểm thử tự động (Unit Tests & Integration Tests) với JUnit 5:
+
+| Tên Lớp Kiểm Thử | Vị trí Module | Phạm vi Kiểm thử |
+| :--- | :--- | :--- |
+| **`PacketTest`** | `common` | Kiểm thử đóng khung gói tin nhị phân, kiểm tra Magic Header `0xCAFE`, payload UTF-8 và khối nhị phân đính kèm. |
+| **`ChatMessageTest`** | `service` | Kiểm thử lưu trữ tin nhắn chat 1-1, kiểm tra toàn vẹn Foreign Key và truy vấn kiểm toán cho Admin. |
+| **`TicketRoutingAndStatisticsTest`** | `service` | Kiểm thử quy trình tạo sự cố, định tuyến phòng ban, nhận việc nguyên tử và thuật toán thống kê đa chu kỳ. |
+| **`UserAndAdminManagementTest`** | `service` | Kiểm thử đăng nhập xác thực Salted SHA-256, chuyển trạng thái Online/Offline, Admin cấp phát tài khoản. |
+| **`AuthAndAdminIntegrationTest`** | `server` | Kiểm thử tích hợp TCP Socket: luồng bắt tay, đăng nhập, phân quyền RBAC và quản lý phiên kết nối. |
+| **`EndToEndDispatchIntegrationTest`** | `server` | Kiểm thử toàn trình (E2E): Gửi báo cáo $\rightarrow$ Server đẩy thông báo $\rightarrow$ Nhận việc $\rightarrow$ Chat 1-1 $\rightarrow$ Đóng sự cố. |
+
+> [!NOTE]  
+> Tất cả các kiểm thử tự động đều chạy biệt lập trên file **`database/test_incident_report.db`**, hoàn toàn **không can thiệp, không thêm/xóa** dữ liệu của file CSDL thực tế **`database/incident_report.db`**.
+
+---
+
+*Tài liệu được cập nhật toàn diện và đồng bộ 100% với mã nguồn hệ thống SIDS phiên bản mới nhất.*

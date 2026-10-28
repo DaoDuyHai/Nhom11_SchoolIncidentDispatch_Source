@@ -11,20 +11,21 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Xử lý kết nối TCP Socket cho từng Client (Multi-threaded & Asynchronous I/O):
- * - Tách biệt hoàn toàn luồng Đọc và luồng Ghi qua BlockingQueue.
+ * - Tách biệt hoàn toàn luồng Đọc và luồng Ghi qua BlockingQueue có giới hạn (1000 items).
  * - Triển khai giao thức nhị phân chuẩn 0xCAFE.
  * - Điều phối báo cáo tự động theo phòng ban kỹ thuật / y tế / an ninh.
  * - Đẩy ngay cho cán bộ online hoặc tự động nạp backlog khi cán bộ đăng nhập.
- * - Phân quyền chặt chẽ: Chỉ Admin mới tạo được tài khoản & xem kiểm toán/thống kê.
+ * - Phân quyền chặt chẽ phía Server:
+ *   + Chỉ Admin mới được xem toàn bộ sự cố (scope=ALL), lấy thống kê, tạo tài khoản.
+ *   + Responder chỉ được nhận (claim) sự cố đúng chuyên môn phòng ban.
+ *   + Chỉ người tạo vé hoặc cán bộ trực tiếp xử lý/Admin mới được cập nhật trạng thái hoặc chat 1-1.
+ * - Cache chống trùng lặp (Idempotency) theo người dùng dạng LRU có giới hạn dung lượng.
  */
 public class ClientHandler implements Runnable {
 
@@ -36,12 +37,34 @@ public class ClientHandler implements Runnable {
     private User loggedInUser = null;
     private volatile boolean running = true;
 
-    // Hàng đợi gửi bất đồng bộ tránh nghẽn luồng đọc
-    private final BlockingQueue<Packet> outgoingQueue = new LinkedBlockingQueue<>();
+    // Hàng đợi gửi bất đồng bộ có giới hạn dung lượng (1000) chống tràn RAM
+    private final BlockingQueue<Packet> outgoingQueue = new LinkedBlockingQueue<>(1000);
     private Thread senderThread;
 
-    // Cache tránh lặp xử lý bản tin
-    private static final Map<String, Packet> idempotencyCache = new ConcurrentHashMap<>();
+    // LRU Cache an toàn đa luồng giới hạn 500 bản ghi
+    private static final int MAX_CACHE_SIZE = 500;
+    private static final Map<String, Packet> idempotencyCache = Collections.synchronizedMap(
+            new LinkedHashMap<String, Packet>(MAX_CACHE_SIZE, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Packet> eldest) {
+                    return size() > MAX_CACHE_SIZE;
+                }
+            }
+    );
+
+    // Whitelist kiểm tra hợp lệ
+    private static final Set<String> VALID_ROLES = new HashSet<>(Arrays.asList(
+            Constants.ROLE_ADMIN, Constants.ROLE_REPORTER, Constants.ROLE_RESPONDER
+    ));
+
+    private static final Set<String> VALID_SPECIALTIES = new HashSet<>(Arrays.asList(
+            Constants.SPECIALTY_NONE, Constants.SPECIALTY_TECHNICAL, Constants.SPECIALTY_MEDICAL,
+            Constants.SPECIALTY_SECURITY, Constants.SPECIALTY_ALL
+    ));
+
+    private static final Set<String> VALID_STATUSES = new HashSet<>(Arrays.asList(
+            Constants.STATUS_PENDING, Constants.STATUS_IN_PROGRESS, Constants.STATUS_RESOLVED, Constants.STATUS_CANCELLED
+    ));
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -51,10 +74,18 @@ public class ClientHandler implements Runnable {
         return loggedInUser;
     }
 
+    private String sanitize(String input) {
+        if (input == null) return "";
+        return input.replace("|", " ").replace("=", ":").trim();
+    }
+
     @Override
     public void run() {
         try {
             socket.setTcpNoDelay(true);
+            socket.setKeepAlive(true);
+            socket.setSoTimeout(300000); // 5 phút không có tín hiệu thì đóng kết nối
+
             in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
@@ -81,19 +112,27 @@ public class ClientHandler implements Runnable {
         while (running) {
             try {
                 Packet packet = outgoingQueue.take();
-                packet.writeTo(out);
+                if (out != null) {
+                    packet.writeTo(out);
+                }
             } catch (InterruptedException e) {
                 break;
             } catch (IOException e) {
-                closeConnection();
+                if (running) {
+                    System.err.printf("⚠️ Lỗi ghi socket tới client %s: %s\n", socket.getRemoteSocketAddress(), e.getMessage());
+                }
                 break;
             }
         }
+        closeConnection();
     }
 
     public void enqueuePacket(Packet packet) {
         if (running && packet != null) {
-            outgoingQueue.offer(packet);
+            boolean added = outgoingQueue.offer(packet);
+            if (!added) {
+                System.err.println("⚠️ Hàng đợi gửi đầy (1000 items), bỏ qua gói tin: " + packet.getType());
+            }
         }
     }
 
@@ -102,8 +141,9 @@ public class ClientHandler implements Runnable {
         Map<String, String> params = packet.parseParams();
 
         String reqId = params.get("reqId");
+        String cacheKey = (loggedInUser != null ? loggedInUser.getUserId() : "anon") + ":" + reqId;
         if (reqId != null) {
-            Packet cachedResp = idempotencyCache.get(reqId);
+            Packet cachedResp = idempotencyCache.get(cacheKey);
             if (cachedResp != null) {
                 enqueuePacket(cachedResp);
                 return;
@@ -112,11 +152,11 @@ public class ClientHandler implements Runnable {
 
         switch (type) {
             case Constants.TYPE_LOGIN:
-                handleLogin(params);
+                handleLogin(packet, params);
                 break;
 
             case Constants.TYPE_SUBMIT_INCIDENT:
-                handleSubmitIncident(packet, params, reqId);
+                handleSubmitIncident(packet, params, cacheKey);
                 break;
 
             case Constants.TYPE_CLAIM_TASK:
@@ -165,11 +205,13 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void handleLogin(Map<String, String> params) {
-        String username = params.get("username");
-        String password = params.get("password");
+    private void handleLogin(Packet packet, Map<String, String> params) {
+        String username = sanitize(params.get("username"));
+        String password = packet.getAttachment() != null && packet.getAttachment().length > 0
+                ? new String(packet.getAttachment(), StandardCharsets.UTF_8)
+                : params.get("password");
 
-        if (username == null || password == null) {
+        if (username.isEmpty() || password == null || password.isEmpty()) {
             sendError("INVALID_CREDENTIALS", "Tên đăng nhập và mật khẩu không được để trống!");
             return;
         }
@@ -188,7 +230,7 @@ public class ClientHandler implements Runnable {
         String header = String.format("LOGIN_RESP|status=OK|userId=%d|username=%s|role=%s|specialty=%s|fullName=%s|phone=%s",
                 user.getUserId(), user.getUsername(), user.getRole(),
                 user.getSpecialty() != null ? user.getSpecialty() : "NONE",
-                user.getFullName(), user.getPhone() != null ? user.getPhone() : "");
+                sanitize(user.getFullName()), user.getPhone() != null ? sanitize(user.getPhone()) : "");
 
         Packet successPkt = new Packet(Constants.TYPE_LOGIN_RESP, header, gson.toJson(user).getBytes(StandardCharsets.UTF_8));
         enqueuePacket(successPkt);
@@ -210,17 +252,17 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void handleSubmitIncident(Packet packet, Map<String, String> params, String reqId) {
+    private void handleSubmitIncident(Packet packet, Map<String, String> params, String cacheKey) {
         if (loggedInUser == null) {
             sendError("UNAUTHORIZED", "Bạn cần đăng nhập trước khi gửi báo cáo sự cố!");
             return;
         }
 
-        String roomLocation = params.get("room");
-        String categoryCode = params.get("category");
-        String description = params.get("desc");
+        String roomLocation = sanitize(params.get("room"));
+        String categoryCode = sanitize(params.get("category"));
+        String description = sanitize(params.get("desc"));
 
-        if (roomLocation == null || categoryCode == null || description == null) {
+        if (roomLocation.isEmpty() || categoryCode.isEmpty() || description.isEmpty()) {
             sendError("BAD_REQUEST", "Thiếu thông tin phòng, phân loại hoặc mô tả sự cố!");
             return;
         }
@@ -241,15 +283,17 @@ public class ClientHandler implements Runnable {
 
         // Tự động phân loại và định tuyến đúng phòng ban
         IncidentCategory category = CategoryDAO.getCategory(categoryCode);
-        String targetDept = (category != null) ? category.getTargetDepartment() : Constants.SPECIALTY_TECHNICAL;
+        String targetDept = (category != null && category.getTargetDepartment() != null)
+                ? category.getTargetDepartment().trim().toUpperCase()
+                : Constants.SPECIALTY_TECHNICAL;
 
         String ticketCode = "TK-" + (System.currentTimeMillis() % 1000000);
         IncidentTicket ticket = new IncidentTicket();
         ticket.setTicketCode(ticketCode);
-        ticket.setRoomLocation(roomLocation.trim());
+        ticket.setRoomLocation(roomLocation);
         ticket.setCategoryCode(categoryCode);
         ticket.setTargetDepartment(targetDept);
-        ticket.setDescription(description.trim());
+        ticket.setDescription(description);
         ticket.setReporterId(loggedInUser.getUserId());
         ticket.setReporterName(loggedInUser.getFullName());
         ticket.setReporterPhone(loggedInUser.getPhone());
@@ -269,8 +313,8 @@ public class ClientHandler implements Runnable {
                 gson.toJson(ticket).getBytes(StandardCharsets.UTF_8));
         enqueuePacket(respPkt);
 
-        if (reqId != null) {
-            idempotencyCache.put(reqId, respPkt);
+        if (cacheKey != null) {
+            idempotencyCache.put(cacheKey, respPkt);
         }
 
         // CHỨC NĂNG CỐT LÕI: TỰ ĐỘNG ĐẨY SỰ CỐ TỚI TÀI KHOẢN PHÒNG BAN CHUYÊN TRÁCH ĐANG ONLINE
@@ -296,9 +340,23 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+        if (ticket == null) {
+            sendError("NOT_FOUND", "Sự cố không tồn tại!");
+            return;
+        }
+
+        // PHÂN QUYỀN CHẶT CHẼ: Cán bộ chỉ được nhận sự cố đúng chuyên môn phòng ban của mình
+        if (!"ALL".equalsIgnoreCase(loggedInUser.getSpecialty()) &&
+                !ticket.getTargetDepartment().equalsIgnoreCase(loggedInUser.getSpecialty())) {
+            sendError("FORBIDDEN", String.format("Bạn thuộc phòng %s, không thể nhận việc của phòng %s!",
+                    loggedInUser.getSpecialty(), ticket.getTargetDepartment()));
+            return;
+        }
+
         boolean success = TicketDAO.claimTicket(ticketId, loggedInUser.getUserId(), loggedInUser.getFullName());
         if (success) {
-            IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+            ticket = TicketDAO.getTicketById(ticketId);
             Packet respPkt = new Packet(Constants.TYPE_CLAIM_RESP, "CLAIM_RESP|status=OK|ticketId=" + ticketId);
             enqueuePacket(respPkt);
 
@@ -314,7 +372,7 @@ public class ClientHandler implements Runnable {
             ServerSessionManager.sendToAdmin(statusPkt);
             System.out.printf("🤝 [CLAIM] Cán bộ %s đã tiếp nhận sự cố #%d.\n", loggedInUser.getFullName(), ticketId);
         } else {
-            Packet respPkt = new Packet(Constants.TYPE_CLAIM_RESP, "CLAIM_RESP|status=ALREADY_TAKEN|ticketId=" + ticketId + "|message=Sự cố đã được người khác tiếp nhận!");
+            Packet respPkt = new Packet(Constants.TYPE_CLAIM_RESP, "CLAIM_RESP|status=ALREADY_TAKEN|ticketId=" + ticketId + "|message=Sự cố đã được người khác tiếp nhận hoặc không đúng chuyên môn!");
             enqueuePacket(respPkt);
         }
     }
@@ -327,7 +385,7 @@ public class ClientHandler implements Runnable {
 
         int ticketId = Integer.parseInt(params.getOrDefault("ticketId", "0"));
         int staffId = Integer.parseInt(params.getOrDefault("staffId", "0"));
-        String note = params.getOrDefault("note", "Admin phân công trực tiếp");
+        String note = sanitize(params.getOrDefault("note", "Admin phân công trực tiếp"));
 
         User staff = UserDAO.getUserById(staffId);
         if (staff == null) {
@@ -363,17 +421,47 @@ public class ClientHandler implements Runnable {
         }
 
         int ticketId = Integer.parseInt(params.getOrDefault("ticketId", "0"));
-        String status = params.get("status");
-        String note = params.getOrDefault("note", "");
+        String status = sanitize(params.get("status"));
+        String note = sanitize(params.getOrDefault("note", ""));
 
-        if (ticketId <= 0 || status == null) {
+        if (ticketId <= 0 || status.isEmpty()) {
             sendError("BAD_REQUEST", "Thiếu mã sự cố hoặc trạng thái!");
             return;
         }
 
+        if (!VALID_STATUSES.contains(status)) {
+            sendError("BAD_REQUEST", "Trạng thái sự cố không hợp lệ: " + status);
+            return;
+        }
+
+        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+        if (ticket == null) {
+            sendError("NOT_FOUND", "Sự cố không tồn tại!");
+            return;
+        }
+
+        boolean isAdmin = Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole());
+        boolean isAssignedStaff = ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() == loggedInUser.getUserId();
+        boolean isReporter = ticket.getReporterId() == loggedInUser.getUserId();
+
+        // PHÂN QUYỀN CHẶT CHẼ TRẠNG THÁI SỰ CỐ:
+        if (Constants.STATUS_CANCELLED.equalsIgnoreCase(status)) {
+            // Cho phép Admin hoặc chính Reporter hủy vé khi vé còn PENDING
+            if (!isAdmin && (!isReporter || !Constants.STATUS_PENDING.equalsIgnoreCase(ticket.getStatus()))) {
+                sendError("FORBIDDEN", "Chỉ Ban Giám Hiệu hoặc người tạo báo cáo mới có thể hủy sự cố khi chưa được tiếp nhận!");
+                return;
+            }
+        } else {
+            // IN_PROGRESS, RESOLVED chỉ cho phép Admin hoặc cán bộ được giao trực tiếp xử lý
+            if (!isAdmin && !isAssignedStaff) {
+                sendError("FORBIDDEN", "Chỉ Ban Giám Hiệu hoặc cán bộ trực tiếp phụ trách mới có quyền cập nhật trạng thái sự cố!");
+                return;
+            }
+        }
+
         boolean ok = TicketDAO.updateStatus(ticketId, status, note);
         if (ok) {
-            IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+            ticket = TicketDAO.getTicketById(ticketId);
             Packet statusPkt = new Packet(Constants.TYPE_STATUS_BROADCAST,
                     String.format("STATUS_BROADCAST|ticketId=%d|status=%s|staffName=%s|note=%s",
                             ticketId, status, loggedInUser.getFullName(), note));
@@ -395,14 +483,24 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        String scope = params.getOrDefault("scope", "MY");
+        String scope = sanitize(params.getOrDefault("scope", "MY"));
         List<IncidentTicket> list;
 
-        if ("DEPARTMENT".equalsIgnoreCase(scope)) {
-            list = TicketDAO.getTicketsByDepartment(loggedInUser.getSpecialty());
-        } else if ("ALL".equalsIgnoreCase(scope) || Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole())) {
+        // PHÂN QUYỀN CHẶT CHẼ PHẠM VI XEM VÉ:
+        if ("ALL".equalsIgnoreCase(scope)) {
+            if (!Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole())) {
+                sendError("FORBIDDEN", "Chỉ Ban Giám Hiệu (Admin) mới có quyền xem toàn bộ sự cố!");
+                return;
+            }
             list = TicketDAO.getAllTickets();
+        } else if ("DEPARTMENT".equalsIgnoreCase(scope)) {
+            if (!Constants.ROLE_RESPONDER.equalsIgnoreCase(loggedInUser.getRole())) {
+                sendError("FORBIDDEN", "Chỉ cán bộ phòng ban (Responder) mới có quyền xem sự cố theo phòng ban!");
+                return;
+            }
+            list = TicketDAO.getTicketsByDepartment(loggedInUser.getSpecialty());
         } else {
+            // Scope MY
             if (Constants.ROLE_RESPONDER.equalsIgnoreCase(loggedInUser.getRole())) {
                 list = TicketDAO.getTicketsByStaff(loggedInUser.getUserId());
             } else {
@@ -411,7 +509,8 @@ public class ClientHandler implements Runnable {
         }
 
         byte[] body = gson.toJson(list).getBytes(StandardCharsets.UTF_8);
-        Packet resp = new Packet(Constants.TYPE_LIST_TICKETS_RESP, "LIST_TICKETS_RESP|count=" + list.size(), body);
+        Packet resp = new Packet(Constants.TYPE_LIST_TICKETS_RESP,
+                String.format("LIST_TICKETS_RESP|scope=%s|count=%d", scope, list.size()), body);
         enqueuePacket(resp);
     }
 
@@ -424,6 +523,22 @@ public class ClientHandler implements Runnable {
         int ticketId = Integer.parseInt(params.getOrDefault("ticketId", "0"));
         if (ticketId <= 0) {
             sendError("BAD_REQUEST", "Thiếu mã sự cố trao đổi!");
+            return;
+        }
+
+        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+        if (ticket == null) {
+            sendError("NOT_FOUND", "Sự cố không tồn tại!");
+            return;
+        }
+
+        // PHÂN QUYỀN CHAT 1-1: Chỉ người báo, cán bộ nhận việc hoặc Admin mới được chat
+        boolean isAdmin = Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole());
+        boolean isReporter = ticket.getReporterId() == loggedInUser.getUserId();
+        boolean isAssignedStaff = ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() == loggedInUser.getUserId();
+
+        if (!isAdmin && !isReporter && !isAssignedStaff) {
+            sendError("FORBIDDEN", "Bạn không có quyền tham gia kênh trao đổi của sự cố này!");
             return;
         }
 
@@ -443,28 +558,25 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
-
         // ĐÓNG GÓI GÓI TIN CHAT_PUSH ĐỂ ĐIỀU PHỐI ĐÚNG 1-1
         Packet pushPkt = new Packet(Constants.TYPE_CHAT_PUSH,
                 String.format("CHAT_PUSH|ticketId=%d|senderId=%d|senderName=%s|senderRole=%s|time=%s",
                         ticketId, loggedInUser.getUserId(), loggedInUser.getFullName(), loggedInUser.getRole(), msg.getSentAt()),
                 msg.getContent().getBytes(StandardCharsets.UTF_8));
 
-        // CHỨC NĂNG CỐT LÕI: Chat 1-1 giữa người báo cáo và người tiếp nhận
-        if (ticket != null) {
-            // Gửi cho người báo cáo nếu người gửi không phải họ
-            if (ticket.getReporterId() > 0 && ticket.getReporterId() != loggedInUser.getUserId()) {
-                ServerSessionManager.sendToUser(ticket.getReporterId(), pushPkt);
-            }
-            // Gửi cho cán bộ phụ trách nếu người gửi không phải họ
-            if (ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() > 0 && ticket.getAssignedStaffId() != loggedInUser.getUserId()) {
-                ServerSessionManager.sendToUser(ticket.getAssignedStaffId(), pushPkt);
-            }
+        // Gửi cho người báo cáo nếu người gửi không phải họ
+        if (ticket.getReporterId() > 0 && ticket.getReporterId() != loggedInUser.getUserId()) {
+            ServerSessionManager.sendToUser(ticket.getReporterId(), pushPkt);
+        }
+        // Gửi cho cán bộ phụ trách nếu người gửi không phải họ
+        if (ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() > 0 && ticket.getAssignedStaffId() != loggedInUser.getUserId()) {
+            ServerSessionManager.sendToUser(ticket.getAssignedStaffId(), pushPkt);
         }
 
         // Server/Admin vẫn có thể giám sát kiểm toán tin nhắn
-        ServerSessionManager.sendToAdmin(pushPkt);
+        if (!isAdmin) {
+            ServerSessionManager.sendToAdmin(pushPkt);
+        }
 
         // Echo lại cho chính người gửi để xác nhận tin đã gửi thành công
         enqueuePacket(pushPkt);
@@ -477,6 +589,27 @@ public class ClientHandler implements Runnable {
         }
 
         int ticketId = Integer.parseInt(params.getOrDefault("ticketId", "0"));
+        if (ticketId <= 0) {
+            sendError("BAD_REQUEST", "Mã sự cố không hợp lệ!");
+            return;
+        }
+
+        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+        if (ticket == null) {
+            sendError("NOT_FOUND", "Sự cố không tồn tại!");
+            return;
+        }
+
+        // PHÂN QUYỀN XEM LỊCH SỬ CHAT: Chỉ người báo, cán bộ nhận việc hoặc Admin mới được xem
+        boolean isAdmin = Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole());
+        boolean isReporter = ticket.getReporterId() == loggedInUser.getUserId();
+        boolean isAssignedStaff = ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() == loggedInUser.getUserId();
+
+        if (!isAdmin && !isReporter && !isAssignedStaff) {
+            sendError("FORBIDDEN", "Bạn không có quyền xem lịch sử trao đổi của sự cố này!");
+            return;
+        }
+
         List<ChatMessage> list = ChatMessageDAO.getMessagesByTicket(ticketId);
         byte[] body = gson.toJson(list).getBytes(StandardCharsets.UTF_8);
 
@@ -490,22 +623,32 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        String username = params.get("username");
-        String fullName = params.get("fullName");
-        String role = params.get("role");
-        String specialty = params.getOrDefault("specialty", Constants.SPECIALTY_NONE);
-        String phone = params.getOrDefault("phone", "");
+        String username = sanitize(params.get("username"));
+        String fullName = sanitize(params.get("fullName"));
+        String role = sanitize(params.get("role"));
+        String specialty = sanitize(params.getOrDefault("specialty", Constants.SPECIALTY_NONE));
+        String phone = sanitize(params.getOrDefault("phone", ""));
 
         String password = packet.getAttachment() != null && packet.getAttachment().length > 0
                 ? new String(packet.getAttachment(), StandardCharsets.UTF_8)
                 : params.getOrDefault("password", "123456");
 
-        if (username == null || fullName == null || role == null) {
+        if (username.isEmpty() || fullName.isEmpty() || role.isEmpty()) {
             enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Thiếu thông tin bắt buộc!"));
             return;
         }
 
-        User newUser = new User(username.trim(), password.trim(), fullName.trim(), role.trim(), specialty.trim(), phone.trim());
+        if (!VALID_ROLES.contains(role)) {
+            enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Vai trò không hợp lệ: " + role));
+            return;
+        }
+
+        if (!VALID_SPECIALTIES.contains(specialty)) {
+            enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Phòng ban chuyên môn không hợp lệ: " + specialty));
+            return;
+        }
+
+        User newUser = new User(username, password.trim(), fullName, role, specialty, phone);
         boolean created = UserDAO.createUser(newUser);
 
         if (created) {
@@ -533,7 +676,7 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        String timeRange = params.getOrDefault("timeRange", "ALL");
+        String timeRange = sanitize(params.getOrDefault("timeRange", "ALL"));
         StatisticReport report = TicketDAO.getStatistics(timeRange);
         byte[] body = gson.toJson(report).getBytes(StandardCharsets.UTF_8);
 
@@ -544,29 +687,31 @@ public class ClientHandler implements Runnable {
         String header = String.format("DISPATCH_NOTIFY|ticketId=%d|code=%s|room=%s|category=%s|department=%s|desc=%s|time=%s",
                 ticket.getTicketId(), ticket.getTicketCode(), ticket.getRoomLocation(),
                 ticket.getCategoryCode(), ticket.getTargetDepartment(),
-                ticket.getDescription().replace("\n", " ").replace("|", " "),
+                sanitize(ticket.getDescription()),
                 ticket.getCreatedAt() != null ? ticket.getCreatedAt() : "");
         return new Packet(Constants.TYPE_DISPATCH_NOTIFY, header, gson.toJson(ticket).getBytes(StandardCharsets.UTF_8));
     }
 
     private void sendError(String code, String message) {
-        enqueuePacket(new Packet(Constants.TYPE_ERROR, String.format("ERROR|code=%s|message=%s", code, message)));
+        enqueuePacket(new Packet(Constants.TYPE_ERROR, String.format("ERROR|code=%s|message=%s", code, sanitize(message))));
     }
 
     public void closeConnection() {
         running = false;
         if (loggedInUser != null) {
-            UserDAO.updateUserOnlineStatus(loggedInUser.getUserId(), false);
-            ServerSessionManager.removeClient(loggedInUser.getUserId(), this);
+            int uid = loggedInUser.getUserId();
+            String uname = loggedInUser.getUsername();
             loggedInUser = null;
-        }
-        if (senderThread != null) {
-            senderThread.interrupt();
+            ServerSessionManager.removeClient(uid, this);
+            if (!ServerSessionManager.isUserOnline(uid)) {
+                UserDAO.updateUserOnlineStatus(uid, false);
+            }
+            System.out.printf("👋 [LOGOUT] Người dùng %s ngắt kết nối.\n", uname);
         }
         try {
-            if (in != null) in.close();
-            if (out != null) out.close();
-            if (socket != null && !socket.isClosed()) socket.close();
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
         } catch (IOException ignored) {}
     }
 }

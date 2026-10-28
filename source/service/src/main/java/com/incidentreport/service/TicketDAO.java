@@ -44,13 +44,13 @@ public class TicketDAO {
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, ticket.getTicketCode());
             pstmt.setString(2, ticket.getRoomLocation() != null ? ticket.getRoomLocation().trim().toUpperCase() : "");
-            pstmt.setString(3, ticket.getCategoryCode());
+            pstmt.setString(3, ticket.getCategoryCode() != null ? ticket.getCategoryCode() : "FACILITY");
             pstmt.setString(4, ticket.getTargetDepartment() != null ? ticket.getTargetDepartment() : Constants.SPECIALTY_TECHNICAL);
             pstmt.setString(5, ticket.getTitle() != null ? ticket.getTitle() : (ticket.getRoomLocation() + " - " + ticket.getCategoryCode()));
             pstmt.setString(6, ticket.getDescription() != null ? ticket.getDescription() : "");
             pstmt.setString(7, ticket.getImageFilePath());
             pstmt.setInt(8, ticket.getReporterId());
-            pstmt.setString(9, ticket.getReporterName());
+            pstmt.setString(9, ticket.getReporterName() != null ? ticket.getReporterName() : ("Người dùng #" + ticket.getReporterId()));
             pstmt.setString(10, ticket.getReporterPhone() != null ? ticket.getReporterPhone() : "");
             pstmt.setString(11, Constants.STATUS_PENDING);
 
@@ -70,10 +70,15 @@ public class TicketDAO {
     }
 
     public static boolean claimTicket(int ticketId, int staffId, String staffName) {
+        return claimTicket(ticketId, staffId, staffName, null);
+    }
+
+    public static boolean claimTicket(int ticketId, int staffId, String staffName, String requiredSpecialty) {
+        boolean checkDept = requiredSpecialty != null && !requiredSpecialty.trim().isEmpty() && !"ALL".equalsIgnoreCase(requiredSpecialty);
         String sql = "UPDATE incident_tickets SET " +
                      "status = ?, assigned_staff_id = ?, assigned_staff_name = ?, " +
                      "accepted_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'localtime') " +
-                     "WHERE ticket_id = ? AND status = ?";
+                     "WHERE ticket_id = ? AND status = ?" + (checkDept ? " AND target_department = ?" : "");
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -82,12 +87,15 @@ public class TicketDAO {
             pstmt.setString(3, staffName);
             pstmt.setInt(4, ticketId);
             pstmt.setString(5, Constants.STATUS_PENDING);
+            if (checkDept) {
+                pstmt.setString(6, requiredSpecialty.trim());
+            }
 
             return pstmt.executeUpdate() > 0;
         } catch (Exception e) {
-            System.err.println("❌ Lỗi claimTicket: " + e.getMessage());
-            return false;
+            System.err.println("❌ Lỗi TicketDAO.claimTicket: " + e.getMessage());
         }
+        return false;
     }
 
     public static boolean manualAssign(int ticketId, int staffId, String staffName, String note) {
@@ -169,7 +177,7 @@ public class TicketDAO {
             "WHERE t.status = 'PENDING' "
         );
         if (specialty != null && !"ALL".equalsIgnoreCase(specialty)) {
-            sql.append("AND (t.target_department = ? OR t.target_department = 'ALL') ");
+            sql.append("AND (UPPER(t.target_department) = UPPER(?) OR UPPER(t.target_department) = 'ALL') ");
         }
         sql.append("ORDER BY t.ticket_id ASC");
 
@@ -194,7 +202,7 @@ public class TicketDAO {
         StringBuilder sql = new StringBuilder(
             "SELECT t.*, c.category_name FROM incident_tickets t " +
             "LEFT JOIN incident_categories c ON t.category_code = c.category_code " +
-            "WHERE (t.target_department = ? OR ? = 'ALL' OR t.target_department = 'ALL') " +
+            "WHERE (UPPER(t.target_department) = UPPER(?) OR UPPER(?) = 'ALL' OR UPPER(t.target_department) = 'ALL') " +
             "ORDER BY CASE t.status WHEN 'PENDING' THEN 1 WHEN 'IN_PROGRESS' THEN 2 ELSE 3 END, t.ticket_id DESC"
         );
 
@@ -331,6 +339,18 @@ public class TicketDAO {
                     topRooms.add(r);
                 }
                 report.setTopIncidentRooms(topRooms);
+            }
+
+            // 4. Danh sách sự cố chi tiết trong kỳ báo cáo phục vụ xuất file CSV chính xác
+            String ticketsSql = "SELECT t.*, c.category_name FROM incident_tickets t " +
+                "LEFT JOIN incident_categories c ON t.category_code = c.category_code " +
+                whereClause.toString() + " ORDER BY t.ticket_id DESC";
+            try (ResultSet rs = stmt.executeQuery(ticketsSql)) {
+                List<IncidentTicket> ticketList = new ArrayList<>();
+                while (rs.next()) {
+                    ticketList.add(mapTicket(rs));
+                }
+                report.setTicketList(ticketList);
             }
 
         } catch (Exception e) {

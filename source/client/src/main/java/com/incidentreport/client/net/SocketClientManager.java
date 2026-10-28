@@ -49,6 +49,10 @@ public class SocketClientManager {
         listeners.remove(listener);
     }
 
+    public synchronized void clearListeners() {
+        listeners.clear();
+    }
+
     public synchronized boolean connect(String host, int port) {
         if (connected) return true;
         try {

@@ -12,7 +12,8 @@ public class UserAndAdminManagementTest {
 
     @BeforeAll
     public static void setup() {
-        InitDatabase.init();
+        DatabaseConnection.setCustomDbUrl("jdbc:sqlite:database/test_incident_report.db");
+        InitDatabase.resetDatabase();
         UserDAO.resetAllUsersOffline();
     }
 

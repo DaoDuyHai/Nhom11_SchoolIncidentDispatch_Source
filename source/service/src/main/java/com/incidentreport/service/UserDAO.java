@@ -13,6 +13,13 @@ import java.util.List;
  */
 public class UserDAO {
 
+    public static final String SYSTEM_SALT = "SIDS_SALT_2026_SECURE_#$!";
+
+    public static String hashWithSalt(String input) {
+        if (input == null) return "";
+        return hashSHA256(input + ":" + SYSTEM_SALT);
+    }
+
     public static String hashSHA256(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -39,18 +46,22 @@ public class UserDAO {
                     String stored = rs.getString("password_hash");
                     boolean matched = false;
 
-                    if (isSHA256Hash(stored)) {
-                        matched = stored.equalsIgnoreCase(hashSHA256(password));
-                    } else {
-                        if (stored.equals(password)) {
-                            matched = true;
-                            // Tự động nâng cấp sang SHA-256
-                            updatePassword(rs.getInt("user_id"), hashSHA256(password));
-                        }
+                    if (stored.equalsIgnoreCase(hashWithSalt(password))) {
+                        matched = true;
+                    } else if (isSHA256Hash(stored) && stored.equalsIgnoreCase(hashSHA256(password))) {
+                        matched = true;
+                        // Tự động nâng cấp sang SHA-256 có Salt
+                        stored = hashWithSalt(password);
+                        updatePassword(rs.getInt("user_id"), stored);
+                    } else if (stored.equals(password)) {
+                        matched = true;
+                        stored = hashWithSalt(password);
+                        updatePassword(rs.getInt("user_id"), stored);
                     }
 
                     if (matched) {
                         User user = mapUser(rs);
+                        user.setPasswordHash(stored);
                         setOnlineStatus(user.getUserId(), 1);
                         user.setIsOnline(1);
                         return user;
@@ -69,7 +80,7 @@ public class UserDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, username);
-            pstmt.setString(2, hashSHA256(password));
+            pstmt.setString(2, hashWithSalt(password));
             pstmt.setString(3, fullName);
             pstmt.setString(4, phone != null ? phone : "");
             pstmt.setString(5, role);

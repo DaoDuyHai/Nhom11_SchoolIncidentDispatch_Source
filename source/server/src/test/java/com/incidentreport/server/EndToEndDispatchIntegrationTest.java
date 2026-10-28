@@ -36,7 +36,8 @@ public class EndToEndDispatchIntegrationTest {
 
     @BeforeAll
     static void startTestServer() throws Exception {
-        InitDatabase.init();
+        com.incidentreport.service.DatabaseConnection.setCustomDbUrl("jdbc:sqlite:database/test_incident_report.db");
+        InitDatabase.resetDatabase();
         CategoryDAO.refreshCache();
         UserDAO.resetAllUsersOffline();
 
@@ -103,6 +104,12 @@ public class EndToEndDispatchIntegrationTest {
             reporterClient.send(new Packet(Constants.TYPE_LOGIN, "LOGIN|username=gv_lan|password=123456"));
             Packet repLoginResp = reporterClient.receive();
             assertEquals("OK", repLoginResp.parseParams().get("status"));
+
+            // 1.1 Giáo viên gửi sự cố phòng A101 khi cán bộ kỹ thuật chưa online (tạo tồn đọng backlog)
+            reporterClient.send(new Packet(Constants.TYPE_SUBMIT_INCIDENT,
+                "INCIDENT|room=A101|category=FACILITY|desc=Den chieu sang chap chon phong A101"));
+            Packet initResp = reporterClient.receive();
+            assertEquals(Constants.TYPE_SUBMIT_RESP, initResp.getType());
 
             // 2. Cán bộ kỹ thuật đăng nhập
             responderClient.send(new Packet(Constants.TYPE_LOGIN, "LOGIN|username=kt_tuan|password=123456"));

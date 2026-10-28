@@ -14,7 +14,8 @@ public class TicketRoutingAndStatisticsTest {
 
     @BeforeAll
     public static void setup() {
-        InitDatabase.init();
+        DatabaseConnection.setCustomDbUrl("jdbc:sqlite:database/test_incident_report.db");
+        InitDatabase.resetDatabase();
         CategoryDAO.refreshCache();
     }
 

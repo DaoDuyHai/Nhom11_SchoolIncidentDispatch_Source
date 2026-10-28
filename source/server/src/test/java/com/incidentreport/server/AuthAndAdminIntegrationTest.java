@@ -33,7 +33,8 @@ public class AuthAndAdminIntegrationTest {
 
     @BeforeAll
     static void startTestServer() throws Exception {
-        InitDatabase.init();
+        com.incidentreport.service.DatabaseConnection.setCustomDbUrl("jdbc:sqlite:database/test_incident_report.db");
+        InitDatabase.resetDatabase();
         CategoryDAO.refreshCache();
         UserDAO.resetAllUsersOffline();
 
