@@ -52,6 +52,15 @@ public class ClientHandler implements Runnable {
             }
     );
 
+    private static final java.util.concurrent.atomic.AtomicInteger TICKET_COUNTER =
+            new java.util.concurrent.atomic.AtomicInteger(java.util.concurrent.ThreadLocalRandom.current().nextInt(1000, 9999));
+
+    private static String generateTicketCode() {
+        long timePart = System.currentTimeMillis() % 100000;
+        int countPart = Math.abs(TICKET_COUNTER.incrementAndGet() % 10);
+        return String.format("TK-%05d%d", timePart, countPart);
+    }
+
     // Whitelist kiểm tra hợp lệ
     private static final Set<String> VALID_ROLES = new HashSet<>(Arrays.asList(
             Constants.ROLE_ADMIN, Constants.ROLE_REPORTER, Constants.ROLE_RESPONDER
@@ -287,9 +296,7 @@ public class ClientHandler implements Runnable {
                 ? category.getTargetDepartment().trim().toUpperCase()
                 : Constants.SPECIALTY_TECHNICAL;
 
-        String ticketCode = "TK-" + (System.currentTimeMillis() % 1000000);
         IncidentTicket ticket = new IncidentTicket();
-        ticket.setTicketCode(ticketCode);
         ticket.setRoomLocation(roomLocation);
         ticket.setCategoryCode(categoryCode);
         ticket.setTargetDepartment(targetDept);
@@ -300,7 +307,14 @@ public class ClientHandler implements Runnable {
         ticket.setImageFilePath(imagePath);
         ticket.setStatus(Constants.STATUS_PENDING);
 
-        boolean ok = TicketDAO.createTicket(ticket);
+        boolean ok = false;
+        for (int retry = 0; retry < 5; retry++) {
+            ticket.setTicketCode(generateTicketCode());
+            ok = TicketDAO.createTicket(ticket);
+            if (ok) break;
+            try { Thread.sleep(2); } catch (InterruptedException ignored) {}
+        }
+
         if (!ok) {
             Packet failPkt = new Packet(Constants.TYPE_SUBMIT_RESP, "SUBMIT_RESP|status=FAIL|message=Không thể lưu sự cố vào CSDL!");
             enqueuePacket(failPkt);
