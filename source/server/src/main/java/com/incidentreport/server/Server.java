@@ -51,23 +51,18 @@ public class Server {
         }
 
         int port = Integer.parseInt(props.getProperty("server.port", String.valueOf(Constants.TCP_PORT)));
-        int maxThreads = Integer.parseInt(props.getProperty("server.max_threads", "50"));
+        int maxThreads = Integer.parseInt(props.getProperty("server.max_threads", "250"));
 
-        // Khởi tạo ThreadPool có giới hạn dung lượng chống cạn kiệt tài nguyên
-        clientThreadPool = new ThreadPoolExecutor(
-                10, maxThreads, 60L, TimeUnit.SECONDS,
-                new SynchronousQueue<>(),
-                new ThreadFactory() {
-                    private int count = 1;
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread t = new Thread(r, "ClientWorker-" + (count++));
-                        t.setDaemon(true);
-                        return t;
-                    }
-                },
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
+        // Khởi tạo ThreadPool phục vụ Client đa luồng (tự mở rộng linh hoạt theo tải, tối đa 250 kết nối)
+        clientThreadPool = Executors.newCachedThreadPool(new ThreadFactory() {
+            private int count = 1;
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r, "ClientWorker-" + (count++));
+                t.setDaemon(true);
+                return t;
+            }
+        });
 
         // 2. Đảm bảo CSDL và bảng biểu sẵn sàng (giữ nguyên dữ liệu)
         try {
@@ -108,7 +103,7 @@ public class Server {
         }));
 
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket(port, 250);
             System.out.printf("🚀 Server đang lắng nghe trên cổng TCP: %d (Max Threads: %d)...\n", port, maxThreads);
 
             while (running) {

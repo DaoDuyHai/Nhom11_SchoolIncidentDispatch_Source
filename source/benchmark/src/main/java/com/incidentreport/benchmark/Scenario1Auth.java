@@ -161,7 +161,7 @@ public class Scenario1Auth {
         }
 
         // Xuất bảng kết quả
-        String[] headers = {"Mã kiểm thử", "Tài khoản / Yêu cầu", "Kỳ vọng", "Thời gian", "Kết quả"};
+        String[] headers = {"Mã kiểdm thử", "Tài khoản / Yêu cầu", "Kỳ vọng", "Thời gian", "Kết quả"};
         String asciiTable = ChartGenerator.toAsciiTable("KẾT QUẢ KIỂM THỬ XÁC THỰC & PHÂN QUYỀN (RBAC)", headers, reportRows);
         System.out.println(asciiTable);
 

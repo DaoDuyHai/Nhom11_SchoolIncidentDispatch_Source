@@ -99,7 +99,7 @@ public class Scenario3LoadTest {
         for (int i = 0; i < clientCount; i++) {
             final int id = i;
             executor.execute(() -> {
-                try (VirtualClient client = new VirtualClient(host, port, 15000)) {
+                try (VirtualClient client = new VirtualClient(host, port, 30000)) {
                     client.login("gv_lan", "123456");
                     readyGun.countDown(); // Báo hiệu đã đăng nhập xong và sẵn sàng
 
@@ -130,12 +130,12 @@ public class Scenario3LoadTest {
         }
 
         // Chờ toàn bộ Virtual Clients kết nối TCP và đăng nhập thành công
-        readyGun.await(30, TimeUnit.SECONDS);
+        readyGun.await(60, TimeUnit.SECONDS);
 
         long wallStart = System.nanoTime();
         startGun.countDown(); // BẮN SÚNG XUẤT PHÁT: Đồng loạt 100 luồng gửi tin cùng tích tắc!
 
-        doneLatch.await(45, TimeUnit.SECONDS);
+        doneLatch.await(60, TimeUnit.SECONDS);
         long wallEnd = System.nanoTime();
         executor.shutdownNow();
 

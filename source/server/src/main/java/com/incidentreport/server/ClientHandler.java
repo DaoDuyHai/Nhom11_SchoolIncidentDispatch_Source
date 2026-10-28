@@ -308,11 +308,11 @@ public class ClientHandler implements Runnable {
         ticket.setStatus(Constants.STATUS_PENDING);
 
         boolean ok = false;
-        for (int retry = 0; retry < 5; retry++) {
+        for (int retry = 0; retry < 30; retry++) {
             ticket.setTicketCode(generateTicketCode());
             ok = TicketDAO.createTicket(ticket);
             if (ok) break;
-            try { Thread.sleep(2); } catch (InterruptedException ignored) {}
+            try { Thread.sleep(10 + (int)(Math.random() * 20)); } catch (InterruptedException ignored) {}
         }
 
         if (!ok) {
