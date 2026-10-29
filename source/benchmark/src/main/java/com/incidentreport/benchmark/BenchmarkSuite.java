@@ -64,15 +64,6 @@ public class BenchmarkSuite {
                 case "5":
                     Scenario5ChatStress.run();
                     break;
-                case "1":
-                    Scenario1Auth.run();
-                    break;
-                case "6":
-                    Scenario6Security.run();
-                    break;
-                case "7":
-                    Scenario7OfflineSync.run();
-                    break;
                 case "A":
                     runAllScenarios();
                     break;
