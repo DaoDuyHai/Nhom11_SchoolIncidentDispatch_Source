@@ -19,7 +19,6 @@ buildNumber.properties
 # --- IDEs khác (nếu có dùng sau này) ---
 .idea/
 *.iml
-.vscode/
 
 # --- File rác, file test và file nhận được trong quá trình chạy ---
 *.png

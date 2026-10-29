@@ -1,0 +1,79 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "1. Chay Server (Chinh)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn exec:java -pl server -f source/pom.xml",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "2. Chay Test Server (CSDL Test)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn exec:java -pl server -Dexec.mainClass=com.incidentreport.server.TestServer -f source/pom.xml",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "3. Chay Client (JavaFX GUI)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn javafx:run -pl client -f source/pom.xml",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "4. Chay Benchmark Suite (Do hieu nang)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn exec:java -pl benchmark -f source/pom.xml",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "5. Chay Stress Limit Finder (Tim gioi han chiu tai)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn exec:java -pl benchmark -Dexec.mainClass=com.incidentreport.benchmark.StressLimitFinder -f source/pom.xml",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "6. Build toan bo du an (Clean & Compile)",
+            "type": "shell",
+            "command": "$mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { 'mvn' } else { 'C:\\Program Files\\Apache NetBeans\\java\\maven\\bin\\mvn.cmd' }; & $mvn clean compile -f source/pom.xml",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
