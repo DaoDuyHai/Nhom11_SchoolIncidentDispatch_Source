@@ -9,6 +9,8 @@ import com.incidentreport.common.model.IncidentCategory;
 import com.incidentreport.common.model.IncidentTicket;
 import com.incidentreport.common.model.User;
 import com.incidentreport.common.packet.Packet;
+import com.incidentreport.client.util.SoundEffectManager;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -21,11 +23,13 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.io.ByteArrayInputStream;
@@ -33,6 +37,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -348,7 +353,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     }
 
     // =========================================================================
-    // TAB 1: BÁO SỰ CỐ MỚI (DESIGN_SYSTEM.md Mục 5.2)
+    // TAB 1: BÁO SỰ CỐ MỚI (DESIGN_SYSTEM.md Mục 5.2 - Tinh gọn, không trôi nút)
     // =========================================================================
     private Node createSubmitIncidentTab() {
         HBox mainBox = new HBox(20);
@@ -356,7 +361,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         mainBox.setAlignment(Pos.TOP_LEFT);
 
         // 1. Thẻ thông tin sự cố (Left Card)
-        VBox leftCard = new VBox(14);
+        VBox leftCard = new VBox(12);
         leftCard.getStyleClass().add("card");
         HBox.setHgrow(leftCard, Priority.ALWAYS);
 
@@ -365,6 +370,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         lblRoom.getStyleClass().add("field-label");
 
         txtRoom.setPromptText("VD: A101, B204, LAB-LY, SAN-BONG...");
+        txtRoom.setOnAction(e -> taDescription.requestFocus());
 
         // Gợi ý nhanh
         HBox roomChips = new HBox(6);
@@ -379,8 +385,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             roomChips.getChildren().add(chip);
         }
 
-        // Loại sự cố (5 ToggleButton thẻ)
-        Label lblCat = new Label("Loại sự cố (Tự động chuyển đúng phòng ban) *");
+        // Loại sự cố (12 Loại phân theo 3 Khối phòng ban)
+        Label lblCat = new Label("Loại sự cố (Tự động điều phối đúng phòng ban chuyên trách) *");
         lblCat.getStyleClass().add("field-label");
 
         VBox tilesBox = createCategoryTiles();
@@ -388,27 +394,38 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         // Mô tả
         Label lblDesc = new Label("Mô tả chi tiết sự cố *");
         lblDesc.getStyleClass().add("field-label");
-        taDescription.setPromptText("Mô tả ngắn gọn dấu hiệu sự cố (VD: quạt trần rung lắc mạnh, ổ điện tóe lửa, học sinh sốt cao...)...");
-        taDescription.setPrefRowCount(4);
+        taDescription.setPromptText("Mô tả ngắn gọn dấu hiệu sự cố (VD: quạt trần rung lắc mạnh, ổ điện tóe lửa, học sinh sốt cao...). Nhấn Ctrl+Enter để gửi.");
+        taDescription.setPrefRowCount(3);
+        taDescription.setPrefHeight(80);
         taDescription.setWrapText(true);
+        taDescription.setOnKeyPressed(e -> {
+            if (e.isControlDown() && e.getCode() == KeyCode.ENTER) {
+                doSubmitIncident();
+            }
+        });
 
-        // Hàng nút dưới cùng
-        HBox actionRow = new HBox(10);
+        // Hàng nút thao tác (Luôn hiển thị rõ ràng, không bị trôi/chìm khỏi màn hình)
+        HBox actionRow = new HBox(12);
         actionRow.setAlignment(Pos.CENTER_RIGHT);
 
         Button btnReset = new Button("Xóa form");
-        btnReset.getStyleClass().add("btn-secondary");
+        btnReset.getStyleClass().setAll("button", "btn-secondary");
+        btnReset.setPrefHeight(42);
+        btnReset.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 16; -fx-cursor: hand;");
         btnReset.setOnAction(e -> resetForm());
 
-        btnSubmit.getStyleClass().addAll("btn-primary");
-        btnSubmit.setPrefHeight(40);
+        btnSubmit.getStyleClass().setAll("button", "btn-primary");
+        btnSubmit.setPrefHeight(42);
+        btnSubmit.setPrefWidth(220);
+        btnSubmit.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand;");
+        btnSubmit.setGraphic(ComponentFactory.createIcon("mdi2s-send", 16, Color.WHITE));
         btnSubmit.setOnAction(e -> doSubmitIncident());
 
         actionRow.getChildren().addAll(btnReset, btnSubmit);
 
         leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblDesc, taDescription, actionRow);
 
-        // 2. Thẻ Ảnh hiện trường (Right Card 320px)
+        // 2. Thẻ Ảnh hiện trường & Hướng dẫn (Right Card 320px)
         VBox rightCard = new VBox(12);
         rightCard.getStyleClass().add("card");
         rightCard.setPrefWidth(320);
@@ -420,7 +437,21 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         setupDropZone();
 
-        rightCard.getChildren().addAll(lblImgTitle, dropZone, imgMetaBar);
+        // Hộp hướng dẫn điều phối sự cố
+        VBox guideCard = new VBox(6);
+        guideCard.setStyle("-fx-background-color: -paper-100; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: -paper-300; -fx-border-radius: 8;");
+        Label lblGuideTitle = new Label("💡 QUY TRÌNH ĐIỀU PHỐI TỰ ĐỘNG");
+        lblGuideTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: -ink-900;");
+        Label g1 = new Label("1. Điền vị trí, chọn loại sự cố và đính kèm ảnh (nếu có)");
+        Label g2 = new Label("2. Hệ thống định tuyến tức thời đến đúng cán bộ chuyên trách");
+        Label g3 = new Label("3. Theo dõi tiến độ xử lý và trao đổi 1-1 trực tiếp");
+        for (Label g : new Label[]{g1, g2, g3}) {
+            g.setStyle("-fx-font-size: 11px; -fx-text-fill: -text-600;");
+            g.setWrapText(true);
+        }
+        guideCard.getChildren().addAll(lblGuideTitle, g1, g2, g3);
+
+        rightCard.getChildren().addAll(lblImgTitle, dropZone, imgMetaBar, guideCard);
 
         mainBox.getChildren().addAll(leftCard, rightCard);
 
@@ -433,32 +464,104 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         VBox box = new VBox(8);
 
         IncidentCategory[] cats = new IncidentCategory[]{
-                new IncidentCategory("FACILITY", "Hỏng thiết bị lớp học (Quạt, Đèn, Máy chiếu)", Constants.SPECIALTY_TECHNICAL),
-                new IncidentCategory("WATER", "Sự cố Điện nước (Vỡ ống nước, Mất nước)", Constants.SPECIALTY_TECHNICAL),
-                new IncidentCategory("ELECTRIC", "Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)", Constants.SPECIALTY_TECHNICAL),
-                new IncidentCategory("MEDICAL", "Cấp cứu Y tế (Học sinh ngất, Chấn thương, Sốt)", Constants.SPECIALTY_MEDICAL),
-                new IncidentCategory("SECURITY", "An ninh Trật tự (Xô xát, Người lạ đột nhập)", Constants.SPECIALTY_SECURITY)
+                // [KHỐI 1: PHÒNG KỸ THUẬT & QUẢN TRỊ THIẾT BỊ (TECHNICAL)]
+                new IncidentCategory("FACILITY", "Hỏng thiết bị giảng đường (Máy chiếu, Âm thanh, Bàn ghế, Quạt)", Constants.SPECIALTY_TECHNICAL),
+                new IncidentCategory("IT_NETWORK", "Mạng WiFi & Phòng máy thực hành (Mất mạng, Switch, Server lab)", Constants.SPECIALTY_TECHNICAL),
+                new IncidentCategory("ELECTRIC", "Sự cố Điện kỹ thuật (Chập điện, Nhảy aptomat, Mất điện)", Constants.SPECIALTY_TECHNICAL),
+                new IncidentCategory("WATER", "Cấp thoát nước & Vệ sinh (Vỡ ống nước, Mất nước, Nghẽn cống)", Constants.SPECIALTY_TECHNICAL),
+                new IncidentCategory("ELEVATOR", "Sự cố Thang máy toà nhà cao tầng (Kẹt thang máy, Lỗi cửa)", Constants.SPECIALTY_TECHNICAL),
+                new IncidentCategory("LAB_EQUIP", "Thiết bị Phòng thí nghiệm & Đo lường (Tủ hút khói, Kính hiển vi)", Constants.SPECIALTY_TECHNICAL),
+
+                // [KHỐI 2: PHÒNG Y TẾ & CHĂM SÓC SỨC KHỎE (MEDICAL)]
+                new IncidentCategory("MEDICAL", "Cấp cứu Y tế & Chấn thương (Ngất xỉu, Chấn thương thể thao, Sốt cao)", Constants.SPECIALTY_MEDICAL),
+                new IncidentCategory("FIRST_AID", "Tai nạn Thực hành xưởng / Lab (Bỏng hóa chất, Đứt tay, Rách da)", Constants.SPECIALTY_MEDICAL),
+                new IncidentCategory("FOOD_SAFETY", "Nghi vấn Ngộ độc thực phẩm căng tin (Buồn nôn hàng loạt, Đau bụng)", Constants.SPECIALTY_MEDICAL),
+
+                // [KHỐI 3: ĐỘI AN NINH TRẬT TỰ & BẢO VỆ (SECURITY)]
+                new IncidentCategory("SECURITY", "An ninh Trật tự & Gây rối (Xô xát ẩu đả, Mất trật tự giảng đường)", Constants.SPECIALTY_SECURITY),
+                new IncidentCategory("THEFT", "Mất cắp tài sản & Đột nhập (Mất xe máy bãi xe, Mất laptop thư viện)", Constants.SPECIALTY_SECURITY),
+                new IncidentCategory("FIRE_HAZARD", "Cảnh báo Cháy nổ & Khí gas (Báo cháy reo, Mùi rò rỉ gas)", Constants.SPECIALTY_SECURITY)
         };
+
+        // Department Filter Bar (Bộ lọc nhanh theo khối chuyên môn)
+        HBox filterBar = new HBox(6);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+        ToggleGroup deptFilterGroup = new ToggleGroup();
+
+        ToggleButton chipAll = new ToggleButton("Tất cả (12)");
+        ToggleButton chipTech = new ToggleButton("Kỹ thuật (6)");
+        chipTech.setGraphic(ComponentFactory.createIcon("mdi2w-wrench", 13, Color.web("#14264A")));
+        ToggleButton chipMed = new ToggleButton("Y tế (3)");
+        chipMed.setGraphic(ComponentFactory.createIcon("mdi2m-medical-bag", 13, Color.web("#A8402F")));
+        ToggleButton chipSec = new ToggleButton("An ninh (3)");
+        chipSec.setGraphic(ComponentFactory.createIcon("mdi2s-shield-account", 13, Color.web("#8A6218")));
+
+        chipAll.setToggleGroup(deptFilterGroup);
+        chipTech.setToggleGroup(deptFilterGroup);
+        chipMed.setToggleGroup(deptFilterGroup);
+        chipSec.setToggleGroup(deptFilterGroup);
+
+        for (ToggleButton tb : new ToggleButton[]{chipAll, chipTech, chipMed, chipSec}) {
+            tb.getStyleClass().add("chip");
+            tb.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-cursor: hand;");
+        }
+        chipAll.setSelected(true);
+        filterBar.getChildren().addAll(chipAll, chipTech, chipMed, chipSec);
+
+        // 2-Column Grid for Tiles
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        grid.setMaxHeight(Region.USE_PREF_SIZE);
+        ColumnConstraints col1 = new ColumnConstraints();
+        col1.setPercentWidth(50);
+        ColumnConstraints col2 = new ColumnConstraints();
+        col2.setPercentWidth(50);
+        grid.getColumnConstraints().addAll(col1, col2);
+
+        Map<IncidentCategory, ToggleButton> tileMap = new LinkedHashMap<>();
 
         for (IncidentCategory cat : cats) {
             ToggleButton tile = new ToggleButton();
-            tile.getStyleClass().add("type-tile");
+            tile.getStyleClass().setAll("type-tile-compact");
             tile.setToggleGroup(catTileGroup);
+            tile.setUserData(cat);
+            tile.setPrefHeight(44);
+            tile.setMinHeight(44);
+            tile.setMaxHeight(44);
+            tile.setAlignment(Pos.CENTER_LEFT);
 
-            HBox row = new HBox(10);
+            HBox row = new HBox(8);
             row.setAlignment(Pos.CENTER_LEFT);
+            row.setPrefHeight(32);
+            row.setMaxHeight(32);
 
             String iconLiteral = "mdi2w-wrench";
-            if ("WATER".equals(cat.getCategoryCode())) iconLiteral = "mdi2w-water";
+            if ("IT_NETWORK".equals(cat.getCategoryCode())) iconLiteral = "mdi2w-wifi";
             else if ("ELECTRIC".equals(cat.getCategoryCode())) iconLiteral = "mdi2f-flash";
+            else if ("WATER".equals(cat.getCategoryCode())) iconLiteral = "mdi2w-water";
+            else if ("ELEVATOR".equals(cat.getCategoryCode())) iconLiteral = "mdi2e-elevator-passenger";
+            else if ("LAB_EQUIP".equals(cat.getCategoryCode())) iconLiteral = "mdi2m-microscope";
             else if ("MEDICAL".equals(cat.getCategoryCode())) iconLiteral = "mdi2m-medical-bag";
+            else if ("FIRST_AID".equals(cat.getCategoryCode())) iconLiteral = "mdi2b-bandage";
+            else if ("FOOD_SAFETY".equals(cat.getCategoryCode())) iconLiteral = "mdi2f-food-off";
             else if ("SECURITY".equals(cat.getCategoryCode())) iconLiteral = "mdi2s-shield-account";
+            else if ("THEFT".equals(cat.getCategoryCode())) iconLiteral = "mdi2a-alarm-light";
+            else if ("FIRE_HAZARD".equals(cat.getCategoryCode())) iconLiteral = "mdi2f-fire";
 
-            FontIcon icon = ComponentFactory.createIcon(iconLiteral, 18, Color.web("#14264A"));
+            Color iconColor = Color.web("#14264A");
+            if (Constants.SPECIALTY_MEDICAL.equals(cat.getRequiredSpecialty())) iconColor = Color.web("#A8402F");
+            else if (Constants.SPECIALTY_SECURITY.equals(cat.getRequiredSpecialty())) iconColor = Color.web("#8A6218");
+
+            FontIcon icon = ComponentFactory.createIcon(iconLiteral, 16, iconColor);
             Label lblName = new Label(cat.getCategoryName());
-            lblName.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -text-900;");
+            lblName.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: -text-900;");
+            lblName.setWrapText(true);
+            lblName.setMaxWidth(185);
 
             Region sp = new Region();
+            sp.setPrefHeight(1);
+            sp.setMaxHeight(1);
             HBox.setHgrow(sp, Priority.ALWAYS);
 
             Label badge = ComponentFactory.createDepartmentBadge(cat.getRequiredSpecialty());
@@ -467,35 +570,90 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             tile.setGraphic(row);
             tile.setMaxWidth(Double.MAX_VALUE);
 
-            tile.setOnAction(e -> {
-                if (tile.isSelected()) {
-                    selectedCategory = cat;
-                    updateSubmitButtonState();
-                }
-            });
-
-            box.getChildren().add(tile);
+            tileMap.put(cat, tile);
         }
 
-        // Chọn cái đầu tiên mặc định
-        if (!catTileGroup.getToggles().isEmpty()) {
-            catTileGroup.getToggles().get(0).setSelected(true);
+        // Tái tạo bố cục Grid khi bấm đổi Tab phòng ban
+        Runnable refreshGrid = () -> {
+            grid.getChildren().clear();
+            String selectedFilter = chipAll.isSelected() ? "ALL" :
+                    chipTech.isSelected() ? Constants.SPECIALTY_TECHNICAL :
+                    chipMed.isSelected() ? Constants.SPECIALTY_MEDICAL :
+                    chipSec.isSelected() ? Constants.SPECIALTY_SECURITY : "ALL";
+
+            int idx = 0;
+            for (Map.Entry<IncidentCategory, ToggleButton> entry : tileMap.entrySet()) {
+                IncidentCategory cat = entry.getKey();
+                if ("ALL".equals(selectedFilter) || cat.getRequiredSpecialty().equalsIgnoreCase(selectedFilter)) {
+                    int c = idx % 2;
+                    int r = idx / 2;
+                    grid.add(entry.getValue(), c, r);
+                    idx++;
+                }
+            }
+
+            // Tự động chuyển chọn vào sự cố đầu tiên của khối chuyên môn nếu mục hiện tại bị ẩn
+            if (!"ALL".equals(selectedFilter) && (selectedCategory == null || !selectedCategory.getRequiredSpecialty().equalsIgnoreCase(selectedFilter))) {
+                for (Map.Entry<IncidentCategory, ToggleButton> entry : tileMap.entrySet()) {
+                    if (entry.getKey().getRequiredSpecialty().equalsIgnoreCase(selectedFilter)) {
+                        entry.getValue().setSelected(true);
+                        selectedCategory = entry.getKey();
+                        updateSubmitButtonState();
+                        break;
+                    }
+                }
+            }
+        };
+
+        chipAll.setOnAction(e -> refreshGrid.run());
+        chipTech.setOnAction(e -> refreshGrid.run());
+        chipMed.setOnAction(e -> refreshGrid.run());
+        chipSec.setOnAction(e -> refreshGrid.run());
+
+        // Ngăn không cho bỏ chọn hoàn toàn bộ lọc
+        deptFilterGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null && oldVal != null) {
+                oldVal.setSelected(true);
+            }
+        });
+
+        // Nghe sự kiện đổi loại sự cố & không cho bỏ chọn hoàn toàn
+        catTileGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal.getUserData() instanceof IncidentCategory) {
+                selectedCategory = (IncidentCategory) newVal.getUserData();
+                updateSubmitButtonState();
+            } else if (newVal == null && oldVal != null) {
+                oldVal.setSelected(true);
+            }
+        });
+
+        // Mặc định chọn sự cố đầu tiên
+        if (!tileMap.isEmpty()) {
+            ToggleButton first = tileMap.values().iterator().next();
+            first.setSelected(true);
             selectedCategory = cats[0];
             updateSubmitButtonState();
         }
 
+        refreshGrid.run();
+        box.getChildren().addAll(filterBar, grid);
         return box;
     }
 
     private void updateSubmitButtonState() {
         if (selectedCategory != null &&
                 (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
-                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(selectedCategory.getRequiredSpecialty()))) {
-            btnSubmit.getStyleClass().setAll("btn-danger-solid");
+                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
+                        || "FIRE_HAZARD".equalsIgnoreCase(selectedCategory.getCategoryCode()))) {
+            btnSubmit.getStyleClass().setAll("button", "btn-danger-solid");
             btnSubmit.setText("GỬI BÁO CÁO KHẨN");
+            btnSubmit.setGraphic(ComponentFactory.createIcon("mdi2a-alert-circle", 16, Color.WHITE));
+            btnSubmit.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand;");
         } else {
-            btnSubmit.getStyleClass().setAll("btn-primary");
+            btnSubmit.getStyleClass().setAll("button", "btn-primary");
             btnSubmit.setText("GỬI BÁO CÁO");
+            btnSubmit.setGraphic(ComponentFactory.createIcon("mdi2s-send", 16, Color.WHITE));
+            btnSubmit.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand;");
         }
     }
 
@@ -626,9 +784,19 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         txtRoom.clear();
         taDescription.clear();
         clearImage();
+        if (!catTileGroup.getToggles().isEmpty()) {
+            catTileGroup.getToggles().get(0).setSelected(true);
+        }
+        btnSubmit.setDisable(false);
+        updateSubmitButtonState();
     }
 
     private void doSubmitIncident() {
+        if (!SocketClientManager.getInstance().isConnected()) {
+            ComponentFactory.showToast(this, "Chưa kết nối đến máy chủ! Vui lòng kiểm tra lại mạng.", false);
+            return;
+        }
+
         String room = txtRoom.getText().trim();
         if (room.isEmpty()) {
             ComponentFactory.showToast(this, "Vui lòng nhập vị trí phòng học!", false);
@@ -648,13 +816,98 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             return;
         }
 
+        // Hộp thoại xác nhận trước khi phát hành vé sự cố lên hệ thống
+        Dialog<ButtonType> confirmDialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            confirmDialog.initOwner(getScene().getWindow());
+        }
+        confirmDialog.setTitle("Xác nhận gửi sự cố");
+        ComponentFactory.applyTheme(confirmDialog.getDialogPane());
+        confirmDialog.setHeaderText("Gửi báo cáo sự cố tới hệ thống điều phối?");
+        confirmDialog.getDialogPane().setMinWidth(580);
+        confirmDialog.getDialogPane().setPrefWidth(640);
+
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(16, 20, 16, 20));
+        box.setPrefWidth(600);
+        box.setMaxWidth(Double.MAX_VALUE);
+
+        Label lRoom = new Label("• Vị trí: Phòng " + room.toUpperCase());
+        lRoom.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -text-900; -fx-text-overrun: clip;");
+        lRoom.setWrapText(true);
+        lRoom.setMinHeight(Region.USE_PREF_SIZE);
+        lRoom.setMaxWidth(Double.MAX_VALUE);
+
+        Label lCat = new Label("• Phân loại: " + selectedCategory.getCategoryName() + " (" + selectedCategory.getRequiredSpecialty() + ")");
+        lCat.setWrapText(true);
+        lCat.setMinHeight(Region.USE_PREF_SIZE);
+        lCat.setMaxWidth(Double.MAX_VALUE);
+        lCat.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
+
+        Label lDesc = new Label("• Mô tả: " + desc);
+        lDesc.setWrapText(true);
+        lDesc.setMinHeight(Region.USE_PREF_SIZE);
+        lDesc.setMaxWidth(Double.MAX_VALUE);
+        lDesc.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
+
+        Label lPhoto = new Label("• Ảnh hiện trường: " + (chosenImageBytes != null ? "Đã chọn ảnh (" + (chosenImageBytes.length / 1024) + " KB)" : "Không đính kèm"));
+        lPhoto.setWrapText(true);
+        lPhoto.setMinHeight(Region.USE_PREF_SIZE);
+        lPhoto.setMaxWidth(Double.MAX_VALUE);
+        lPhoto.setStyle("-fx-font-size: 11.5px; -fx-text-fill: -text-600; -fx-text-overrun: clip;");
+
+        box.getChildren().addAll(lRoom, lCat, lDesc, lPhoto);
+        confirmDialog.getDialogPane().setContent(box);
+
+        ButtonType btnSend = new ButtonType("Xác nhận gửi", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnCancel = new ButtonType("Kiểm tra lại", ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirmDialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnSend);
+
+        Button okBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnSend);
+        if (okBtn != null) {
+            ButtonBar.setButtonUniformSize(okBtn, false);
+            okBtn.setMinWidth(Region.USE_PREF_SIZE);
+            okBtn.getStyleClass().setAll("button", "btn-primary");
+            okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+        Button cancelBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnCancel);
+        if (cancelBtn != null) {
+            ButtonBar.setButtonUniformSize(cancelBtn, false);
+            cancelBtn.setMinWidth(Region.USE_PREF_SIZE);
+            cancelBtn.getStyleClass().setAll("button", "btn-secondary");
+            cancelBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        confirmDialog.setOnShown(e -> Platform.runLater(() -> {
+            if (confirmDialog.getDialogPane().getScene() != null && confirmDialog.getDialogPane().getScene().getWindow() != null) {
+                confirmDialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
+
+        Optional<ButtonType> ans = confirmDialog.showAndWait();
+        if (!ans.isPresent() || ans.get() != btnSend) {
+            return;
+        }
+
+        // Khóa nút và cập nhật trạng thái gửi để chống double-click
+        btnSubmit.setDisable(true);
+        btnSubmit.setText("Đang gửi báo cáo...");
+
         String headerPayload = String.format("INCIDENT|room=%s|category=%s|desc=%s",
                 room.toUpperCase(), selectedCategory.getCategoryCode(), desc.replace("|", "/"));
 
         Packet packet = new Packet(Constants.TYPE_SUBMIT_INCIDENT, headerPayload, chosenImageBytes);
         SocketClientManager.getInstance().sendPacket(packet);
 
-        resetForm();
+        // Bộ hẹn giờ dự phòng: nếu máy chủ phản hồi chậm hoặc nghẽn, tự mở lại nút sau 6 giây
+        PauseTransition timeout = new PauseTransition(Duration.seconds(6));
+        timeout.setOnFinished(e -> {
+            if (btnSubmit.isDisabled()) {
+                btnSubmit.setDisable(false);
+                updateSubmitButtonState();
+            }
+        });
+        timeout.play();
     }
 
     // =========================================================================
@@ -787,29 +1040,32 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         });
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setMinWidth(100);
-        colActions.setPrefWidth(130);
+        colActions.setMinWidth(170);
+        colActions.setPrefWidth(195);
         colActions.setCellFactory(col -> new TableCell<>() {
-            private final Button btnDetail = new Button();
-            private final Button btnChat = new Button();
-            private final Button btnCancel = new Button();
+            private final Button btnDetail = new Button("Xem");
+            private final Button btnChat = new Button("Chat");
+            private final Button btnCancel = new Button("Hủy");
             private final HBox btnBox = new HBox(6, btnDetail, btnChat, btnCancel);
 
             {
-                btnDetail.getStyleClass().setAll("btn-icon");
-                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 16, Color.web("#14264A")));
+                btnDetail.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 13, Color.web("#14264A")));
+                btnDetail.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnDetail.setTooltip(new Tooltip("Xem chi tiết sự cố (hoặc nhấp đúp vào dòng)"));
                 btnDetail.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openDetailDialog(t);
                 });
 
-                btnChat.getStyleClass().setAll("btn-icon");
-                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 16, Color.web("#14264A")));
+                btnChat.getStyleClass().setAll("button", "btn-brass", "btn-sm");
+                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 13, Color.web("#8A6218")));
+                btnChat.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnChat.setTooltip(new Tooltip("Nhắn tin trao đổi 1-1"));
 
-                btnCancel.getStyleClass().setAll("btn-icon");
-                btnCancel.setGraphic(ComponentFactory.createIcon("mdi2c-close-circle-outline", 16, Color.web("#A8402F")));
+                btnCancel.getStyleClass().setAll("button", "btn-danger", "btn-sm");
+                btnCancel.setGraphic(ComponentFactory.createIcon("mdi2c-close-circle-outline", 13, Color.web("#A8402F")));
+                btnCancel.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnCancel.setTooltip(new Tooltip("Hủy sự cố này"));
 
                 btnChat.setOnAction(e -> {
@@ -916,37 +1172,79 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     }
 
     private void confirmCancelTicket(IncidentTicket ticket) {
+        if (ticket == null) return;
+        if (!Constants.STATUS_PENDING.equalsIgnoreCase(ticket.getStatus())) {
+            ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null,
+                    "Từ chối thao tác", "Không thể hủy sự cố này",
+                    "Sự cố đã được cán bộ tiếp nhận hoặc đang xử lý, không thể hủy!");
+            return;
+        }
+
         Dialog<ButtonType> dialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            dialog.initOwner(getScene().getWindow());
+        }
         dialog.setTitle("Hủy sự cố");
         ComponentFactory.applyTheme(dialog.getDialogPane());
+        dialog.getDialogPane().setMinWidth(520);
+        dialog.getDialogPane().setPrefWidth(560);
 
         dialog.setHeaderText("Hủy sự cố " + ticket.getTicketCode() + "?");
-        dialog.setContentText("Sự cố tại phòng " + ticket.getRoomLocation() + " chưa có cán bộ nhận.\nSau khi hủy, bạn không thể mở lại sự cố này.");
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(14, 18, 14, 18));
+        content.setPrefWidth(520);
+        content.setMaxWidth(Double.MAX_VALUE);
+
+        Label lblInfo = new Label("Sự cố tại phòng " + ticket.getRoomLocation() + " chưa có cán bộ tiếp nhận.");
+        lblInfo.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -text-900; -fx-text-overrun: clip;");
+        lblInfo.setWrapText(true);
+        lblInfo.setMinHeight(Region.USE_PREF_SIZE);
+        lblInfo.setMaxWidth(Double.MAX_VALUE);
+
+        Label lblWarn = new Label("Sau khi xác nhận hủy, sự cố sẽ đóng lại vĩnh viễn và không thể mở lại.");
+        lblWarn.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-600; -fx-text-overrun: clip;");
+        lblWarn.setWrapText(true);
+        lblWarn.setMinHeight(Region.USE_PREF_SIZE);
+        lblWarn.setMaxWidth(Double.MAX_VALUE);
+
+        content.getChildren().addAll(lblInfo, lblWarn);
+        dialog.getDialogPane().setContent(content);
 
         ButtonType btnKeep = new ButtonType("Giữ lại", ButtonBar.ButtonData.CANCEL_CLOSE);
         ButtonType btnConfirm = new ButtonType("Hủy sự cố", ButtonBar.ButtonData.OK_DONE);
 
         dialog.getDialogPane().getButtonTypes().addAll(btnKeep, btnConfirm);
 
-        // Định dạng nút
+        // Định dạng nút không bao giờ bị cắt chữ
         Button okButton = (Button) dialog.getDialogPane().lookupButton(btnConfirm);
         if (okButton != null) {
-            okButton.getStyleClass().setAll("btn-danger-solid");
+            ButtonBar.setButtonUniformSize(okButton, false);
+            okButton.setMinWidth(Region.USE_PREF_SIZE);
+            okButton.getStyleClass().setAll("button", "btn-danger-solid");
+            okButton.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
         }
         Button cancelButton = (Button) dialog.getDialogPane().lookupButton(btnKeep);
         if (cancelButton != null) {
-            cancelButton.getStyleClass().setAll("btn-secondary");
+            ButtonBar.setButtonUniformSize(cancelButton, false);
+            cancelButton.setMinWidth(Region.USE_PREF_SIZE);
+            cancelButton.getStyleClass().setAll("button", "btn-secondary");
+            cancelButton.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
         }
+
+        dialog.setOnShown(e -> Platform.runLater(() -> {
+            if (dialog.getDialogPane().getScene() != null && dialog.getDialogPane().getScene().getWindow() != null) {
+                dialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
 
         Optional<ButtonType> res = dialog.showAndWait();
         if (res.isPresent() && res.get() == btnConfirm) {
+            // Gửi yêu cầu hủy lên máy chủ (không cập nhật giả lập trên client khi chưa có xác nhận từ server)
             Packet p = new Packet(Constants.TYPE_STATUS_UPDATE,
-                    String.format("STATUS_UPDATE|ticketId=%d|status=%s|note=Nguoi bao chu dong huy",
+                    String.format("STATUS_UPDATE|ticketId=%d|status=%s|note=Người báo chủ động hủy",
                             ticket.getTicketId(), Constants.STATUS_CANCELLED));
             SocketClientManager.getInstance().sendPacket(p);
-            ticket.setStatus(Constants.STATUS_CANCELLED);
-            ticketTable.refresh();
-            ComponentFactory.showToast(this, "Đã hủy sự cố " + ticket.getTicketCode(), true);
         }
     }
 
@@ -959,15 +1257,37 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     public void onPacketReceived(Packet packet) {
         Platform.runLater(() -> {
             if (packet.getType() == Constants.TYPE_SUBMIT_RESP) {
-                Map<String, String> p = packet.parseParams();
-                String code = p.get("ticketCode");
-                ComponentFactory.showToast(this, "Đã gửi sự cố " + code, true);
+                btnSubmit.setDisable(false);
+                updateSubmitButtonState();
 
-                // Chuyển sang Tab Sự cố của tôi
-                navNew.setSelected(false);
-                navList.setSelected(true);
-                switchTab(1, "Sự cố của tôi", "Theo dõi tiến độ xử lý các sự cố bạn đã gửi.");
-                loadMyTickets();
+                Map<String, String> p = packet.parseParams();
+                String status = p.get("status");
+                if ("OK".equalsIgnoreCase(status)) {
+                    String code = p.get("ticketCode");
+                    SoundEffectManager.playSuccess();
+                    ComponentFactory.showToast(this, "Đã gửi sự cố " + (code != null ? code : "") + " thành công!", true);
+                    resetForm();
+
+                    // Chuyển sang Tab Sự cố của tôi
+                    navNew.setSelected(false);
+                    navList.setSelected(true);
+                    switchTab(1, "Sự cố của tôi", "Theo dõi tiến độ xử lý các sự cố bạn đã gửi.");
+                    loadMyTickets();
+                } else {
+                    String msg = p.get("message");
+                    SoundEffectManager.playWarning();
+                    ComponentFactory.showToast(this, "Gửi sự cố thất bại: " + (msg != null ? msg : "Lỗi máy chủ"), false);
+                }
+
+            } else if (packet.getType() == Constants.TYPE_ERROR) {
+                btnSubmit.setDisable(false);
+                updateSubmitButtonState();
+                Map<String, String> p = packet.parseParams();
+                String msg = p.getOrDefault("message", "Yêu cầu bị từ chối hoặc thất bại!");
+                SoundEffectManager.playWarning();
+                ComponentFactory.showToast(this, "Lỗi từ máy chủ: " + msg, false);
+                ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null, "Từ chối thao tác", "Không thể thực hiện yêu cầu", msg);
+                loadMyTickets(); // Đồng bộ lại dữ liệu tức thì từ máy chủ để tránh sai lệch trạng thái
 
             } else if (packet.getType() == Constants.TYPE_LIST_TICKETS_RESP) {
                 if (packet.hasAttachment()) {
@@ -985,6 +1305,35 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                 }
 
             } else if (packet.getType() == Constants.TYPE_STATUS_BROADCAST) {
+                Map<String, String> p = packet.parseParams();
+                String st = p.get("status");
+                String staff = p.getOrDefault("staffName", "Cán bộ chuyên trách");
+                String code = p.getOrDefault("ticketCode", "Sự cố");
+                String room = p.getOrDefault("room", "");
+                String action = p.getOrDefault("action", "");
+                String note = p.getOrDefault("note", "");
+
+                if (Constants.STATUS_CANCELLED.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playWarning();
+                    ComponentFactory.showToast(this, "Đã hủy sự cố " + code + " thành công!", true);
+                } else if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
+                    if ("ASSIGN".equalsIgnoreCase(action)) {
+                        SoundEffectManager.playNotification();
+                        String title = "🎯 BAN GIÁM HIỆU ĐÃ CHỈ ĐỊNH CÁN BỘ";
+                        String msg = "Sự cố " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã được Ban Giám Hiệu chỉ định cho " + staff + " tiếp nhận xử lý.";
+                        ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
+                    } else {
+                        SoundEffectManager.playClaim();
+                        String title = "🤝 CÁN BỘ ĐÃ TIẾP NHẬN SỰ CỐ";
+                        String msg = "Cán bộ " + staff + " đã tiếp nhận xử lý ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + "!";
+                        ComponentFactory.showUrgentNotification(this, title, msg, "CLAIM");
+                    }
+                } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playSuccess();
+                    String title = "🎉 SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ HOÀN TẤT";
+                    String msg = "Cán bộ " + staff + " đã hoàn tất khắc phục ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + "!\n" + (note.isEmpty() ? "Đã nghiệm thu an toàn." : "Ghi chú: " + note);
+                    ComponentFactory.showUrgentNotification(this, title, msg, "SUCCESS");
+                }
                 loadMyTickets();
             }
         });

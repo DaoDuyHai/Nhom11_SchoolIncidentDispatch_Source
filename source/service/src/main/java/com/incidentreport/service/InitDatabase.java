@@ -16,14 +16,59 @@ import java.sql.Statement;
  */
 public class InitDatabase {
 
+    public static File getUploadDirectory() {
+        File dbFile = DatabaseConnection.getDatabaseFile();
+        if (dbFile != null && dbFile.exists()) {
+            File dbDir = dbFile.getParentFile();
+            if (dbDir != null) {
+                File projectRoot = dbDir.getParentFile();
+                if (projectRoot != null && projectRoot.exists()) {
+                    File dir = new File(projectRoot, "source/uploads");
+                    if (!dir.exists()) dir.mkdirs();
+                    return dir;
+                }
+            }
+        }
+        String[] candidates = new String[]{
+                "source/uploads",
+                "uploads",
+                "../source/uploads",
+                "../uploads",
+                "../../source/uploads",
+                "../../uploads"
+        };
+        for (String c : candidates) {
+            File d = new File(c);
+            if (d.exists() && d.isDirectory()) return d;
+        }
+        File defaultDir = new File("source/uploads");
+        if (!defaultDir.exists()) defaultDir.mkdirs();
+        return defaultDir;
+    }
+
     public static File findFile(String relativePath) {
-        File f = new File(relativePath);
+        if (relativePath == null || relativePath.trim().isEmpty()) return new File(".");
+        String clean = relativePath.trim().replace('\\', '/');
+
+        if (clean.startsWith("uploads/") || clean.equals("uploads")) {
+            File uploadDir = getUploadDirectory();
+            if (clean.equals("uploads")) return uploadDir;
+            String fileName = clean.substring("uploads/".length());
+            File f = new File(uploadDir, fileName);
+            if (f.exists()) return f;
+        }
+
+        File f = new File(clean);
         if (f.exists()) return f;
-        f = new File("../" + relativePath);
+        f = new File("../" + clean);
         if (f.exists()) return f;
-        f = new File("../../" + relativePath);
+        f = new File("../../" + clean);
         if (f.exists()) return f;
-        return new File(relativePath);
+        f = new File("source/" + clean);
+        if (f.exists()) return f;
+        f = new File("../source/" + clean);
+        if (f.exists()) return f;
+        return new File(clean);
     }
 
     public static boolean isDatabaseInitialized(Connection conn) {
@@ -59,8 +104,12 @@ public class InitDatabase {
                 return false;
             }
 
-            // Nếu không yêu cầu reset và DB đã tồn tại -> Giữ nguyên dữ liệu
+            // Nếu không yêu cầu reset và DB đã tồn tại -> Giữ nguyên dữ liệu, đồng bộ danh mục mới nếu có
             if (!forceReset && isDatabaseInitialized(conn)) {
+                executeSqlFile(conn, "database/seed_data.sql");
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("UPDATE incident_tickets SET resolve_note = 'Người báo chủ động hủy' WHERE resolve_note = 'Nguoi bao chu dong huy'");
+                } catch (Exception ignored) {}
                 System.out.println("ℹ️ Cơ sở dữ liệu SQLite đã sẵn sàng (giữ nguyên toàn bộ dữ liệu hiện có).");
                 return true;
             }

@@ -5,13 +5,25 @@
 -- Không nạp sẵn sự cố hay tin nhắn (để trống 100% cho người dùng tự trải nghiệm)
 -- ============================================================================
 
--- 1. DANH MỤC SỰ CỐ & ĐỊNH TUYẾN PHÒNG BAN CHUYÊN TRÁCH (5 DANH MỤC CỐT LÕI)
+-- 1. DANH MỤC SỰ CỐ & ĐỊNH TUYẾN PHÒNG BAN CHUYÊN TRÁCH (12 DANH MỤC QUY MÔ ĐẠI HỌC)
 INSERT OR IGNORE INTO incident_categories (category_code, category_name, required_specialty) VALUES
-('FACILITY', 'Hỏng thiết bị lớp học (Quạt, Đèn, Máy chiếu)', 'TECHNICAL'),
-('WATER', 'Sự cố Điện nước (Vỡ ống nước, Mất nước)', 'TECHNICAL'),
-('ELECTRIC', 'Sự cố Điện nguy hiểm (Chập cầu dao, Rò điện)', 'TECHNICAL'),
-('MEDICAL', 'Cấp cứu Y tế (Học sinh ngất, Chấn thương, Sốt)', 'MEDICAL'),
-('SECURITY', 'An ninh Trật tự (Xô xát, Người lạ đột nhập, Trộm cắp)', 'SECURITY');
+-- [KHỐI 1: PHÒNG KỸ THUẬT & QUẢN TRỊ THIẾT BỊ (TECHNICAL)]
+('FACILITY', 'Hỏng thiết bị giảng đường (Máy chiếu, Âm thanh, Bàn ghế, Quạt)', 'TECHNICAL'),
+('IT_NETWORK', 'Mạng WiFi & Phòng máy thực hành (Mất mạng, Lỗi switch, Server lab)', 'TECHNICAL'),
+('ELECTRIC', 'Sự cố Điện kỹ thuật (Chập điện, Nhảy aptomat, Mất điện toà nhà)', 'TECHNICAL'),
+('WATER', 'Cấp thoát nước & Vệ sinh (Vỡ ống nước, Mất nước, Tắc nghẽn cống)', 'TECHNICAL'),
+('ELEVATOR', 'Sự cố Thang máy toà nhà cao tầng (Kẹt thang máy, Lỗi cửa tầng, Rung lắc)', 'TECHNICAL'),
+('LAB_EQUIP', 'Thiết bị Phòng thí nghiệm & Đo lường (Hỏng tủ hút khói, Kính hiển vi, Lò nung)', 'TECHNICAL'),
+
+-- [KHỐI 2: PHÒNG Y TẾ & CHĂM SÓC SỨC KHỎE (MEDICAL)]
+('MEDICAL', 'Cấp cứu Y tế & Chấn thương (Ngất xỉu, Chấn thương thể thao, Co giật, Sốt cao)', 'MEDICAL'),
+('FIRST_AID', 'Tai nạn Phòng thí nghiệm / Xưởng thực hành (Bỏng hóa chất, Đứt tay, Rách da)', 'MEDICAL'),
+('FOOD_SAFETY', 'Nghi vấn Ngộ độc thực phẩm căng tin (Buồn nôn hàng loạt, Đau bụng dữ dội)', 'MEDICAL'),
+
+-- [KHỐI 3: ĐỘI AN NINH TRẬT TỰ & BẢO VỆ (SECURITY)]
+('SECURITY', 'An ninh Trật tự & Gây rối (Xô xát ẩu đả, Mất trật tự giảng đường/KTX)', 'SECURITY'),
+('THEFT', 'Mất cắp tài sản & Đột nhập (Mất xe máy bãi xe, Mất laptop, Đột nhập đêm)', 'SECURITY'),
+('FIRE_HAZARD', 'Cảnh báo Cháy nổ & Khí gas (Báo cháy reo, Khói bốc nhà ăn, Mùi rò rỉ gas)', 'SECURITY');
 
 -- 2. TÀI KHOẢN NGƯỜI DÙNG TOÀN TRƯỜNG (50 TÀI KHOẢN CHUẨN THỰC TẾ)
 INSERT OR IGNORE INTO users (user_id, username, password_hash, full_name, role, specialty, phone, is_online) VALUES

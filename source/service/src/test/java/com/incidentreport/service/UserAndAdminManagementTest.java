@@ -42,6 +42,11 @@ public class UserAndAdminManagementTest {
         User retrieved = UserDAO.login(testUser, "pass123");
         assertNotNull(retrieved, "Người dùng mới được tạo phải đăng nhập được");
         assertEquals("Nhân Viên Mới", retrieved.getFullName());
+
+        // Kiểm tra chống trùng lặp username
+        User dupUser = new User(testUser, "pass123", "Người Dùng Trùng", "RESPONDER", "TECHNICAL", "0988776655");
+        boolean dupCreated = UserDAO.createUser(dupUser);
+        assertFalse(dupCreated, "Tạo tài khoản trùng username phải trả về false mà không gây lỗi crash CSDL");
     }
 
     @Test

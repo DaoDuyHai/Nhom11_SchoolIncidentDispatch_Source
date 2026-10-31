@@ -6,6 +6,7 @@ import com.incidentreport.common.model.User;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -296,9 +297,9 @@ public class ComponentFactory {
         fadeIn.setFromValue(0);
         fadeIn.setToValue(1);
 
-        PauseTransition pause = new PauseTransition(Duration.millis(1800)); // 1.8 giây tinh gọn, nhanh chóng biến mất
+        PauseTransition pause = new PauseTransition(Duration.millis(3500)); // 3.5 giây đảm bảo người dùng kịp đọc nội dung
 
-        FadeTransition fadeOut = new FadeTransition(Duration.millis(120), toast);
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(150), toast);
         fadeOut.setFromValue(1);
         fadeOut.setToValue(0);
         fadeOut.setOnFinished(e -> {
@@ -309,6 +310,157 @@ public class ComponentFactory {
 
         SequentialTransition seq = new SequentialTransition(fadeIn, pause, fadeOut);
         seq.play();
+    }
+
+    /**
+     * Thông báo nổi bật thời gian thực (Real-time Urgent Notification Banner)
+     * Hiển thị ở góc trên bên phải màn hình, thiết kế nổi bật, có nút đóng [X],
+     * hiển thị rõ ràng trong 7 giây và nhấp nháy cửa sổ Taskbar để người dùng không bỏ lỡ.
+     */
+    public static void showUrgentNotification(Pane root, String title, String message, String type) {
+        if (root == null) return;
+
+        // Đẩy cửa sổ ứng dụng lên Taskbar nếu đang ở chế độ nền
+        try {
+            if (root.getScene() != null && root.getScene().getWindow() != null) {
+                Window w = root.getScene().getWindow();
+                if (w instanceof javafx.stage.Stage) {
+                    ((javafx.stage.Stage) w).toFront();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        HBox banner = new HBox(12);
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setManaged(false);
+        banner.setPrefWidth(420);
+        banner.setMaxWidth(440);
+        banner.setPadding(new Insets(12, 16, 12, 16));
+
+        String borderColor = "#CBA447"; // Vàng đồng mặc định
+        String iconLiteral = "mdi2c-bell-ring-outline";
+        Color iconColor = Color.web("#D4AF37");
+
+        if ("DISPATCH".equalsIgnoreCase(type)) {
+            borderColor = "#E74C3C"; // Đỏ cảnh báo sự cố mới
+            iconLiteral = "mdi2a-alert-decagram";
+            iconColor = Color.web("#E74C3C");
+        } else if ("SUCCESS".equalsIgnoreCase(type)) {
+            borderColor = "#2ECC71"; // Xanh lá hoàn thành
+            iconLiteral = "mdi2c-check-circle";
+            iconColor = Color.web("#2ECC71");
+        } else if ("CLAIM".equalsIgnoreCase(type)) {
+            borderColor = "#3498DB"; // Xanh dương tiếp nhận
+            iconLiteral = "mdi2h-hand-pointing-right";
+            iconColor = Color.web("#3498DB");
+        } else if ("ASSIGN".equalsIgnoreCase(type)) {
+            borderColor = "#CBA447"; // Vàng đồng chỉ định
+            iconLiteral = "mdi2a-account-arrow-right";
+            iconColor = Color.web("#D4AF37");
+        }
+
+        banner.setStyle(String.format(
+                "-fx-background-color: #14264A; -fx-background-radius: 8px; -fx-border-color: %s; " +
+                "-fx-border-width: 1.5px; -fx-border-radius: 8px; " +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.40), 16, 0, 0, 4);", borderColor));
+
+        FontIcon icon = createIcon(iconLiteral, 24, iconColor);
+
+        VBox textBox = new VBox(3);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
+
+        Label lblTitle = new Label(title);
+        lblTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: white; -fx-wrap-text: true;");
+        lblTitle.setWrapText(true);
+
+        Label lblMsg = new Label(message);
+        lblMsg.setStyle("-fx-font-size: 12px; -fx-text-fill: #E8DFC8; -fx-line-spacing: 2px; -fx-wrap-text: true;");
+        lblMsg.setWrapText(true);
+        lblMsg.setMaxWidth(330);
+
+        textBox.getChildren().addAll(lblTitle, lblMsg);
+
+        Button btnClose = new Button();
+        btnClose.setGraphic(createIcon("mdi2c-close", 14, Color.web("#C5BDB0")));
+        btnClose.setStyle("-fx-background-color: transparent; -fx-padding: 2; -fx-cursor: hand;");
+
+        banner.getChildren().addAll(icon, textBox, btnClose);
+        banner.setOpacity(0);
+
+        // Neo cố định ở góc trên bên phải, cách mép trên 20px, cách mép phải 20px
+        banner.layoutXProperty().bind(root.widthProperty().subtract(banner.widthProperty()).subtract(20));
+        banner.setLayoutY(20);
+
+        root.getChildren().add(banner);
+        banner.toFront();
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(180), banner);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+
+        PauseTransition pause = new PauseTransition(Duration.millis(7000)); // 7.0 giây hiển thị rõ ràng
+
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(250), banner);
+        fadeOut.setFromValue(1);
+        fadeOut.setToValue(0);
+        fadeOut.setOnFinished(e -> {
+            banner.layoutXProperty().unbind();
+            root.getChildren().remove(banner);
+        });
+
+        SequentialTransition seq = new SequentialTransition(fadeIn, pause, fadeOut);
+
+        btnClose.setOnAction(e -> {
+            seq.stop();
+            fadeOut.play();
+        });
+
+        seq.play();
+    }
+
+    /**
+     * Hộp thoại báo lỗi dạng Modal Popup, ngăn hiện tượng cắt chữ và đảm bảo người dùng luôn nhận biết rõ nguyên nhân lỗi.
+     */
+    public static void showErrorAlert(Window owner, String title, String header, String content) {
+        Dialog<Void> dialog = new Dialog<>();
+        if (owner != null) dialog.initOwner(owner);
+        dialog.setTitle(title != null ? title : "Thông báo lỗi");
+        applyTheme(dialog.getDialogPane());
+        dialog.setHeaderText(header != null ? header : "Thao tác không thành công");
+        dialog.getDialogPane().setMinWidth(580);
+        dialog.getDialogPane().setPrefWidth(620);
+
+        VBox box = new VBox(12);
+        box.setPadding(new Insets(16, 22, 16, 22));
+        box.setPrefWidth(580);
+        box.setMaxWidth(Double.MAX_VALUE);
+
+        Label l = new Label(content != null ? content : "Đã có lỗi xảy ra trong quá trình xử lý yêu cầu.");
+        l.setWrapText(true);
+        l.setMinHeight(Region.USE_PREF_SIZE);
+        l.setMaxWidth(Double.MAX_VALUE);
+        l.setStyle("-fx-font-size: 13px; -fx-text-fill: -st-pending; -fx-font-weight: 500; -fx-line-spacing: 5px; -fx-text-overrun: clip;");
+        box.getChildren().add(l);
+        dialog.getDialogPane().setContent(box);
+
+        ButtonType btnClose = new ButtonType("Đóng", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().add(btnClose);
+
+        Button b = (Button) dialog.getDialogPane().lookupButton(btnClose);
+        if (b != null) {
+            ButtonBar.setButtonUniformSize(b, false);
+            b.setMinWidth(Region.USE_PREF_SIZE);
+            b.getStyleClass().setAll("button", "btn-secondary");
+            b.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 24; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        dialog.setOnShown(e -> Platform.runLater(() -> {
+            if (dialog.getDialogPane().getScene() != null && dialog.getDialogPane().getScene().getWindow() != null) {
+                dialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
+
+        dialog.showAndWait();
     }
 
     // =========================================================================

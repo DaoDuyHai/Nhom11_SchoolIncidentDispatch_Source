@@ -75,16 +75,24 @@ public class UserDAO {
     }
 
     public static int createUser(String username, String password, String fullName, String phone, String role, String specialty) {
+        if (username == null || username.trim().isEmpty()) {
+            return -1;
+        }
+        String cleanUsername = username.trim();
+        if (usernameExists(cleanUsername)) {
+            return -1;
+        }
+
         String sql = "INSERT INTO users (username, password_hash, full_name, phone, role, specialty, is_online) " +
                      "VALUES (?, ?, ?, ?, ?, ?, 0)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, hashWithSalt(password));
-            pstmt.setString(3, fullName);
-            pstmt.setString(4, phone != null ? phone : "");
-            pstmt.setString(5, role);
-            pstmt.setString(6, specialty != null ? specialty : "NONE");
+            pstmt.setString(1, cleanUsername);
+            pstmt.setString(2, hashWithSalt(password != null ? password : ""));
+            pstmt.setString(3, fullName != null ? fullName.trim() : "");
+            pstmt.setString(4, phone != null ? phone.trim() : "");
+            pstmt.setString(5, role != null ? role.trim() : "REPORTER");
+            pstmt.setString(6, specialty != null ? specialty.trim() : "NONE");
 
             int affected = pstmt.executeUpdate();
             if (affected > 0) {
@@ -92,6 +100,13 @@ public class UserDAO {
                     if (rs.next()) return rs.getInt(1);
                 }
             }
+        } catch (SQLException e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("UNIQUE constraint failed")) {
+                // Tên đăng nhập đã tồn tại trong CSDL, trả về -1 an toàn
+                return -1;
+            }
+            System.err.println("❌ Lỗi UserDAO.createUser: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("❌ Lỗi UserDAO.createUser: " + e.getMessage());
         }
@@ -99,7 +114,7 @@ public class UserDAO {
     }
 
     public static boolean createUser(User user) {
-        if (user == null) return false;
+        if (user == null || user.getUsername() == null || user.getUsername().trim().isEmpty()) return false;
         int id = createUser(user.getUsername(), user.getPasswordHash(), user.getFullName(), user.getPhone(), user.getRole(), user.getSpecialty());
         if (id > 0) {
             user.setUserId(id);
@@ -109,10 +124,11 @@ public class UserDAO {
     }
 
     public static boolean usernameExists(String username) {
-        String sql = "SELECT COUNT(*) FROM users WHERE username = ?";
+        if (username == null || username.trim().isEmpty()) return false;
+        String sql = "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
+            pstmt.setString(1, username.trim());
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) return rs.getInt(1) > 0;
             }

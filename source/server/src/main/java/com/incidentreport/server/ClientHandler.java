@@ -204,6 +204,10 @@ public class ClientHandler implements Runnable {
                 handleAdminGetStats(params);
                 break;
 
+            case Constants.TYPE_GET_IMAGE:
+                handleGetImage(params);
+                break;
+
             case Constants.TYPE_LOGOUT:
                 closeConnection();
                 break;
@@ -281,10 +285,15 @@ public class ClientHandler implements Runnable {
         byte[] attach = packet.getAttachment();
         if (attach != null && attach.length > 0) {
             try {
-                Files.createDirectories(Paths.get("uploads"));
-                String fileName = "uploads/img_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 6) + ".jpg";
-                Files.write(Paths.get(fileName), attach);
-                imagePath = fileName;
+                File uploadDir = InitDatabase.getUploadDirectory();
+                if (!uploadDir.exists()) {
+                    uploadDir.mkdirs();
+                }
+                String fileBase = "img_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 6) + ".jpg";
+                File destFile = new File(uploadDir, fileBase);
+                Files.write(destFile.toPath(), attach);
+                imagePath = "uploads/" + fileBase;
+                System.out.printf("📸 [IMAGE] Đã lưu ảnh hiện trường sự cố vào thư mục cố định: %s (%d bytes)\n", destFile.getAbsolutePath(), attach.length);
             } catch (IOException e) {
                 System.err.println("⚠️ Không thể lưu ảnh đính kèm: " + e.getMessage());
             }
@@ -375,9 +384,12 @@ public class ClientHandler implements Runnable {
             enqueuePacket(respPkt);
 
             // Bắn tin cập nhật trạng thái tới Reporter, phòng ban và Admin
+            String tCode = ticket != null ? ticket.getTicketCode() : "";
+            String tRoom = ticket != null ? ticket.getRoomLocation() : "";
+            String tCat = ticket != null && ticket.getCategoryName() != null ? ticket.getCategoryName() : "";
             Packet statusPkt = new Packet(Constants.TYPE_STATUS_BROADCAST,
-                    String.format("STATUS_BROADCAST|ticketId=%d|status=%s|staffId=%d|staffName=%s",
-                            ticketId, Constants.STATUS_IN_PROGRESS, loggedInUser.getUserId(), loggedInUser.getFullName()));
+                    String.format("STATUS_BROADCAST|ticketId=%d|ticketCode=%s|room=%s|category=%s|status=%s|staffId=%d|staffName=%s|action=CLAIM",
+                            ticketId, tCode, tRoom, tCat, Constants.STATUS_IN_PROGRESS, loggedInUser.getUserId(), loggedInUser.getFullName()));
 
             if (ticket != null) {
                 ServerSessionManager.sendToUser(ticket.getReporterId(), statusPkt);
@@ -414,14 +426,22 @@ public class ClientHandler implements Runnable {
 
             // Bắn thông báo đẩy thẳng cho cán bộ được chỉ định
             if (ticket != null) {
-                Packet pushPkt = createDispatchPacket(ticket);
+                String pushHeader = String.format("DISPATCH_NOTIFY|ticketId=%d|code=%s|room=%s|category=%s|department=%s|desc=%s|time=%s|assignedByAdmin=true|staffId=%d|note=%s",
+                        ticket.getTicketId(), ticket.getTicketCode(), ticket.getRoomLocation(),
+                        ticket.getCategoryName() != null ? ticket.getCategoryName() : ticket.getCategoryCode(),
+                        ticket.getTargetDepartment(), ticket.getDescription(), ticket.getCreatedAt(),
+                        staffId, note);
+                Packet pushPkt = new Packet(Constants.TYPE_DISPATCH_NOTIFY, pushHeader, gson.toJson(ticket).getBytes(StandardCharsets.UTF_8));
                 ServerSessionManager.sendToUser(staffId, pushPkt);
 
                 Packet statusPkt = new Packet(Constants.TYPE_STATUS_BROADCAST,
-                        String.format("STATUS_BROADCAST|ticketId=%d|status=%s|staffId=%d|staffName=%s",
-                                ticketId, Constants.STATUS_IN_PROGRESS, staffId, staff.getFullName()));
+                        String.format("STATUS_BROADCAST|ticketId=%d|ticketCode=%s|room=%s|category=%s|status=%s|staffId=%d|staffName=%s|note=%s|action=ASSIGN",
+                                ticketId, ticket.getTicketCode(), ticket.getRoomLocation(),
+                                ticket.getCategoryName() != null ? ticket.getCategoryName() : ticket.getCategoryCode(),
+                                Constants.STATUS_IN_PROGRESS, staffId, staff.getFullName(), note));
                 ServerSessionManager.sendToUser(ticket.getReporterId(), statusPkt);
                 ServerSessionManager.sendToDepartment(ticket.getTargetDepartment(), statusPkt);
+                ServerSessionManager.sendToAdmin(statusPkt);
             }
         } else {
             enqueuePacket(new Packet(Constants.TYPE_MANUAL_ASSIGN_RESP, "MANUAL_ASSIGN_RESP|status=FAIL|message=Lỗi chỉ định nhân sự!"));
@@ -454,15 +474,26 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        // BẢO VỆ TOÀN VẸN TRẠNG THÁI: Vé đã HOÀN TẤT hoặc ĐÃ HỦY tuyệt đối không thể sửa đổi
+        if (Constants.STATUS_RESOLVED.equalsIgnoreCase(ticket.getStatus())
+                || Constants.STATUS_CANCELLED.equalsIgnoreCase(ticket.getStatus())) {
+            sendError("INVALID_TRANSITION", "Sự cố đã kết thúc (" + ticket.getStatus() + "), không thể thay đổi trạng thái!");
+            return;
+        }
+
         boolean isAdmin = Constants.ROLE_ADMIN.equalsIgnoreCase(loggedInUser.getRole());
         boolean isAssignedStaff = ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() == loggedInUser.getUserId();
         boolean isReporter = ticket.getReporterId() == loggedInUser.getUserId();
 
         // PHÂN QUYỀN CHẶT CHẼ TRẠNG THÁI SỰ CỐ:
         if (Constants.STATUS_CANCELLED.equalsIgnoreCase(status)) {
-            // Cho phép Admin hoặc chính Reporter hủy vé khi vé còn PENDING
-            if (!isAdmin && (!isReporter || !Constants.STATUS_PENDING.equalsIgnoreCase(ticket.getStatus()))) {
-                sendError("FORBIDDEN", "Chỉ Ban Giám Hiệu hoặc người tạo báo cáo mới có thể hủy sự cố khi chưa được tiếp nhận!");
+            // Sự cố chỉ có thể hủy khi ĐANG Ở TRẠNG THÁI PENDING (chưa có cán bộ tiếp nhận hay hoàn thành)
+            if (!Constants.STATUS_PENDING.equalsIgnoreCase(ticket.getStatus())) {
+                sendError("FORBIDDEN", "Sự cố đã được cán bộ tiếp nhận hoặc đang xử lý, không thể hủy!");
+                return;
+            }
+            if (!isAdmin && !isReporter) {
+                sendError("FORBIDDEN", "Chỉ Ban Giám Hiệu hoặc người tạo báo cáo mới có thể hủy sự cố!");
                 return;
             }
         } else {
@@ -476,9 +507,12 @@ public class ClientHandler implements Runnable {
         boolean ok = TicketDAO.updateStatus(ticketId, status, note);
         if (ok) {
             ticket = TicketDAO.getTicketById(ticketId);
+            String tCode = ticket != null ? ticket.getTicketCode() : "";
+            String tRoom = ticket != null ? ticket.getRoomLocation() : "";
+            String tCat = ticket != null && ticket.getCategoryName() != null ? ticket.getCategoryName() : "";
             Packet statusPkt = new Packet(Constants.TYPE_STATUS_BROADCAST,
-                    String.format("STATUS_BROADCAST|ticketId=%d|status=%s|staffName=%s|note=%s",
-                            ticketId, status, loggedInUser.getFullName(), note));
+                    String.format("STATUS_BROADCAST|ticketId=%d|ticketCode=%s|room=%s|category=%s|status=%s|staffName=%s|note=%s|action=UPDATE",
+                            ticketId, tCode, tRoom, tCat, status, loggedInUser.getFullName(), note));
 
             if (ticket != null) {
                 ServerSessionManager.sendToUser(ticket.getReporterId(), statusPkt);
@@ -662,6 +696,12 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        if (UserDAO.usernameExists(username)) {
+            enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Tên đăng nhập '" + username + "' đã tồn tại!"));
+            System.out.printf("⚠️ [ADMIN] Từ chối tạo tài khoản: tên đăng nhập '%s' đã tồn tại.\n", username);
+            return;
+        }
+
         User newUser = new User(username, password.trim(), fullName, role, specialty, phone);
         boolean created = UserDAO.createUser(newUser);
 
@@ -695,6 +735,33 @@ public class ClientHandler implements Runnable {
         byte[] body = gson.toJson(report).getBytes(StandardCharsets.UTF_8);
 
         enqueuePacket(new Packet(Constants.TYPE_ADMIN_GET_STATS_RESP, "ADMIN_GET_STATS_RESP|range=" + timeRange, body));
+    }
+
+    private void handleGetImage(Map<String, String> params) {
+        int ticketId = Integer.parseInt(params.getOrDefault("ticketId", "0"));
+        IncidentTicket ticket = TicketDAO.getTicketById(ticketId);
+        if (ticket == null || ticket.getImageFilePath() == null || ticket.getImageFilePath().trim().isEmpty()) {
+            enqueuePacket(new Packet(Constants.TYPE_GET_IMAGE_RESP, "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=NOT_FOUND"));
+            return;
+        }
+
+        File imgFile = InitDatabase.findFile(ticket.getImageFilePath());
+        if (!imgFile.exists()) {
+            enqueuePacket(new Packet(Constants.TYPE_GET_IMAGE_RESP, "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=NOT_FOUND"));
+            return;
+        }
+
+        try {
+            byte[] bytes = Files.readAllBytes(imgFile.toPath());
+            Packet resp = new Packet(Constants.TYPE_GET_IMAGE_RESP,
+                    "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=OK|fileName=" + imgFile.getName(),
+                    bytes);
+            enqueuePacket(resp);
+            System.out.printf("📤 [IMAGE] Đã truyền tải ảnh sự cố #%d (%d bytes) tới client.\n", ticketId, bytes.length);
+        } catch (IOException e) {
+            System.err.println("⚠️ Lỗi đọc file ảnh truyền tải tới client: " + e.getMessage());
+            enqueuePacket(new Packet(Constants.TYPE_GET_IMAGE_RESP, "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=ERROR"));
+        }
     }
 
     private Packet createDispatchPacket(IncidentTicket ticket) {

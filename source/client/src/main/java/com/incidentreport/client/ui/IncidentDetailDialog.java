@@ -1,8 +1,11 @@
 package com.incidentreport.client.ui;
 
+import com.incidentreport.client.net.SocketClientManager;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.IncidentTicket;
 import com.incidentreport.common.model.User;
+import com.incidentreport.common.packet.Packet;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -15,8 +18,10 @@ import javafx.stage.Modality;
 import javafx.stage.Window;
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -45,8 +50,8 @@ public class IncidentDetailDialog extends Dialog<Void> {
             pane.getStylesheets().add(getClass().getResource("/css/sids-theme.css").toExternalForm());
         } catch (Exception ignored) {}
 
-        pane.setPrefWidth(680);
-        pane.setMaxWidth(720);
+        pane.setMinWidth(720);
+        pane.setPrefWidth(760);
 
         // Header Panel (Nền mực xanh, font Lora serif)
         VBox headerPanel = new VBox(6);
@@ -114,29 +119,93 @@ public class IncidentDetailDialog extends Dialog<Void> {
 
         cardIncident.getChildren().addAll(sec1Title, catRow, descBox);
 
-        // Hiển thị ảnh hiện trường nếu có
+        // Hiển thị ảnh hiện trường nếu có (Hỗ trợ nạp Local hoặc Truyền tải qua Socket TCP)
         if (ticket.getImageFilePath() != null && !ticket.getImageFilePath().trim().isEmpty()) {
-            File imgFile = new File(ticket.getImageFilePath());
-            if (imgFile.exists()) {
-                VBox imgBox = new VBox(6);
-                Label lblImgTag = new Label("Hình ảnh hiện trường đính kèm:");
-                lblImgTag.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-text-fill: -text-600;");
+            VBox imgBox = new VBox(6);
+            Label lblImgTag = new Label("Hình ảnh hiện trường đính kèm:");
+            lblImgTag.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-text-fill: -text-600;");
 
-                ImageView iv = new ImageView();
+            ImageView iv = new ImageView();
+            iv.setFitWidth(420);
+            iv.setFitHeight(230);
+            iv.setPreserveRatio(true);
+            iv.setSmooth(true);
+            iv.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 8, 0, 0, 2); -fx-cursor: hand;");
+            Tooltip.install(iv, new Tooltip("Nhấp chuột để phóng to xem ảnh kích thước gốc"));
+
+            StackPane imgContainer = new StackPane();
+            imgContainer.setAlignment(Pos.CENTER);
+            imgContainer.setPrefHeight(180);
+            imgContainer.setStyle("-fx-background-color: #F4F1EA; -fx-background-radius: 8; -fx-border-color: #E2DDD2; -fx-border-radius: 8;");
+
+            Label lblLoading = new Label("Đang kết nối tải ảnh hiện trường từ máy chủ...");
+            lblLoading.setStyle("-fx-text-fill: -text-600; -fx-font-size: 12px; -fx-font-style: italic;");
+            FontIcon loadingIcon = ComponentFactory.createIcon("mdi2i-image-outline", 32, Color.web("#8C8677"));
+            VBox placeholderBox = new VBox(6, loadingIcon, lblLoading);
+            placeholderBox.setAlignment(Pos.CENTER);
+
+            imgContainer.getChildren().addAll(placeholderBox, iv);
+            iv.setVisible(false);
+            iv.setManaged(false);
+
+            iv.setOnMouseClicked(e -> showEnlargedImage(getOwner(), iv.getImage(), ticket.getTicketCode()));
+
+            File localFile = findLocalImage(ticket.getImageFilePath());
+            if (localFile != null && localFile.exists()) {
                 try {
-                    Image img = new Image(new FileInputStream(imgFile));
+                    Image img = new Image(new FileInputStream(localFile));
                     iv.setImage(img);
-                    iv.setFitWidth(360);
-                    iv.setFitHeight(200);
-                    iv.setPreserveRatio(true);
-                    iv.setSmooth(true);
-                    iv.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 6, 0, 0, 2);");
+                    placeholderBox.setVisible(false);
+                    placeholderBox.setManaged(false);
+                    iv.setVisible(true);
+                    iv.setManaged(true);
                 } catch (Exception ex) {
-                    System.err.println("Không thể đọc ảnh: " + ex.getMessage());
+                    lblLoading.setText("Không thể đọc file ảnh: " + ex.getMessage());
                 }
-                imgBox.getChildren().addAll(lblImgTag, iv);
-                cardIncident.getChildren().add(imgBox);
+            } else {
+                // Tải trực tiếp qua giao thức mạng TCP
+                SocketClientManager.PacketListener imgListener = new SocketClientManager.PacketListener() {
+                    @Override
+                    public void onPacketReceived(Packet packet) {
+                        if (packet.getType() == Constants.TYPE_GET_IMAGE_RESP) {
+                            Map<String, String> p = packet.parseParams();
+                            int respTicketId = Integer.parseInt(p.getOrDefault("ticketId", "0"));
+                            if (respTicketId == ticket.getTicketId()) {
+                                if ("OK".equalsIgnoreCase(p.get("status")) && packet.hasAttachment()) {
+                                    byte[] imgBytes = packet.getAttachment();
+                                    Platform.runLater(() -> {
+                                        try {
+                                            Image img = new Image(new ByteArrayInputStream(imgBytes));
+                                            iv.setImage(img);
+                                            placeholderBox.setVisible(false);
+                                            placeholderBox.setManaged(false);
+                                            iv.setVisible(true);
+                                            iv.setManaged(true);
+                                        } catch (Exception ex) {
+                                            lblLoading.setText("Lỗi giải mã ảnh mạng!");
+                                        }
+                                    });
+                                } else {
+                                    Platform.runLater(() -> lblLoading.setText("Ảnh không khả dụng hoặc đã bị xóa."));
+                                }
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onDisconnected() {}
+                };
+
+                SocketClientManager.getInstance().addListener(imgListener);
+                setOnHidden(ev -> SocketClientManager.getInstance().removeListener(imgListener));
+
+                // Gửi bản tin yêu cầu Server truyền tải ảnh
+                SocketClientManager.getInstance().sendPacket(
+                        new Packet(Constants.TYPE_GET_IMAGE, "GET_IMAGE|ticketId=" + ticket.getTicketId()));
             }
+
+            imgBox.getChildren().addAll(lblImgTag, imgContainer);
+            cardIncident.getChildren().add(imgBox);
         }
 
         // 2. Thẻ Thông tin Người báo & Cán bộ tiếp nhận (2 cột song song)
@@ -263,16 +332,24 @@ public class IncidentDetailDialog extends Dialog<Void> {
 
         Button btnClose = (Button) pane.lookupButton(btnCloseType);
         if (btnClose != null) {
-            btnClose.getStyleClass().addAll("btn-secondary", "btn-sm");
+            btnClose.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+            btnClose.setMinWidth(Region.USE_PREF_SIZE);
+            ButtonBar.setButtonUniformSize(btnClose, false);
+            btnClose.setStyle("-fx-font-size: 12px; -fx-padding: 6 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
         }
 
         // Custom Action Bar in ButtonBar
         ButtonBar buttonBar = (ButtonBar) pane.lookup(".button-bar");
         if (buttonBar != null) {
-            // Nút "Nhắn tin 1-1"
+            buttonBar.setStyle("-fx-button-uniform-size: false;");
+            // Nút "Nhắn tin 1-1" (Đầy đủ chữ, không bị cắt dấu ...)
             if (onOpenChat != null) {
                 Button btnChat = new Button("Nhắn tin 1-1");
-                btnChat.getStyleClass().addAll("btn-primary", "btn-sm");
+                btnChat.getStyleClass().setAll("button", "btn-primary", "btn-sm");
+                btnChat.setStyle("-fx-font-size: 12px; -fx-padding: 6 18; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                btnChat.setMinWidth(Region.USE_PREF_SIZE);
+                ButtonBar.setButtonData(btnChat, ButtonBar.ButtonData.LEFT);
+                ButtonBar.setButtonUniformSize(btnChat, false);
                 btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 15, Color.WHITE));
                 btnChat.setOnAction(e -> {
                     close();
@@ -290,7 +367,11 @@ public class IncidentDetailDialog extends Dialog<Void> {
                 if (Constants.ROLE_RESPONDER.equalsIgnoreCase(role) && Constants.STATUS_PENDING.equalsIgnoreCase(status)) {
                     if (onClaim != null) {
                         Button btnClaim = new Button("Tiếp nhận ca này");
-                        btnClaim.getStyleClass().addAll("btn-success", "btn-sm");
+                        btnClaim.getStyleClass().setAll("button", "btn-success", "btn-sm");
+                        btnClaim.setStyle("-fx-font-size: 12px; -fx-padding: 6 18; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                        btnClaim.setMinWidth(Region.USE_PREF_SIZE);
+                        ButtonBar.setButtonData(btnClaim, ButtonBar.ButtonData.LEFT);
+                        ButtonBar.setButtonUniformSize(btnClaim, false);
                         btnClaim.setGraphic(ComponentFactory.createIcon("mdi2h-hand-pointing-right", 15, Color.WHITE));
                         btnClaim.setOnAction(e -> {
                             close();
@@ -305,7 +386,11 @@ public class IncidentDetailDialog extends Dialog<Void> {
                     if (ticket.getAssignedStaffId() != null && ticket.getAssignedStaffId() == currentUser.getUserId()) {
                         if (onResolve != null) {
                             Button btnResolve = new Button("Báo cáo hoàn tất");
-                            btnResolve.getStyleClass().addAll("btn-success", "btn-sm");
+                            btnResolve.getStyleClass().setAll("button", "btn-success", "btn-sm");
+                            btnResolve.setStyle("-fx-font-size: 12px; -fx-padding: 6 18; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                            btnResolve.setMinWidth(Region.USE_PREF_SIZE);
+                            ButtonBar.setButtonData(btnResolve, ButtonBar.ButtonData.LEFT);
+                            ButtonBar.setButtonUniformSize(btnResolve, false);
                             btnResolve.setGraphic(ComponentFactory.createIcon("mdi2c-check-circle", 15, Color.WHITE));
                             btnResolve.setOnAction(e -> {
                                 close();
@@ -320,7 +405,11 @@ public class IncidentDetailDialog extends Dialog<Void> {
                 if (Constants.ROLE_ADMIN.equalsIgnoreCase(role) && Constants.STATUS_PENDING.equalsIgnoreCase(status)) {
                     if (onAssign != null) {
                         Button btnAssign = new Button("Chỉ định cán bộ");
-                        btnAssign.getStyleClass().addAll("btn-brass", "btn-sm");
+                        btnAssign.getStyleClass().setAll("button", "btn-brass", "btn-sm");
+                        btnAssign.setStyle("-fx-font-size: 12px; -fx-padding: 6 18; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                        btnAssign.setMinWidth(Region.USE_PREF_SIZE);
+                        ButtonBar.setButtonData(btnAssign, ButtonBar.ButtonData.LEFT);
+                        ButtonBar.setButtonUniformSize(btnAssign, false);
                         btnAssign.setGraphic(ComponentFactory.createIcon("mdi2a-account-arrow-right", 15, Color.web("#8A6218")));
                         btnAssign.setOnAction(e -> {
                             close();
@@ -334,8 +423,11 @@ public class IncidentDetailDialog extends Dialog<Void> {
                 if (Constants.ROLE_REPORTER.equalsIgnoreCase(role) && Constants.STATUS_PENDING.equalsIgnoreCase(status)) {
                     if (onCancel != null) {
                         Button btnCancelAction = new Button("Hủy sự cố này");
-                        btnCancelAction.getStyleClass().addAll("btn-secondary", "btn-sm");
-                        btnCancelAction.setStyle("-fx-text-fill: -st-pending; -fx-border-color: -st-pending;");
+                        btnCancelAction.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                        btnCancelAction.setStyle("-fx-font-size: 12px; -fx-padding: 6 18; -fx-text-fill: -st-pending; -fx-border-color: -st-pending; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                        btnCancelAction.setMinWidth(Region.USE_PREF_SIZE);
+                        ButtonBar.setButtonData(btnCancelAction, ButtonBar.ButtonData.LEFT);
+                        ButtonBar.setButtonUniformSize(btnCancelAction, false);
                         btnCancelAction.setGraphic(ComponentFactory.createIcon("mdi2c-close-circle-outline", 15, Color.web("#A8402F")));
                         btnCancelAction.setOnAction(e -> {
                             close();
@@ -346,6 +438,57 @@ public class IncidentDetailDialog extends Dialog<Void> {
                 }
             }
         }
+
+        setOnShown(e -> Platform.runLater(() -> {
+            if (pane.getScene() != null && pane.getScene().getWindow() != null) {
+                pane.getScene().getWindow().sizeToScene();
+            }
+        }));
+    }
+
+    private static File findLocalImage(String relativePath) {
+        if (relativePath == null || relativePath.trim().isEmpty()) return null;
+        String clean = relativePath.trim().replace('\\', '/');
+        String fileName = clean.startsWith("uploads/") ? clean.substring(8) : clean;
+        String[] candidates = new String[]{
+                "source/uploads/" + fileName,
+                "../source/uploads/" + fileName,
+                "../../source/uploads/" + fileName,
+                "../uploads/" + fileName,
+                "uploads/" + fileName,
+                clean,
+                "../" + clean,
+                "../../" + clean,
+                "source/" + clean,
+                "source/server/" + clean,
+                "source/client/" + clean
+        };
+        for (String c : candidates) {
+            File f = new File(c);
+            if (f.exists() && f.isFile()) return f;
+        }
+        return null;
+    }
+
+    private static void showEnlargedImage(Window owner, Image image, String code) {
+        if (image == null) return;
+        Dialog<Void> d = new Dialog<>();
+        if (owner != null) d.initOwner(owner);
+        d.initModality(Modality.WINDOW_MODAL);
+        d.setTitle("Ảnh hiện trường sự cố: " + (code != null ? code : ""));
+
+        ImageView ivLarge = new ImageView(image);
+        ivLarge.setPreserveRatio(true);
+        ivLarge.setFitWidth(760);
+        ivLarge.setFitHeight(520);
+
+        ScrollPane sp = new ScrollPane(new StackPane(ivLarge));
+        sp.setPrefSize(780, 540);
+        sp.setStyle("-fx-background-color: transparent;");
+
+        d.getDialogPane().setContent(sp);
+        d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        d.showAndWait();
     }
 }
 

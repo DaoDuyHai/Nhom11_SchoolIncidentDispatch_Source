@@ -131,7 +131,15 @@ public class TicketDAO {
         } else if (resolutionNote != null && !resolutionNote.isEmpty()) {
             sql.append(", resolution_note = ? ");
         }
-        sql.append("WHERE ticket_id = ?");
+        // Khóa bảo vệ trạng thái kết thúc: Vé đã RESOLVED hoặc CANCELLED không thể bị ghi đè!
+        sql.append("WHERE ticket_id = ? AND status NOT IN ('")
+           .append(Constants.STATUS_RESOLVED).append("', '")
+           .append(Constants.STATUS_CANCELLED).append("')");
+
+        // Ràng buộc hủy vé: Chỉ cho phép hủy khi vé đang PENDING (chưa được tiếp nhận/xử lý)
+        if (Constants.STATUS_CANCELLED.equals(newStatus)) {
+            sql.append(" AND status = '").append(Constants.STATUS_PENDING).append("'");
+        }
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {

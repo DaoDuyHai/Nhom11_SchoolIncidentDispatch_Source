@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.client.net.SocketClientManager;
+import com.incidentreport.client.util.SoundEffectManager;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.IncidentTicket;
 import com.incidentreport.common.model.User;
@@ -493,24 +494,26 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         });
 
         TableColumn<IncidentTicket, Void> colClaim = new TableColumn<>("THAO TÁC");
-        colClaim.setMinWidth(80);
-        colClaim.setPrefWidth(95);
+        colClaim.setMinWidth(170);
+        colClaim.setPrefWidth(185);
         colClaim.setCellFactory(col -> new TableCell<>() {
-            private final Button btnDetail = new Button();
-            private final Button btn = new Button();
+            private final Button btnDetail = new Button("Xem");
+            private final Button btn = new Button("Nhận sự cố");
             private final HBox btnBox = new HBox(6, btnDetail, btn);
 
             {
-                btnDetail.getStyleClass().setAll("btn-icon");
-                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 16, Color.web("#14264A")));
+                btnDetail.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 13, Color.web("#14264A")));
+                btnDetail.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnDetail.setTooltip(new Tooltip("Xem chi tiết sự cố (hoặc nhấp đúp vào dòng)"));
                 btnDetail.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openDetailDialog(t);
                 });
 
-                btn.getStyleClass().setAll("btn-icon");
-                btn.setGraphic(ComponentFactory.createIcon("mdi2h-hand-pointing-right", 16, Color.web("#2F6F55")));
+                btn.getStyleClass().setAll("button", "btn-success", "btn-sm");
+                btn.setGraphic(ComponentFactory.createIcon("mdi2h-hand-pointing-right", 14, Color.WHITE));
+                btn.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-padding: 3 10; -fx-cursor: hand;");
                 btn.setTooltip(new Tooltip("Tiếp nhận xử lý sự cố này"));
                 btn.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
@@ -665,24 +668,26 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         ));
 
         TableColumn<IncidentTicket, Void> colChatAction = new TableColumn<>("TRAO ĐỔI");
-        colChatAction.setMinWidth(80);
-        colChatAction.setPrefWidth(95);
+        colChatAction.setMinWidth(130);
+        colChatAction.setPrefWidth(145);
         colChatAction.setCellFactory(col -> new TableCell<>() {
-            private final Button btnDetail = new Button();
-            private final Button btnChat = new Button();
+            private final Button btnDetail = new Button("Xem");
+            private final Button btnChat = new Button("Chat");
             private final HBox btnBox = new HBox(6, btnDetail, btnChat);
 
             {
-                btnDetail.getStyleClass().setAll("btn-icon");
-                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 16, Color.web("#14264A")));
+                btnDetail.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 13, Color.web("#14264A")));
+                btnDetail.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnDetail.setTooltip(new Tooltip("Xem chi tiết sự cố (hoặc nhấp đúp vào dòng)"));
                 btnDetail.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openDetailDialog(t);
                 });
 
-                btnChat.getStyleClass().setAll("btn-icon");
-                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 16, Color.web("#14264A")));
+                btnChat.getStyleClass().setAll("button", "btn-brass", "btn-sm");
+                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 13, Color.web("#8A6218")));
+                btnChat.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnChat.setTooltip(new Tooltip("Nhắn tin trao đổi 1-1"));
                 btnChat.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
@@ -709,15 +714,16 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         });
 
         TableColumn<IncidentTicket, Void> colResolve = new TableColumn<>("XỬ LÝ XONG");
-        colResolve.setMinWidth(85);
-        colResolve.setPrefWidth(105);
+        colResolve.setMinWidth(120);
+        colResolve.setPrefWidth(135);
         colResolve.setCellFactory(col -> new TableCell<>() {
-            private final Button btnDone = new Button();
+            private final Button btnDone = new Button("Hoàn thành");
             private final Label doneChip = new Label("Đã xong");
 
             {
-                btnDone.getStyleClass().setAll("btn-icon");
-                btnDone.setGraphic(ComponentFactory.createIcon("mdi2c-check-circle-outline", 18, Color.web("#2F6F55")));
+                btnDone.getStyleClass().setAll("button", "btn-success", "btn-sm");
+                btnDone.setGraphic(ComponentFactory.createIcon("mdi2c-check-circle-outline", 14, Color.WHITE));
+                btnDone.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-padding: 3 10; -fx-cursor: hand;");
                 btnDone.setTooltip(new Tooltip("Báo cáo hoàn tất sự cố"));
                 btnDone.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
@@ -728,6 +734,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
                 doneChip.getStyleClass().addAll("badge", "badge-resolved");
                 doneChip.setGraphic(ComponentFactory.createIcon("mdi2c-check", 13, Color.web("#2F6F55")));
+                doneChip.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 8;");
                 doneChip.setGraphicTextGap(4);
                 doneChip.setTooltip(new Tooltip("Sự cố đã được xử lý hoàn tất"));
             }
@@ -817,19 +824,97 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
     }
 
     private void claimTicket(int ticketId) {
+        IncidentTicket target = deptPendingList.stream()
+                .filter(t -> t.getTicketId() == ticketId)
+                .findFirst().orElse(null);
+
+        Dialog<ButtonType> confirmDialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            confirmDialog.initOwner(getScene().getWindow());
+        }
+        confirmDialog.setTitle("Tiếp nhận sự cố");
+        ComponentFactory.applyTheme(confirmDialog.getDialogPane());
+        confirmDialog.getDialogPane().setMinWidth(520);
+        confirmDialog.getDialogPane().setPrefWidth(560);
+        String code = (target != null && target.getTicketCode() != null) ? target.getTicketCode() : ("#" + ticketId);
+        confirmDialog.setHeaderText("Xác nhận tiếp nhận xử lý " + code + "?");
+
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(14, 18, 14, 18));
+        box.setPrefWidth(520);
+        box.setMaxWidth(Double.MAX_VALUE);
+        if (target != null) {
+            Label l1 = new Label("• Vị trí: Phòng " + target.getRoomLocation());
+            l1.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -text-900; -fx-text-overrun: clip;");
+            l1.setWrapText(true);
+            l1.setMinHeight(Region.USE_PREF_SIZE);
+            l1.setMaxWidth(Double.MAX_VALUE);
+
+            Label l2 = new Label("• Sự cố: " + (target.getCategoryName() != null ? target.getCategoryName() : target.getCategoryCode()));
+            l2.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-text-overrun: clip;");
+            l2.setWrapText(true);
+            l2.setMinHeight(Region.USE_PREF_SIZE);
+            l2.setMaxWidth(Double.MAX_VALUE);
+            box.getChildren().addAll(l1, l2);
+        }
+        Label l3 = new Label("Sau khi tiếp nhận, sự cố sẽ chuyển sang ĐANG XỬ LÝ và giao cho bạn.");
+        l3.setStyle("-fx-font-size: 11.5px; -fx-text-fill: -text-600; -fx-text-overrun: clip;");
+        l3.setWrapText(true);
+        l3.setMinHeight(Region.USE_PREF_SIZE);
+        l3.setMaxWidth(Double.MAX_VALUE);
+        box.getChildren().add(l3);
+        confirmDialog.getDialogPane().setContent(box);
+
+        ButtonType btnClaim = new ButtonType("Tiếp nhận ngay", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnCancel = new ButtonType("Để sau", ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirmDialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnClaim);
+
+        Button okBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnClaim);
+        if (okBtn != null) {
+            ButtonBar.setButtonUniformSize(okBtn, false);
+            okBtn.setMinWidth(Region.USE_PREF_SIZE);
+            okBtn.getStyleClass().setAll("button", "btn-success");
+            okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+        Button cancelBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnCancel);
+        if (cancelBtn != null) {
+            ButtonBar.setButtonUniformSize(cancelBtn, false);
+            cancelBtn.setMinWidth(Region.USE_PREF_SIZE);
+            cancelBtn.getStyleClass().setAll("button", "btn-secondary");
+            cancelBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        confirmDialog.setOnShown(e -> Platform.runLater(() -> {
+            if (confirmDialog.getDialogPane().getScene() != null && confirmDialog.getDialogPane().getScene().getWindow() != null) {
+                confirmDialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
+
+        Optional<ButtonType> ans = confirmDialog.showAndWait();
+        if (!ans.isPresent() || ans.get() != btnClaim) {
+            return;
+        }
+
         Packet packet = new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId);
         SocketClientManager.getInstance().sendPacket(packet);
     }
 
     private void promptResolveTicket(IncidentTicket ticket) {
         Dialog<String> dialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            dialog.initOwner(getScene().getWindow());
+        }
         dialog.setTitle("Nghiệm thu sự cố");
         ComponentFactory.applyTheme(dialog.getDialogPane());
+        dialog.getDialogPane().setMinWidth(520);
+        dialog.getDialogPane().setPrefWidth(560);
 
         dialog.setHeaderText("Xác nhận hoàn thành xử lý sự cố " + ticket.getTicketCode());
 
-        VBox content = new VBox(8);
-        content.setPadding(new Insets(10));
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(14, 18, 14, 18));
+        content.setPrefWidth(520);
+        content.setMaxWidth(Double.MAX_VALUE);
         Label lblPrompt = new Label("Ghi chú nghiệm thu:");
         lblPrompt.getStyleClass().add("field-label");
 
@@ -845,9 +930,25 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         dialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnComplete);
 
         Button okBtn = (Button) dialog.getDialogPane().lookupButton(btnComplete);
-        if (okBtn != null) okBtn.getStyleClass().setAll("btn-success");
+        if (okBtn != null) {
+            ButtonBar.setButtonUniformSize(okBtn, false);
+            okBtn.setMinWidth(Region.USE_PREF_SIZE);
+            okBtn.getStyleClass().setAll("button", "btn-success");
+            okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
         Button cancelBtn = (Button) dialog.getDialogPane().lookupButton(btnCancel);
-        if (cancelBtn != null) cancelBtn.getStyleClass().setAll("btn-secondary");
+        if (cancelBtn != null) {
+            ButtonBar.setButtonUniformSize(cancelBtn, false);
+            cancelBtn.setMinWidth(Region.USE_PREF_SIZE);
+            cancelBtn.getStyleClass().setAll("button", "btn-secondary");
+            cancelBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        dialog.setOnShown(e -> Platform.runLater(() -> {
+            if (dialog.getDialogPane().getScene() != null && dialog.getDialogPane().getScene().getWindow() != null) {
+                dialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
 
         dialog.setResultConverter(b -> (b == btnComplete) ? taNote.getText().trim() : null);
 
@@ -856,7 +957,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
             String payload = String.format("STATUS_UPDATE|ticketId=%d|status=%s|note=%s",
                     ticket.getTicketId(), Constants.STATUS_RESOLVED, note.replace("|", "/"));
             SocketClientManager.getInstance().sendPacket(new Packet(Constants.TYPE_STATUS_UPDATE, payload));
-            ComponentFactory.showToast(this, "Đã hoàn tất sự cố " + ticket.getTicketCode(), true);
+            SoundEffectManager.playSuccess();
+            ComponentFactory.showToast(this, "Đã hoàn tất sự cố " + ticket.getTicketCode() + " thành công!", true);
         });
     }
 
@@ -921,6 +1023,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 Map<String, String> params = packet.parseParams();
                 String status = params.get("status");
                 if ("OK".equalsIgnoreCase(status)) {
+                    SoundEffectManager.playSuccess();
                     ComponentFactory.showToast(this, "Đã tiếp nhận sự cố thành công!", true);
                     loadDeptTickets();
                     loadMyTasks();
@@ -928,27 +1031,54 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     navTasks.setSelected(true);
                     switchTab(1, "Nhiệm vụ của tôi", "Các ca bạn đang trực tiếp xử lý hoặc đã hoàn tất.");
                 } else {
+                    SoundEffectManager.playWarning();
                     ComponentFactory.showToast(this, "Sự cố này đã được cán bộ khác tiếp nhận.", false);
+                    ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null, "Tiếp nhận không thành công", "Sự cố đã được xử lý", "Sự cố này vừa được một cán bộ khác tiếp nhận trước bạn.");
                     loadDeptTickets();
                 }
+
+            } else if (packet.getType() == Constants.TYPE_ERROR) {
+                Map<String, String> p = packet.parseParams();
+                String msg = p.getOrDefault("message", "Thao tác không thành công!");
+                SoundEffectManager.playWarning();
+                ComponentFactory.showToast(this, "Lỗi từ máy chủ: " + msg, false);
+                ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null, "Từ chối thao tác", "Không thể thực hiện yêu cầu", msg);
+                loadDeptTickets();
+                loadMyTasks();
 
             } else if (packet.getType() == Constants.TYPE_DISPATCH_NOTIFY) {
                 Map<String, String> params = packet.parseParams();
                 String code = params.getOrDefault("code", "Mới");
                 String room = params.getOrDefault("room", "");
+                String cat = params.getOrDefault("category", "Sự cố");
+                String desc = params.getOrDefault("desc", "");
+                String assignedByAdmin = params.getOrDefault("assignedByAdmin", "false");
+                String note = params.getOrDefault("note", "");
 
-                // 1. Toast cảnh báo tức thì khi có sự cố mới tới phòng ban
-                ComponentFactory.showToast(this, "Có ca sự cố mới: " + code + (room.isEmpty() ? "" : " · Phòng " + room), true);
+                // 1. Phát chuông cảnh báo nổi bật & Banner thông báo thời gian thực không thể bỏ lỡ
+                SoundEffectManager.playNotification();
+
+                if ("true".equalsIgnoreCase(assignedByAdmin)) {
+                    String title = "🎯 BẠN ĐƯỢC CHỈ ĐỊNH XỬ LÝ CA MỚI!";
+                    String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "Vui lòng tiếp nhận và xử lý ngay." : "Ghi chú BGH: " + note);
+                    ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
+                } else {
+                    String title = "🚨 CÓ SỰ CỐ MỚI CẦN GIẢI QUYẾT!";
+                    String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
+                    ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
+                }
 
                 // 2. Chèn trực tiếp vé mới vào đầu hàng đợi để cập nhật tức thì trên UI
                 if (packet.hasAttachment()) {
                     try {
                         IncidentTicket newTicket = gson.fromJson(new String(packet.getAttachment(), StandardCharsets.UTF_8), IncidentTicket.class);
-                        if (newTicket != null && Constants.STATUS_PENDING.equalsIgnoreCase(newTicket.getStatus())) {
-                            boolean exists = deptPendingList.stream().anyMatch(t -> t.getTicketId() == newTicket.getTicketId());
-                            if (!exists) {
-                                deptPendingList.add(0, newTicket);
-                                lblQueueCount.setText(String.valueOf(deptPendingList.size()));
+                        if (newTicket != null) {
+                            if (Constants.STATUS_PENDING.equalsIgnoreCase(newTicket.getStatus())) {
+                                boolean exists = deptPendingList.stream().anyMatch(t -> t.getTicketId() == newTicket.getTicketId());
+                                if (!exists) {
+                                    deptPendingList.add(0, newTicket);
+                                    lblQueueCount.setText(String.valueOf(deptPendingList.size()));
+                                }
                             }
                         }
                     } catch (Exception ignored) {}
@@ -956,8 +1086,30 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
 
                 // 3. Tải lại danh sách từ server để đảm bảo dữ liệu đồng bộ
                 loadDeptTickets();
+                loadMyTasks();
 
             } else if (packet.getType() == Constants.TYPE_STATUS_BROADCAST) {
+                Map<String, String> p = packet.parseParams();
+                String st = p.get("status");
+                String staff = p.getOrDefault("staffName", "");
+                String code = p.getOrDefault("ticketCode", "");
+                String room = p.getOrDefault("room", "");
+
+                if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
+                    if (currentUser == null || !staff.equals(currentUser.getFullName())) {
+                        SoundEffectManager.playNotification();
+                        ComponentFactory.showToast(this, "🤝 Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
+                    }
+                } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
+                    if (currentUser == null || !staff.equals(currentUser.getFullName())) {
+                        SoundEffectManager.playSuccess();
+                        ComponentFactory.showToast(this, "🎉 Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
+                    }
+                } else if (Constants.STATUS_CANCELLED.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playWarning();
+                    ComponentFactory.showToast(this, "Sự cố " + code + " đã bị hủy bởi người tạo.", false);
+                }
+
                 loadDeptTickets();
                 loadMyTasks();
             }

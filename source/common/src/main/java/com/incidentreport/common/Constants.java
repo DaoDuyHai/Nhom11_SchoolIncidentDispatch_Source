@@ -45,6 +45,9 @@ public class Constants {
     public static final byte TYPE_MANUAL_ASSIGN     = 0x0E; // Admin -> Server (Header: MANUAL_ASSIGN|ticketId=..|staffId=..|note=..)
     public static final byte TYPE_MANUAL_ASSIGN_RESP= 0x1E; // Server -> Admin (Header: MANUAL_ASSIGN_RESP|status=OK/FAIL)
 
+    public static final byte TYPE_GET_IMAGE         = 0x0D; // Client -> Server (Header: GET_IMAGE|ticketId=..)
+    public static final byte TYPE_GET_IMAGE_RESP    = 0x1D; // Server -> Client (Header: GET_IMAGE_RESP|ticketId=..|status=OK, Attachment: Image bytes)
+
     public static final byte TYPE_LOGOUT            = 0x0C; // Client -> Server
     public static final byte TYPE_ERROR             = 0x0F; // Server -> Client (Header: ERROR|message=..)
 

@@ -192,8 +192,8 @@ public class SystemQualityAuditRunner {
 
             // Cán bộ y tế yte_mai nhận -> Thành công
             medClient.send(new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId));
-            Packet claimOk = medClient.receive();
-            if (claimOk.getType() != Constants.TYPE_CLAIM_RESP || !"OK".equalsIgnoreCase(claimOk.parseParams().get("status"))) {
+            Packet claimOk = medClient.receiveType(Constants.TYPE_CLAIM_RESP, 2000);
+            if (!"OK".equalsIgnoreCase(claimOk.parseParams().get("status"))) {
                 throw new AssertionError("Cán bộ Y tế phải nhận được vé Y tế thành công!");
             }
         }
@@ -230,11 +230,9 @@ public class SystemQualityAuditRunner {
                     try {
                         startGun.await();
                         tech1.send(new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId));
-                        Packet p = tech1.receive();
-                        if (p.getType() == Constants.TYPE_CLAIM_RESP) {
-                            if ("OK".equalsIgnoreCase(p.parseParams().get("status"))) okCount.incrementAndGet();
-                            else failCount.incrementAndGet();
-                        }
+                        Packet p = tech1.receiveType(Constants.TYPE_CLAIM_RESP, 3000);
+                        if ("OK".equalsIgnoreCase(p.parseParams().get("status"))) okCount.incrementAndGet();
+                        else failCount.incrementAndGet();
                     } catch (Exception ignored) {} finally {
                         doneLatch.countDown();
                     }
@@ -244,11 +242,9 @@ public class SystemQualityAuditRunner {
                     try {
                         startGun.await();
                         tech2.send(new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId));
-                        Packet p = tech2.receive();
-                        if (p.getType() == Constants.TYPE_CLAIM_RESP) {
-                            if ("OK".equalsIgnoreCase(p.parseParams().get("status"))) okCount.incrementAndGet();
-                            else failCount.incrementAndGet();
-                        }
+                        Packet p = tech2.receiveType(Constants.TYPE_CLAIM_RESP, 3000);
+                        if ("OK".equalsIgnoreCase(p.parseParams().get("status"))) okCount.incrementAndGet();
+                        else failCount.incrementAndGet();
                     } catch (Exception ignored) {} finally {
                         doneLatch.countDown();
                     }
@@ -378,20 +374,22 @@ public class SystemQualityAuditRunner {
 
             // tech1 nhận việc
             tech1.send(new Packet(Constants.TYPE_CLAIM_TASK, "CLAIM_TASK|ticketId=" + ticketId));
-            tech1.receive();
-            rep.receive();
+            tech1.receiveType(Constants.TYPE_CLAIM_RESP, 2000);
+            tech1.drainPackets(200);
+            rep.drainPackets(200);
+            tech2.drainPackets(200);
 
             // Cán bộ tech2 (không được giao) cố tình bấm hoàn tất (RESOLVED)
             tech2.send(new Packet(Constants.TYPE_STATUS_UPDATE, "STATUS_UPDATE|ticketId=" + ticketId + "|status=RESOLVED"));
-            Packet err = tech2.receive();
+            Packet err = tech2.receiveType(Constants.TYPE_ERROR, 2000);
             if (err.getType() != Constants.TYPE_ERROR) {
                 throw new AssertionError("Cán bộ không phụ trách vé không được quyền cập nhật trạng thái!");
             }
 
             // Cán bộ tech1 phụ trách hoàn tất -> Thành công
             tech1.send(new Packet(Constants.TYPE_STATUS_UPDATE, "STATUS_UPDATE|ticketId=" + ticketId + "|status=RESOLVED|note=Da sua xong"));
-            Packet bcTech1 = tech1.receive(); // STATUS_BROADCAST
-            if (bcTech1.getType() != Constants.TYPE_STATUS_BROADCAST || !"RESOLVED".equals(bcTech1.parseParams().get("status"))) {
+            Packet bcTech1 = tech1.receiveType(Constants.TYPE_STATUS_BROADCAST, 2000);
+            if (!"RESOLVED".equals(bcTech1.parseParams().get("status"))) {
                 throw new AssertionError("Cán bộ phụ trách phải hoàn tất vé thành công!");
             }
         }
@@ -542,6 +540,25 @@ public class SystemQualityAuditRunner {
 
         public Packet receive() throws Exception {
             return Packet.readFrom(in);
+        }
+
+        public Packet receiveType(byte expectedType, int timeoutMs) throws Exception {
+            long deadline = System.currentTimeMillis() + timeoutMs;
+            int oldTimeout = socket.getSoTimeout();
+            try {
+                while (System.currentTimeMillis() < deadline) {
+                    socket.setSoTimeout((int) Math.max(100, deadline - System.currentTimeMillis()));
+                    try {
+                        Packet p = Packet.readFrom(in);
+                        if (p.getType() == expectedType) return p;
+                    } catch (java.net.SocketTimeoutException e) {
+                        break;
+                    }
+                }
+            } finally {
+                socket.setSoTimeout(oldTimeout);
+            }
+            throw new AssertionError("Không nhận được packet mong đợi (type=0x" + Integer.toHexString(expectedType) + ")");
         }
 
         public void login(String username, String password) throws Exception {

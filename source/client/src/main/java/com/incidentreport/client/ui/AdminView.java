@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.client.net.SocketClientManager;
+import com.incidentreport.client.util.SoundEffectManager;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.IncidentTicket;
 import com.incidentreport.common.model.StatisticReport;
@@ -31,6 +32,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -558,27 +562,35 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
     private void exportStatisticsToCSV() {
         FileChooser fc = new FileChooser();
-        fc.setTitle("Lưu Báo Cáo Sự Cố (CSV)");
-        fc.setInitialFileName("Bao_Cao_Su_Co_" + System.currentTimeMillis() + ".csv");
+        fc.setTitle("Xuất Báo Cáo Sự Cố (CSV Excel)");
+        DateTimeFormatter fileFmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
+        String nowStr = LocalDateTime.now().format(fileFmt);
+        fc.setInitialFileName("Bao_Cao_Su_Co_" + nowStr + ".csv");
         fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Comma Separated (*.csv)", "*.csv"));
         File file = fc.showSaveDialog(getScene().getWindow());
         if (file == null) return;
 
         try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
-            pw.write('\ufeff'); // UTF-8 BOM
-            pw.println("BÁO CÁO THỐNG KÊ SỰ CỐ TRƯỜNG THPT");
-            pw.printf("Kỳ báo cáo: %s\n", currentTimeRange);
-            pw.printf("Tổng sự cố: %s, Chờ xử lý: %s, Đang xử lý: %s, Đã hoàn tất: %s\n\n",
+            pw.write('\ufeff'); // UTF-8 BOM để Excel hiển thị tiếng Việt có dấu chuẩn 100%
+            pw.println("BÁO CÁO THỐNG KÊ SỰ CỐ TOÀN TRƯỜNG");
+            pw.printf("Thời gian xuất báo cáo: %s\n", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+            pw.printf("Kỳ lọc dữ liệu: %s\n", currentTimeRange);
+            pw.printf("Người xuất báo cáo: %s (%s)\n", currentUser.getFullName(), currentUser.getRole());
+            pw.printf("Tổng sự cố: %s, Chờ tiếp nhận: %s, Đang xử lý: %s, Đã hoàn tất: %s\n\n",
                     lblTotal.getText(), lblPending.getText(), lblInProgress.getText(), lblResolved.getText());
 
-            pw.println("Mã sự cố,Vị trí phòng,Loại sự cố,Phòng ban điều phối,Trạng thái,Người báo cáo,SĐT người báo,Cán bộ xử lý,Thời gian báo,Thời gian giải quyết,Ghi chú");
+            // Header đầy đủ các cột phục vụ lọc và PivotTable theo Ngày, Tháng, Năm trong Excel
+            pw.println("Mã sự cố,Vị trí phòng,Loại sự cố,Phòng ban điều phối,Trạng thái,Người báo cáo,SĐT người báo,Cán bộ xử lý,Ngày báo,Tháng,Tháng/Năm,Năm,Thời gian báo,Thời gian giải quyết,Thời gian xử lý (Phút),Ghi chú nghiệm thu");
 
             List<IncidentTicket> exportList = (currentStatsReport != null && currentStatsReport.getTicketList() != null && !currentStatsReport.getTicketList().isEmpty())
                     ? currentStatsReport.getTicketList()
                     : filteredTickets;
 
             for (IncidentTicket t : exportList) {
-                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                String created = t.getCreatedAt() != null ? t.getCreatedAt() : "";
+                String resolved = t.getResolvedAt() != null ? t.getResolvedAt() : "";
+
+                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                         cleanCsv(t.getTicketCode()),
                         cleanCsv(t.getRoomLocation()),
                         cleanCsv(t.getCategoryName() != null ? t.getCategoryName() : t.getCategoryCode()),
@@ -587,15 +599,79 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                         cleanCsv(t.getReporterName()),
                         cleanCsv(t.getReporterPhone()),
                         cleanCsv(t.getAssignedStaffName() != null ? t.getAssignedStaffName() : "Chưa tiếp nhận"),
-                        cleanCsv(t.getCreatedAt()),
-                        cleanCsv(t.getResolvedAt() != null ? t.getResolvedAt() : ""),
+                        cleanCsv(extractDate(created)),
+                        cleanCsv(extractMonth(created)),
+                        cleanCsv(extractMonthYear(created)),
+                        cleanCsv(extractYear(created)),
+                        cleanCsv(created),
+                        cleanCsv(resolved),
+                        cleanCsv(calculateDurationMinutes(created, resolved)),
                         cleanCsv(t.getResolutionNote() != null ? t.getResolutionNote() : "")
                 );
             }
             pw.flush();
-            ComponentFactory.showToast(this, "Đã xuất báo cáo CSV thành công!", true);
+            SoundEffectManager.playSuccess();
+            ComponentFactory.showToast(this, "Đã xuất báo cáo CSV thành công! Có thể mở ngay bằng Excel.", true);
         } catch (Exception ex) {
+            SoundEffectManager.playWarning();
             ComponentFactory.showToast(this, "Lỗi khi xuất file: " + ex.getMessage(), false);
+        }
+    }
+
+    private String extractDate(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) return "";
+        try {
+            return timeStr.trim().split(" ")[0]; // "2026-10-31"
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String extractMonth(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) return "";
+        try {
+            String[] parts = timeStr.trim().split(" ")[0].split("-");
+            if (parts.length >= 2) {
+                return "Tháng " + Integer.parseInt(parts[1]); // "Tháng 7", "Tháng 10"
+            }
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    private String extractMonthYear(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) return "";
+        try {
+            String[] parts = timeStr.trim().split(" ")[0].split("-");
+            if (parts.length >= 2) {
+                return parts[1] + "/" + parts[0]; // "07/2026", "10/2026"
+            }
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    private String extractYear(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) return "";
+        try {
+            String[] parts = timeStr.trim().split(" ")[0].split("-");
+            if (parts.length >= 1) return parts[0]; // "2026"
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    private String calculateDurationMinutes(String startStr, String endStr) {
+        if (startStr == null || endStr == null || startStr.trim().isEmpty() || endStr.trim().isEmpty()) {
+            return "-";
+        }
+        try {
+            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String s = startStr.contains(".") ? startStr.substring(0, startStr.indexOf(".")) : startStr;
+            String e = endStr.contains(".") ? endStr.substring(0, endStr.indexOf(".")) : endStr;
+            LocalDateTime st = LocalDateTime.parse(s.trim(), dtf);
+            LocalDateTime ed = LocalDateTime.parse(e.trim(), dtf);
+            long mins = Math.max(0, Duration.between(st, ed).toMinutes());
+            return String.valueOf(mins);
+        } catch (Exception ex) {
+            return "-";
         }
     }
 
@@ -723,33 +799,36 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         colStaff.setCellFactory(col -> new ComponentFactory.PersonCell<>());
 
         TableColumn<IncidentTicket, Void> colActions = new TableColumn<>("THAO TÁC");
-        colActions.setMinWidth(100);
-        colActions.setPrefWidth(130);
+        colActions.setMinWidth(220);
+        colActions.setPrefWidth(245);
         colActions.setCellFactory(col -> new TableCell<>() {
-            private final Button btnDetail = new Button();
-            private final Button btnAssign = new Button();
-            private final Button btnChat = new Button();
+            private final Button btnDetail = new Button("Xem");
+            private final Button btnAssign = new Button("Giao việc");
+            private final Button btnChat = new Button("Chat");
             private final HBox btnBox = new HBox(6, btnDetail, btnAssign, btnChat);
 
             {
-                btnDetail.getStyleClass().setAll("btn-icon");
-                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 16, Color.web("#14264A")));
+                btnDetail.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                btnDetail.setGraphic(ComponentFactory.createIcon("mdi2e-eye-outline", 13, Color.web("#14264A")));
+                btnDetail.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnDetail.setTooltip(new Tooltip("Xem chi tiết sự cố (hoặc nhấp đúp vào dòng)"));
                 btnDetail.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openDetailDialog(t);
                 });
 
-                btnAssign.getStyleClass().setAll("btn-icon");
-                btnAssign.setGraphic(ComponentFactory.createIcon("mdi2a-account-arrow-right", 16, Color.web("#8F6208")));
-                btnAssign.setTooltip(new Tooltip("Chỉ định cán bộ xử lý"));
+                btnAssign.getStyleClass().setAll("button", "btn-brass", "btn-sm");
+                btnAssign.setGraphic(ComponentFactory.createIcon("mdi2a-account-arrow-right", 13, Color.web("#8A6218")));
+                btnAssign.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
+                btnAssign.setTooltip(new Tooltip("Chỉ định cán bộ xử lý trực tiếp"));
                 btnAssign.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     if (t != null) openManualAssignDialog(t);
                 });
 
-                btnChat.getStyleClass().setAll("btn-icon");
-                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 16, Color.web("#14264A")));
+                btnChat.getStyleClass().setAll("button", "btn-secondary", "btn-sm");
+                btnChat.setGraphic(ComponentFactory.createIcon("mdi2m-message-text-outline", 13, Color.web("#14264A")));
+                btnChat.setStyle("-fx-font-size: 11.5px; -fx-padding: 3 8; -fx-cursor: hand;");
                 btnChat.setTooltip(new Tooltip("Xem lịch sử trao đổi 1-1"));
                 btnChat.setOnAction(e -> {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
@@ -773,8 +852,9 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     btnBox.getChildren().clear();
                     btnBox.getChildren().add(btnDetail);
                     IncidentTicket t = getTableView().getItems().get(getIndex());
-                    boolean canAssign = (t != null && !Constants.STATUS_RESOLVED.equalsIgnoreCase(t.getStatus())
-                            && !Constants.STATUS_CANCELLED.equalsIgnoreCase(t.getStatus()));
+                    // Chỉ hiển thị nút "Giao việc" khi sự cố đang chờ (PENDING) và chưa có người tiếp nhận
+                    boolean canAssign = (t != null && Constants.STATUS_PENDING.equalsIgnoreCase(t.getStatus())
+                            && (t.getAssignedStaffId() == null || t.getAssignedStaffId() == 0));
                     if (canAssign) {
                         btnBox.getChildren().add(btnAssign);
                     }
@@ -876,18 +956,27 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
     private void openManualAssignDialog(IncidentTicket ticket) {
         Dialog<User> dialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            dialog.initOwner(getScene().getWindow());
+        }
         dialog.setTitle("Chỉ định cán bộ");
         ComponentFactory.applyTheme(dialog.getDialogPane());
+        dialog.getDialogPane().setMinWidth(520);
+        dialog.getDialogPane().setPrefWidth(560);
 
         dialog.setHeaderText("Chỉ định cán bộ xử lý " + ticket.getTicketCode());
 
         VBox content = new VBox(10);
-        content.setPadding(new Insets(12));
-        content.setPrefWidth(400);
+        content.setPadding(new Insets(14, 18, 14, 18));
+        content.setPrefWidth(520);
+        content.setMaxWidth(Double.MAX_VALUE);
 
         Label lblSubtitle = new Label(String.format("Vị trí: %s · Phòng chuyên trách: %s",
                 ticket.getRoomLocation(), ticket.getTargetDepartment()));
         lblSubtitle.getStyleClass().add("muted");
+        lblSubtitle.setStyle("-fx-font-size: 12px; -fx-text-overrun: clip;");
+        lblSubtitle.setWrapText(true);
+        lblSubtitle.setMinHeight(Region.USE_PREF_SIZE);
 
         Label lblSelectStaff = new Label("Chọn cán bộ tiếp nhận:");
         lblSelectStaff.getStyleClass().add("field-label");
@@ -953,9 +1042,25 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         dialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnConfirm);
 
         Button okBtn = (Button) dialog.getDialogPane().lookupButton(btnConfirm);
-        if (okBtn != null) okBtn.getStyleClass().setAll("btn-primary");
+        if (okBtn != null) {
+            ButtonBar.setButtonUniformSize(okBtn, false);
+            okBtn.setMinWidth(Region.USE_PREF_SIZE);
+            okBtn.getStyleClass().setAll("button", "btn-primary");
+            okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
         Button cancelBtn = (Button) dialog.getDialogPane().lookupButton(btnCancel);
-        if (cancelBtn != null) cancelBtn.getStyleClass().setAll("btn-secondary");
+        if (cancelBtn != null) {
+            ButtonBar.setButtonUniformSize(cancelBtn, false);
+            cancelBtn.setMinWidth(Region.USE_PREF_SIZE);
+            cancelBtn.getStyleClass().setAll("button", "btn-secondary");
+            cancelBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        dialog.setOnShown(e -> Platform.runLater(() -> {
+            if (dialog.getDialogPane().getScene() != null && dialog.getDialogPane().getScene().getWindow() != null) {
+                dialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
 
         dialog.setResultConverter(b -> (b == btnConfirm) ? cbStaff.getValue() : null);
 
@@ -965,7 +1070,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     String.format("MANUAL_ASSIGN|ticketId=%d|staffId=%d|note=%s",
                             ticket.getTicketId(), staff.getUserId(), txtNote.getText().replace("|", "/")));
             SocketClientManager.getInstance().sendPacket(p);
-            ComponentFactory.showToast(this, "Đã chỉ định ca cho " + staff.getFullName(), true);
+            SoundEffectManager.playSuccess();
+            ComponentFactory.showToast(this, "Đã gửi yêu cầu chỉ định ca cho " + staff.getFullName(), true);
         });
     }
 
@@ -1177,6 +1283,73 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
             return;
         }
 
+        // Hộp thoại xác nhận trước khi cấp tài khoản mới
+        Dialog<ButtonType> confirmDialog = new Dialog<>();
+        if (getScene() != null && getScene().getWindow() != null) {
+            confirmDialog.initOwner(getScene().getWindow());
+        }
+        confirmDialog.setTitle("Xác nhận cấp tài khoản");
+        ComponentFactory.applyTheme(confirmDialog.getDialogPane());
+        confirmDialog.setHeaderText("Cấp tài khoản mới cho " + n + "?");
+        confirmDialog.getDialogPane().setMinWidth(520);
+        confirmDialog.getDialogPane().setPrefWidth(560);
+
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(14, 18, 14, 18));
+        box.setPrefWidth(520);
+        box.setMaxWidth(Double.MAX_VALUE);
+
+        Label lUser = new Label("• Tên đăng nhập: @" + u);
+        lUser.setStyle("-fx-font-weight: bold; -fx-font-size: 12.5px; -fx-text-fill: -text-900; -fx-text-overrun: clip;");
+        lUser.setWrapText(true);
+        lUser.setMinHeight(Region.USE_PREF_SIZE);
+        lUser.setMaxWidth(Double.MAX_VALUE);
+
+        Label lRole = new Label("• Vai trò: " + r + (Constants.ROLE_RESPONDER.equals(r) ? " (" + s + ")" : ""));
+        lRole.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-text-overrun: clip;");
+        lRole.setWrapText(true);
+        lRole.setMinHeight(Region.USE_PREF_SIZE);
+        lRole.setMaxWidth(Double.MAX_VALUE);
+
+        Label lPhone = new Label("• SĐT liên hệ: " + (ph.isEmpty() ? "Chưa cung cấp" : ph));
+        lPhone.setStyle("-fx-font-size: 11.5px; -fx-text-fill: -text-600; -fx-text-overrun: clip;");
+        lPhone.setWrapText(true);
+        lPhone.setMinHeight(Region.USE_PREF_SIZE);
+        lPhone.setMaxWidth(Double.MAX_VALUE);
+
+        box.getChildren().addAll(lUser, lRole, lPhone);
+        confirmDialog.getDialogPane().setContent(box);
+
+        ButtonType btnCreate = new ButtonType("Xác nhận cấp", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnCancel = new ButtonType("Kiểm tra lại", ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirmDialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnCreate);
+
+        Button okBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnCreate);
+        if (okBtn != null) {
+            ButtonBar.setButtonUniformSize(okBtn, false);
+            okBtn.setMinWidth(Region.USE_PREF_SIZE);
+            okBtn.getStyleClass().setAll("button", "btn-primary");
+            okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+        Button cancelBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnCancel);
+        if (cancelBtn != null) {
+            ButtonBar.setButtonUniformSize(cancelBtn, false);
+            cancelBtn.setMinWidth(Region.USE_PREF_SIZE);
+            cancelBtn.getStyleClass().setAll("button", "btn-secondary");
+            cancelBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+        }
+
+        confirmDialog.setOnShown(e -> Platform.runLater(() -> {
+            if (confirmDialog.getDialogPane().getScene() != null && confirmDialog.getDialogPane().getScene().getWindow() != null) {
+                confirmDialog.getDialogPane().getScene().getWindow().sizeToScene();
+            }
+        }));
+
+        Optional<ButtonType> ans = confirmDialog.showAndWait();
+        if (!ans.isPresent() || ans.get() != btnCreate) {
+            return;
+        }
+
         String header = String.format("ADMIN_CREATE_USER|username=%s|fullName=%s|role=%s|specialty=%s|phone=%s",
                 u, n, r, s, ph);
         Packet packet = new Packet(Constants.TYPE_ADMIN_CREATE_USER, header, p.getBytes(StandardCharsets.UTF_8));
@@ -1242,26 +1415,63 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 Map<String, String> p = packet.parseParams();
                 String status = p.get("status");
                 if ("OK".equalsIgnoreCase(status)) {
+                    SoundEffectManager.playSuccess();
                     ComponentFactory.showToast(this, "Đã cấp mới tài khoản: " + p.get("username"), true);
                     txtNewUsername.clear();
                     txtNewFullName.clear();
                     txtNewPhone.clear();
                     loadAllUsers();
                 } else {
-                    ComponentFactory.showToast(this, p.getOrDefault("message", "Lỗi tạo tài khoản!"), false);
+                    String msg = p.getOrDefault("message", "Lỗi tạo tài khoản!");
+                    SoundEffectManager.playWarning();
+                    ComponentFactory.showToast(this, msg, false);
+                    ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null, "Không thể tạo tài khoản", "Lỗi cấp tài khoản", msg);
                 }
+
+            } else if (packet.getType() == Constants.TYPE_ERROR) {
+                Map<String, String> p = packet.parseParams();
+                String msg = p.getOrDefault("message", "Thao tác không thành công!");
+                SoundEffectManager.playWarning();
+                ComponentFactory.showToast(this, "Lỗi từ máy chủ: " + msg, false);
+                ComponentFactory.showErrorAlert(getScene() != null ? getScene().getWindow() : null, "Từ chối thao tác", "Không thể thực hiện yêu cầu", msg);
+                loadAllTickets();
+                loadAllUsers();
 
             } else if (packet.getType() == Constants.TYPE_MANUAL_ASSIGN_RESP) {
                 loadAllTickets();
+                SoundEffectManager.playSuccess();
                 ComponentFactory.showToast(this, "Đã phân công sự cố thành công!", true);
 
-            } else if (packet.getType() == Constants.TYPE_DISPATCH_NOTIFY || packet.getType() == Constants.TYPE_STATUS_BROADCAST) {
-                if (packet.getType() == Constants.TYPE_DISPATCH_NOTIFY) {
-                    Map<String, String> p = packet.parseParams();
-                    String code = p.getOrDefault("code", "Mới");
-                    String room = p.getOrDefault("room", "");
-                    ComponentFactory.showToast(this, "Có ca sự cố mới báo: " + code + (room.isEmpty() ? "" : " · Phòng " + room), true);
+            } else if (packet.getType() == Constants.TYPE_DISPATCH_NOTIFY) {
+                Map<String, String> p = packet.parseParams();
+                String code = p.getOrDefault("code", "Mới");
+                String room = p.getOrDefault("room", "");
+                String cat = p.getOrDefault("category", "Sự cố");
+                SoundEffectManager.playNotification();
+                String title = "🚨 SỰ CỐ MỚI PHÁT SINH TOÀN TRƯỜNG";
+                String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")";
+                ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
+                loadAllTickets();
+                loadStatistics(currentTimeRange);
+
+            } else if (packet.getType() == Constants.TYPE_STATUS_BROADCAST) {
+                Map<String, String> p = packet.parseParams();
+                String st = p.get("status");
+                String code = p.getOrDefault("ticketCode", "Sự cố");
+                String room = p.getOrDefault("room", "");
+                String staff = p.getOrDefault("staffName", "Cán bộ");
+
+                if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playClaim();
+                    ComponentFactory.showToast(this, "🤝 Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
+                } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playSuccess();
+                    ComponentFactory.showToast(this, "🎉 Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
+                } else if (Constants.STATUS_CANCELLED.equalsIgnoreCase(st)) {
+                    SoundEffectManager.playWarning();
+                    ComponentFactory.showToast(this, "Sự cố " + code + " đã được người báo hủy.", false);
                 }
+
                 loadAllTickets();
                 loadStatistics(currentTimeRange);
             }

@@ -59,6 +59,7 @@ public class User {
 
     public int getIsOnline() { return isOnline; }
     public void setIsOnline(int isOnline) { this.isOnline = isOnline; }
+    public boolean isOnline() { return isOnline == 1; }
 
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }

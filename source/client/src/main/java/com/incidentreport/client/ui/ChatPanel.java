@@ -3,6 +3,7 @@ package com.incidentreport.client.ui;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.incidentreport.client.net.SocketClientManager;
+import com.incidentreport.client.util.SoundEffectManager;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.ChatMessage;
 import com.incidentreport.common.model.IncidentTicket;
@@ -528,6 +529,7 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
                 "CHAT_SEND|ticketId=" + activeTicket.getTicketId(),
                 text.getBytes(StandardCharsets.UTF_8));
         SocketClientManager.getInstance().sendPacket(packet);
+        SoundEffectManager.playChat();
     }
 
     @Override
@@ -548,6 +550,11 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
                 msg.setSenderRole(params.get("senderRole"));
                 msg.setContent(content);
                 msg.setSentAt(params.get("time"));
+
+                boolean isMe = (msg.getSenderId() == currentUser.getUserId());
+                if (!isMe) {
+                    SoundEffectManager.playChat();
+                }
 
                 if (activeTicket != null && tId == activeTicket.getTicketId()) {
                     addMessageBubble(msg);
@@ -628,9 +635,18 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
         bubble.getChildren().add(lblText);
 
         // Bubble meta (Name & Time outside bubble)
-        String timeStr = msg.getSentAt() != null ? msg.getSentAt() : "";
+        String timeStr = msg.getSentAt() != null ? ComponentFactory.formatShortTime(msg.getSentAt()) : "";
         Label lblMeta = new Label();
         lblMeta.getStyleClass().add("bubble-meta");
+
+        String senderDisplayName = isMe ? currentUser.getFullName() : (msg.getSenderName() != null ? msg.getSenderName() : "Đối tác");
+
+        // Tạo Mini Avatar con con tròn xoe (28x28) sinh động cho cả 2 bên
+        Node miniAvatar = ComponentFactory.createInitialsAvatar(senderDisplayName, isMe);
+        miniAvatar.setStyle(isMe
+                ? "-fx-min-width: 28px; -fx-min-height: 28px; -fx-max-width: 28px; -fx-max-height: 28px; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: -ink-800; -fx-text-fill: white; -fx-background-radius: 999; -fx-alignment: center;"
+                : "-fx-min-width: 28px; -fx-min-height: 28px; -fx-max-width: 28px; -fx-max-height: 28px; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: #E6DFC9; -fx-text-fill: #14264A; -fx-background-radius: 999; -fx-alignment: center;");
+        Tooltip.install(miniAvatar, new Tooltip(senderDisplayName));
 
         if (isMe) {
             bubble.getStyleClass().add("bubble-out");
@@ -646,11 +662,17 @@ public class ChatPanel extends BorderPane implements SocketClientManager.PacketL
         // Add bubble and meta outside
         bubbleGroup.getChildren().addAll(bubble, lblMeta);
 
-        HBox row = new HBox(bubbleGroup);
-        row.setAlignment(isMe ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+        HBox row = new HBox(8);
+        if (isMe) {
+            row.setAlignment(Pos.BOTTOM_RIGHT);
+            row.getChildren().addAll(bubbleGroup, miniAvatar);
+        } else {
+            row.setAlignment(Pos.BOTTOM_LEFT);
+            row.getChildren().addAll(miniAvatar, bubbleGroup);
+        }
 
-        // Spacing: 4px between same sender, 14px between different senders
-        VBox.setMargin(row, new Insets(sameSenderAsLast ? 2 : 10, 0, 2, 0));
+        // Spacing: 3px between same sender, 12px between different senders
+        VBox.setMargin(row, new Insets(sameSenderAsLast ? 3 : 12, 0, 3, 0));
 
         messagesBox.getChildren().add(row);
 

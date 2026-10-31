@@ -329,12 +329,19 @@
 .type-tile:hover { -fx-background-color: -paper-100; }
 .type-tile:selected { -fx-border-color: -ink-900; -fx-border-width: 2; -fx-background-color: -ink-100; }
 
+.type-tile-compact { -fx-background-color: -paper-50; -fx-border-color: -paper-300; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 6 12; -fx-alignment: CENTER-LEFT; -fx-text-fill: -text-900; -fx-cursor: hand; -fx-max-width: infinity; -fx-pref-height: 44; -fx-min-height: 44; -fx-max-height: 44; }
+.type-tile-compact:hover { -fx-background-color: -paper-100; }
+.type-tile-compact:selected { -fx-border-color: -ink-900; -fx-border-width: 2; -fx-background-color: -ink-100; }
+
 /* ---------- 13. DIALOG & TOAST ---------- */
 .dialog-pane { -fx-background-color: -paper-50; -fx-font-family: "Be Vietnam Pro", "Segoe UI", sans-serif; -fx-border-color: -paper-300; }
-.dialog-pane > .content.label { -fx-text-fill: -text-900; -fx-padding: 12 24 12 24; }
-.dialog-pane > .button-bar > .container { -fx-background-color: -paper-50; -fx-padding: 8 20 18 20; }
+.dialog-pane .label { -fx-wrap-text: true; -fx-text-overrun: clip; }
+.dialog-pane .content.label { -fx-text-fill: -text-900; -fx-padding: 14 24; -fx-wrap-text: true; -fx-text-overrun: clip; }
+.button-bar, .dialog-pane .button-bar { -fx-button-uniform-size: false; }
+.button-bar .container, .dialog-pane .button-bar .container { -fx-background-color: -paper-50; -fx-padding: 10 20 18 20; -fx-button-uniform-size: false; }
+.button-bar .button, .dialog-pane .button-bar .button, .dialog-pane .button-bar .container .button { -fx-padding: 8 20; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 6; -fx-border-radius: 6; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip; -fx-button-uniform-size: false; }
 .dialog-pane:header .header-panel { -fx-background-color: -ink-900; -fx-padding: 16 24; }
-.dialog-pane:header .header-panel .label { -fx-text-fill: white; -fx-font-family: "Lora", "Georgia", serif; -fx-font-size: 16px; -fx-font-weight: bold; }
+.dialog-pane:header .header-panel .label { -fx-text-fill: white; -fx-font-family: "Lora", "Georgia", serif; -fx-font-size: 16px; -fx-font-weight: bold; -fx-wrap-text: true; -fx-text-overrun: clip; }
 .dialog-pane .button:default { -fx-background-color: -ink-900; -fx-text-fill: white; }
 
 .toast { -fx-background-color: -ink-900; -fx-background-radius: 6; -fx-padding: 8 14; -fx-text-fill: white; -fx-font-size: 12px; -fx-max-width: 360; -fx-effect: dropshadow(gaussian, rgba(20,38,74,0.30), 10, 0, 0, 3); }
