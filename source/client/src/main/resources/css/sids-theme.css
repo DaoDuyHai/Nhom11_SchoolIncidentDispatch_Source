@@ -150,10 +150,68 @@
 
 .search-field { -fx-background-radius: 999, 999; -fx-padding: 0 16; }
 
-.input-error { -fx-background-color: -st-pending, white; }
-.error-banner {
-    -fx-background-color: -st-pending-bg; -fx-background-radius: 6;
-    -fx-padding: 10 12; -fx-text-fill: -st-pending; -fx-font-size: 12.5px;
+/* Trạng thái lỗi bắt buộc nhập (Required Field Error) & Lỗi chung */
+.input-required-error,
+.text-field.input-required-error,
+.password-field.input-required-error,
+.combo-box-base.input-required-error,
+.text-area.input-required-error {
+    -fx-border-color: #A8402F !important;
+    -fx-border-width: 1.5px !important;
+    -fx-border-radius: 6px !important;
+    -fx-background-color: #A8402F, #FDF5F3 !important;
+    -fx-background-insets: 0, 1.5 !important;
+    -fx-background-radius: 6, 5 !important;
+}
+
+.text-field.input-required-error:focused,
+.password-field.input-required-error:focused,
+.combo-box-base.input-required-error:focused,
+.text-area.input-required-error:focused {
+    -fx-border-color: #A8402F !important;
+    -fx-border-width: 2px !important;
+    -fx-border-radius: 6px !important;
+    -fx-background-color: #A8402F, #FFF8F7 !important;
+    -fx-background-insets: 0, 2 !important;
+    -fx-background-radius: 6, 5 !important;
+}
+
+.text-area.input-required-error .content,
+.text-area.input-required-error:focused .content {
+    -fx-background-color: #FDF5F3 !important;
+}
+
+.input-error,
+.text-field.input-error,
+.password-field.input-error {
+    -fx-border-color: #A8402F !important;
+    -fx-border-width: 1.5px !important;
+    -fx-border-radius: 6px !important;
+    -fx-background-color: #A8402F, #FDF5F3 !important;
+    -fx-background-insets: 0, 1.5 !important;
+    -fx-background-radius: 6, 5 !important;
+}
+
+.text-field.input-error:focused,
+.password-field.input-error:focused {
+    -fx-border-color: #A8402F !important;
+    -fx-border-width: 2px !important;
+    -fx-border-radius: 6px !important;
+    -fx-background-color: #A8402F, #FFF8F7 !important;
+    -fx-background-insets: 0, 2 !important;
+    -fx-background-radius: 6, 5 !important;
+}
+
+.form-error-label, .error-banner {
+    -fx-background-color: #F8E2DC;
+    -fx-border-color: #A8402F;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8 12;
+    -fx-text-fill: #A8402F;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
 }
 
 /* ---------- 6. BADGES ---------- */

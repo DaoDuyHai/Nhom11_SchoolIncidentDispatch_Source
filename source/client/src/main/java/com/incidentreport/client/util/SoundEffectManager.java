@@ -110,6 +110,21 @@ public class SoundEffectManager {
     }
 
     /**
+     * Âm thanh 6: LỖI NHẬP LIỆU / THIẾU THÔNG TIN (ERROR BUZZER)
+     * Hai nốt trũng (260Hz -> 200Hz) báo hiệu thiếu thông tin bắt buộc hoặc lỗi nhập liệu
+     */
+    public static void playError() {
+        if (!soundEnabled) return;
+        audioPool.submit(() -> {
+            try {
+                playTone(261.63, 110, 0.85);
+                Thread.sleep(25);
+                playTone(207.65, 170, 0.85);
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /**
      * Hàm sinh sóng âm Sine PCM 16-bit Mono 44.1kHz với đường bao âm lượng (Envelope ADSR)
      */
     private static void playTone(double freqHz, int durationMs, double volume) {

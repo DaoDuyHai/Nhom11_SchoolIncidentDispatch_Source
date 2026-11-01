@@ -86,6 +86,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private IncidentCategory selectedCategory = null;
     private final TextArea taDescription = new TextArea();
     private final Button btnSubmit = new Button("GỬI BÁO CÁO");
+    private final Label lblSubmitError = new Label();
 
     // Ảnh hiện trường (Tab 1)
     private final StackPane dropZone = new StackPane();
@@ -408,6 +409,27 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             }
         });
 
+        // Thông báo lỗi thiếu trường bắt buộc
+        lblSubmitError.getStyleClass().add("form-error-label");
+        lblSubmitError.setWrapText(true);
+        lblSubmitError.setMaxWidth(Double.MAX_VALUE);
+        lblSubmitError.setVisible(false);
+        lblSubmitError.setManaged(false);
+
+        // Tự động ẩn thông báo lỗi khi các trường bắt buộc đã được điền
+        txtRoom.textProperty().addListener((obs, o, n) -> {
+            if (!txtRoom.getText().trim().isEmpty() && !taDescription.getText().trim().isEmpty() && selectedCategory != null) {
+                lblSubmitError.setVisible(false);
+                lblSubmitError.setManaged(false);
+            }
+        });
+        taDescription.textProperty().addListener((obs, o, n) -> {
+            if (!txtRoom.getText().trim().isEmpty() && !taDescription.getText().trim().isEmpty() && selectedCategory != null) {
+                lblSubmitError.setVisible(false);
+                lblSubmitError.setManaged(false);
+            }
+        });
+
         // Hàng nút thao tác (Luôn hiển thị rõ ràng, không bị trôi/chìm khỏi màn hình)
         HBox actionRow = new HBox(12);
         actionRow.setAlignment(Pos.CENTER_RIGHT);
@@ -427,7 +449,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         actionRow.getChildren().addAll(btnReset, btnSubmit);
 
-        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblDesc, taDescription, actionRow);
+        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblDesc, taDescription, lblSubmitError, actionRow);
 
         // 2. Thẻ Ảnh hiện trường & Hướng dẫn (Right Card 320px)
         VBox rightCard = new VBox(12);
@@ -788,6 +810,10 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private void resetForm() {
         txtRoom.clear();
         taDescription.clear();
+        ComponentFactory.clearRequiredError(txtRoom);
+        ComponentFactory.clearRequiredError(taDescription);
+        lblSubmitError.setVisible(false);
+        lblSubmitError.setManaged(false);
         clearImage();
         if (!catTileGroup.getToggles().isEmpty()) {
             catTileGroup.getToggles().get(0).setSelected(true);
@@ -803,23 +829,46 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         }
 
         String room = txtRoom.getText().trim();
+        String desc = taDescription.getText().trim();
+
+        boolean hasError = false;
+        List<String> missing = new java.util.ArrayList<>();
+        Node firstError = null;
+
         if (room.isEmpty()) {
-            ComponentFactory.showToast(this, "Vui lòng nhập vị trí phòng học!", false);
-            txtRoom.requestFocus();
-            return;
+            ComponentFactory.markRequiredError(txtRoom);
+            missing.add("Vị trí (Phòng học)");
+            if (firstError == null) firstError = txtRoom;
+            hasError = true;
         }
 
         if (selectedCategory == null) {
-            ComponentFactory.showToast(this, "Vui lòng chọn loại sự cố!", false);
+            missing.add("Loại sự cố");
+            hasError = true;
+        }
+
+        if (desc.isEmpty()) {
+            ComponentFactory.markRequiredError(taDescription);
+            missing.add("Mô tả chi tiết sự cố");
+            if (firstError == null) firstError = taDescription;
+            hasError = true;
+        }
+
+        if (hasError) {
+            String msg = "⚠️ Vui lòng điền đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missing) + "!";
+            lblSubmitError.setText(msg);
+            lblSubmitError.setVisible(true);
+            lblSubmitError.setManaged(true);
+            SoundEffectManager.playError();
+            ComponentFactory.showToast(this, msg, false);
+            if (firstError != null) {
+                firstError.requestFocus();
+            }
             return;
         }
 
-        String desc = taDescription.getText().trim();
-        if (desc.isEmpty()) {
-            ComponentFactory.showToast(this, "Vui lòng nhập mô tả sự cố!", false);
-            taDescription.requestFocus();
-            return;
-        }
+        lblSubmitError.setVisible(false);
+        lblSubmitError.setManaged(false);
 
         // Hộp thoại xác nhận trước khi phát hành vé sự cố lên hệ thống
         Dialog<ButtonType> confirmDialog = new Dialog<>();

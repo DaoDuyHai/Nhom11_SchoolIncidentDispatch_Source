@@ -3,6 +3,7 @@ package com.incidentreport.client.ui;
 import com.google.gson.Gson;
 import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.client.net.SocketClientManager;
+import com.incidentreport.client.util.SoundEffectManager;
 import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.User;
 import com.incidentreport.common.packet.Packet;
@@ -331,7 +332,22 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
         clearError();
 
         if (username.isEmpty() || password.isEmpty()) {
-            showError("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
+            java.util.List<String> missing = new java.util.ArrayList<>();
+            TextField first = null;
+            if (username.isEmpty()) {
+                ComponentFactory.markRequiredError(txtUsername);
+                missing.add("tên đăng nhập");
+                first = txtUsername;
+            }
+            if (password.isEmpty()) {
+                ComponentFactory.markRequiredError(txtPassword);
+                ComponentFactory.markRequiredError(txtPasswordVisible);
+                missing.add("mật khẩu");
+                if (first == null) first = (isPasswordVisible ? txtPasswordVisible : txtPassword);
+            }
+            SoundEffectManager.playError();
+            showError("⚠️ Vui lòng nhập đầy đủ " + String.join(" và ", missing) + "!");
+            if (first != null) first.requestFocus();
             return;
         }
 
@@ -449,6 +465,9 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
     private void clearError() {
         lblError.setVisible(false);
         lblError.setManaged(false);
+        ComponentFactory.clearRequiredError(txtUsername);
+        ComponentFactory.clearRequiredError(txtPassword);
+        ComponentFactory.clearRequiredError(txtPasswordVisible);
         txtUsername.getStyleClass().remove("input-error");
         txtPassword.getStyleClass().remove("input-error");
         txtPasswordVisible.getStyleClass().remove("input-error");

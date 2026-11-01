@@ -20,6 +20,8 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -814,5 +816,55 @@ public class ComponentFactory {
         } catch (Exception ex) {
             return true;
         }
+    }
+
+    /**
+     * Đánh dấu trường nhập liệu bắt buộc chưa điền bằng viền đỏ nổi bật (.input-required-error).
+     * Tự động gỡ bỏ viền đỏ ngay khi người dùng bắt đầu nhập ký tự hợp lệ.
+     */
+    public static void markRequiredError(TextField field) {
+        if (field == null) return;
+        if (!field.getStyleClass().contains("input-required-error")) {
+            field.getStyleClass().add("input-required-error");
+        }
+        field.textProperty().addListener(new javafx.beans.value.ChangeListener<String>() {
+            @Override
+            public void changed(javafx.beans.value.ObservableValue<? extends String> obs, String oldVal, String newVal) {
+                if (newVal != null && !newVal.trim().isEmpty()) {
+                    field.getStyleClass().remove("input-required-error");
+                    field.textProperty().removeListener(this);
+                }
+            }
+        });
+    }
+
+    public static void clearRequiredError(TextField field) {
+        if (field == null) return;
+        field.getStyleClass().remove("input-required-error");
+    }
+
+    /**
+     * Đánh dấu vùng nhập văn bản bắt buộc chưa điền bằng viền đỏ nổi bật (.input-required-error).
+     * Tự động gỡ bỏ viền đỏ ngay khi người dùng bắt đầu nhập ký tự hợp lệ.
+     */
+    public static void markRequiredError(TextArea area) {
+        if (area == null) return;
+        if (!area.getStyleClass().contains("input-required-error")) {
+            area.getStyleClass().add("input-required-error");
+        }
+        area.textProperty().addListener(new javafx.beans.value.ChangeListener<String>() {
+            @Override
+            public void changed(javafx.beans.value.ObservableValue<? extends String> obs, String oldVal, String newVal) {
+                if (newVal != null && !newVal.trim().isEmpty()) {
+                    area.getStyleClass().remove("input-required-error");
+                    area.textProperty().removeListener(this);
+                }
+            }
+        });
+    }
+
+    public static void clearRequiredError(TextArea area) {
+        if (area == null) return;
+        area.getStyleClass().remove("input-required-error");
     }
 }

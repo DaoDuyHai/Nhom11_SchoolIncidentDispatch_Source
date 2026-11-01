@@ -77,7 +77,7 @@ public class IncidentReportApp extends Application {
         // - Laptop 16 inch (1920x1080 scaling 100-125% -> viewport >= 1536x864):
         //   Cửa sổ mở rộng 1180x740 hoặc phóng to toàn màn hình mượt mà.
         Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
-        double targetWidth = Math.min(1180, Math.max(980, bounds.getWidth() * 0.92));
+        double targetWidth = Math.min(1180, Math.max(1040, bounds.getWidth() * 0.94));
         double targetHeight = Math.min(740, Math.max(580, bounds.getHeight() * 0.90));
 
         primaryStage.setMinWidth(960);

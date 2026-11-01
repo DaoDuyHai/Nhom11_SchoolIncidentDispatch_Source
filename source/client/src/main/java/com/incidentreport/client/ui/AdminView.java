@@ -110,6 +110,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
     private final TextField txtNewPhone = new TextField();
     private final ComboBox<String> cbNewRole = new ComboBox<>();
     private final ComboBox<String> cbNewSpecialty = new ComboBox<>();
+    private final Label lblUserFormError = new Label();
 
     public AdminView(User user) {
         this.currentUser = user;
@@ -1109,12 +1110,12 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         HBox layout = new HBox(16);
         layout.getStyleClass().add("page-body");
 
-        // Form Card (Left 360px)
+        // Form Card (Left 280px)
         VBox formCard = new VBox(10);
         formCard.getStyleClass().add("card");
-        formCard.setPrefWidth(360);
-        formCard.setMinWidth(360);
-        formCard.setMaxWidth(360);
+        formCard.setPrefWidth(280);
+        formCard.setMinWidth(260);
+        formCard.setMaxWidth(300);
 
         Label lblFormTitle = new Label("Cấp tài khoản mới");
         lblFormTitle.getStyleClass().add("h2");
@@ -1177,6 +1178,25 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         HBox.setHgrow(cbNewRole, Priority.ALWAYS);
         HBox.setHgrow(cbNewSpecialty, Priority.ALWAYS);
 
+        lblUserFormError.getStyleClass().add("form-error-label");
+        lblUserFormError.setWrapText(true);
+        lblUserFormError.setMaxWidth(Double.MAX_VALUE);
+        lblUserFormError.setVisible(false);
+        lblUserFormError.setManaged(false);
+
+        // Tự động ẩn thông báo lỗi khi cả 3 trường bắt buộc đều đã được điền
+        javafx.beans.value.ChangeListener<String> clearErrorBannerListener = (obs, o, n) -> {
+            if (!txtNewUsername.getText().trim().isEmpty()
+                    && !txtNewPassword.getText().trim().isEmpty()
+                    && !txtNewFullName.getText().trim().isEmpty()) {
+                lblUserFormError.setVisible(false);
+                lblUserFormError.setManaged(false);
+            }
+        };
+        txtNewUsername.textProperty().addListener(clearErrorBannerListener);
+        txtNewPassword.textProperty().addListener(clearErrorBannerListener);
+        txtNewFullName.textProperty().addListener(clearErrorBannerListener);
+
         Button btnCreate = new Button("CẤP TÀI KHOẢN");
         btnCreate.getStyleClass().addAll("btn-primary", "btn-block");
         btnCreate.setOnAction(e -> doCreateUser());
@@ -1187,6 +1207,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 divider,
                 lblSecProfile, lblName, txtNewFullName, lblPhone, txtNewPhone,
                 lblRole, roleSpecBox,
+                lblUserFormError,
                 btnCreate
         );
 
@@ -1216,14 +1237,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colUser = new TableColumn<>("NGƯỜI DÙNG");
         colUser.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
-        colUser.setMinWidth(140);
-        colUser.setPrefWidth(220);
+        colUser.setMinWidth(115);
+        colUser.setPrefWidth(150);
         colUser.setCellFactory(col -> new ComponentFactory.PersonCell<>(user -> "@" + user.getUsername()));
 
         TableColumn<User, String> colRole = new TableColumn<>("VAI TRÒ");
         colRole.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRole()));
-        colRole.setMinWidth(90);
-        colRole.setPrefWidth(120);
+        colRole.setMinWidth(65);
+        colRole.setPrefWidth(75);
         colRole.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String role, boolean empty) {
@@ -1247,19 +1268,19 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colSpec = new TableColumn<>("PHÒNG BAN");
         colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
-        colSpec.setMinWidth(90);
-        colSpec.setPrefWidth(115);
+        colSpec.setMinWidth(70);
+        colSpec.setPrefWidth(85);
         colSpec.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
 
         TableColumn<User, String> colPhone = new TableColumn<>("SỐ ĐT");
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : "-"));
-        colPhone.setMinWidth(95);
-        colPhone.setPrefWidth(120);
+        colPhone.setMinWidth(75);
+        colPhone.setPrefWidth(85);
 
         TableColumn<User, Integer> colOnline = new TableColumn<>("TRẠNG THÁI");
         colOnline.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getIsOnline()));
-        colOnline.setMinWidth(95);
-        colOnline.setPrefWidth(120);
+        colOnline.setMinWidth(65);
+        colOnline.setPrefWidth(75);
         colOnline.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(Integer online, boolean empty) {
@@ -1293,15 +1314,13 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         tableCard.getChildren().addAll(tableTop, userTable);
 
-        // Bọc formCard trong ScrollPane để thích ứng mượt mà với màn hình 13 inch
-        ScrollPane scrollForm = new ScrollPane(formCard);
-        scrollForm.setFitToWidth(true);
-        scrollForm.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
-        scrollForm.setPrefWidth(335);
-        scrollForm.setMinWidth(310);
+        layout.getChildren().addAll(formCard, tableCard);
 
-        layout.getChildren().addAll(scrollForm, tableCard);
-        return layout;
+        ScrollPane pageScroll = new ScrollPane(layout);
+        pageScroll.setFitToWidth(true);
+        pageScroll.setFitToHeight(true);
+        pageScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
+        return pageScroll;
     }
 
     private void doCreateUser() {
@@ -1312,10 +1331,44 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         String r = cbNewRole.getValue();
         String s = cbNewSpecialty.getValue();
 
-        if (u.isEmpty() || p.isEmpty() || n.isEmpty()) {
-            ComponentFactory.showToast(this, "Vui lòng nhập đầy đủ Username, Password và Họ tên!", false);
+        boolean hasError = false;
+        List<String> missingFields = new java.util.ArrayList<>();
+        TextField firstErrorField = null;
+
+        if (u.isEmpty()) {
+            ComponentFactory.markRequiredError(txtNewUsername);
+            missingFields.add("Tên đăng nhập");
+            if (firstErrorField == null) firstErrorField = txtNewUsername;
+            hasError = true;
+        }
+        if (p.isEmpty()) {
+            ComponentFactory.markRequiredError(txtNewPassword);
+            missingFields.add("Mật khẩu");
+            if (firstErrorField == null) firstErrorField = txtNewPassword;
+            hasError = true;
+        }
+        if (n.isEmpty()) {
+            ComponentFactory.markRequiredError(txtNewFullName);
+            missingFields.add("Họ và tên");
+            if (firstErrorField == null) firstErrorField = txtNewFullName;
+            hasError = true;
+        }
+
+        if (hasError) {
+            String msg = "⚠️ Vui lòng nhập đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missingFields) + "!";
+            lblUserFormError.setText(msg);
+            lblUserFormError.setVisible(true);
+            lblUserFormError.setManaged(true);
+            SoundEffectManager.playError();
+            ComponentFactory.showToast(this, msg, false);
+            if (firstErrorField != null) {
+                firstErrorField.requestFocus();
+            }
             return;
         }
+
+        lblUserFormError.setVisible(false);
+        lblUserFormError.setManaged(false);
 
         // Hộp thoại xác nhận trước khi cấp tài khoản mới
         Dialog<ButtonType> confirmDialog = new Dialog<>();
@@ -1454,6 +1507,12 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     txtNewUsername.clear();
                     txtNewFullName.clear();
                     txtNewPhone.clear();
+                    txtNewPassword.setText("123456");
+                    ComponentFactory.clearRequiredError(txtNewUsername);
+                    ComponentFactory.clearRequiredError(txtNewPassword);
+                    ComponentFactory.clearRequiredError(txtNewFullName);
+                    lblUserFormError.setVisible(false);
+                    lblUserFormError.setManaged(false);
                     loadAllUsers();
                 } else {
                     String msg = p.getOrDefault("message", "Lỗi tạo tài khoản!");
