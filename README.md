@@ -429,97 +429,179 @@ Hệ thống được thiết kế và kiểm thử thực nghiệm trên mô h�
 
 ---
 
-# 10. Installation
+# 10. Hướng Dẫn Cài Đặt (Installation Guide)
 
-## 10.1. Clone / Download
+> [!IMPORTANT]
+> **TÍNH TƯƠNG THÍCH & ĐỘC LẬP CAO (PORTABLE SYSTEM):**
+> * Dự án được chuẩn hóa theo mô hình **Maven Multi-Module**. Bất kỳ máy tính nào clone về cũng có thể mở và chạy được ngay.
+> * **Không cần cài đặt CSDL rời (như MySQL hay PostgreSQL hay XAMPP):** Dự án sử dụng SQLite file-based (`sqlite-jdbc`), hệ thống tự động nhận diện, tự tạo file database và nạp dữ liệu mẫu ban đầu.
+> * **Không cần cài đặt JavaFX SDK ngoài vào hệ điều hành:** Toàn bộ thư viện đồ họa JavaFX 17, bộ Icon Ikonli, Gson... đã được khai báo sẵn trong Maven dependencies và được tự động tải về máy.
+> * **Tự động nhận diện Maven (Không lo bị lẫn sang Ant):** Dự án chỉ chứa `pom.xml`, hoàn toàn không có file `build.xml` của Ant. Khi mở thư mục `source` trên IDE (NetBeans, IntelliJ), IDE sẽ **tự động 100% nhận diện là Maven Project**.
 
-Tải toàn bộ thư mục mã nguồn từ Google Drive hoặc clone qua Git:
+---
+
+## 10.1. Yêu Cầu Môi Trường (Prerequisites)
+
+Trước khi khởi chạy, máy tính của bạn chỉ cần đáp ứng 2 yêu cầu kỹ thuật cơ bản:
+1. **Java Development Kit (JDK):** Phiên bản **Java 17 LTS trở lên** (khuyên dùng Oracle OpenJDK 17, Eclipse Temurin 17, hoặc Amazon Corretto 17).
+2. **Môi trường phát triển (IDE):**
+   * **Apache NetBeans (từ bản 12 đến 20+)** *(Khuyến nghị tối đa - phù hợp nhất với học phần)*.
+   * Hoặc **IntelliJ IDEA** (Community / Ultimate).
+   * Hoặc **Visual Studio Code** (cài Java Extension Pack).
+3. **Kết nối mạng Internet (Chỉ cần trong lần biên dịch đầu tiên):** Để Maven tự động tải các gói thư viện (`.jar`) từ kho Maven Central về thư mục `.m2` trên máy. Sau lần đầu này, hệ thống chạy **offline hoàn toàn**.
+
+---
+
+## 10.2. Tải Mã Nguồn (Clone / Download)
+
+Tải toàn bộ thư mục dự án về máy tính:
 
 ```bash
 git clone https://github.com/[your-repo]/Nhom11_SchoolIncidentDispatch_Source.git
 cd Nhom11_SchoolIncidentDispatch_Source
 ```
 
-## 10.2. Install Dependencies
+---
 
-Dự án sử dụng Maven Multi-Module. Mọi thư viện phụ thuộc (`sqlite-jdbc`, `gson`, `openjfx`, `junit-jupiter`) được tự động tải về thư mục Maven Repository cá nhân (`~/.m2/repository`):
+## 10.3. Mở Dự Án Trong IDE (Quan Trọng Nhất)
 
-```bash
-cd source
-mvn clean install -DskipTests
-```
+> [!WARNING]
+> **QUY TẮC MỞ THƯ MỤC CHUẨN:**
+> * Bạn phải mở đúng thư mục con **`source`** (nơi chứa file `pom.xml` cha quản lý 5 module).
+> * **KHÔNG** mở thư mục bọc ngoài cùng `Nhom11_SchoolIncidentDispatch_Source`, vì IDE sẽ không nhận diện được ngay cấu trúc Maven Multi-Module.
 
-## 10.3. Database Setup
-
-Hệ thống tích hợp cơ chế tự động khởi tạo CSDL thông minh (`InitDatabase.java`):
-* Khi Server khởi động lần đầu, nếu chưa thấy file `database/incident_report.db`, hệ thống sẽ **tự động đọc và nạp cấu trúc từ `database/schema.sql`** và nạp dữ liệu mẫu sạch từ `database/seed_data.sql`.
-* Bạn không cần phải cài đặt SQLite CLI hay thực hiện bất kỳ câu lệnh SQL thủ công nào.
-* Nếu muốn làm mới toàn bộ dữ liệu về trạng thái ban đầu để kiểm thử lại từ đầu, chỉ cần xóa file `database/incident_report.db` và chạy lại Server.
-
-## 10.4. Configuration
-
-Toàn bộ thông số hệ thống được quản lý tập trung tại thư mục `config/`:
-* **`config/server.properties`:**
-  ```properties
-  server.port=5000
-  server.max_threads=500
-  socket.timeout=10000
-  upload.dir=uploads/
-  db.url=jdbc:sqlite:database/incident_report.db
-  ```
-* **`config/benchmark.properties`:** Cấu hình địa chỉ IP máy chủ mục tiêu khi chạy đo lường:
-  ```properties
-  benchmark.target.host=26.239.191.202
-  benchmark.target.port=5000
-  ```
+### Thao tác trên Apache NetBeans:
+1. Khởi động **Apache NetBeans**.
+2. Trên thanh menu, chọn **File $\rightarrow$ Open Project...** (hoặc tổ hợp phím `Ctrl + Shift + O`).
+3. Điều hướng và chọn đúng thư mục **`source`** trong thư mục dự án:
+   ```text
+   📁 Nhom11_SchoolIncidentDispatch_Source/
+       └── 📁 source/   <--- [CHỌN THƯ MỤC NÀY ĐỂ MỞ]
+            ├── 📄 pom.xml (Parent POM)
+            ├── 📁 common/
+            ├── 📁 service/
+            ├── 📁 server/
+            ├── 📁 client/
+            └── 📁 benchmark/
+   ```
+4. NetBeans sẽ tự động hiển thị biểu tượng dự án có **chữ `m` nhỏ màu xanh** (Maven). Nhấn nút **Open Project**.
+5. Cây dự án sẽ hiện ra gồm 1 dự án gốc **`incident-report-system`** và 5 sub-modules đi kèm (`common`, `service`, `server`, `client`, `benchmark`).
 
 ---
 
-# 11. Running the Project
+## 10.4. Tải Thư Viện Tự Động & Biên Dịch (Clean and Build)
 
-Hệ thống được thiết kế hoàn toàn tương thích và tối ưu hóa để chạy trực tiếp trên **Apache NetBeans (từ bản 12 đến 20+)** với **JDK 17**:
-
-1. **Mở dự án:**
-   * Mở phần mềm NetBeans $\rightarrow$ Menu `File` $\rightarrow$ `Open Project...` (`Ctrl + Shift + O`).
-   * Chọn thư mục:
+1. **Biên dịch lần đầu:**
+   * Trong cửa sổ **Projects** của NetBeans, nhấp chuột phải vào dự án gốc **`incident-report-system`**.
+   * Chọn **Clean and Build**.
+   * Maven sẽ tự động kết nối Internet, tải toàn bộ thư viện JavaFX, SQLite, Ikonli, Gson về máy và biên dịch tất cả các module.
+   * Chờ khoảng 30–60 giây cho đến khi khung Output thông báo:
      ```text
-     source
+     [INFO] Reactor Summary for incident-report-system 1.0-SNAPSHOT:
+     [INFO] incident-report-system ............................. SUCCESS
+     [INFO] common ............................................. SUCCESS
+     [INFO] service ............................................ SUCCESS
+     [INFO] server ............................................. SUCCESS
+     [INFO] client ............................................. SUCCESS
+     [INFO] benchmark .......................................... SUCCESS
+     [INFO] BUILD SUCCESS
      ```
-   * Nhấn nút **Open Project**. NetBeans sẽ tự động nhận diện Parent Project `incident-report-system` và 5 sub-modules (`common`, `service`, `server`, `client`, `benchmark`).
-2. **Biên dịch dự án lần đầu:**
-   * Nhấp chuột phải vào dự án gốc **`incident-report-system`** $\rightarrow$ Chọn **`Clean and Build`**.
-   * Chờ vài giây cho đến khi khung Output hiển thị `BUILD SUCCESS`.
 
-## 11.1. Start Server
+2. **Nếu NetBeans hiện thông báo màu vàng "Resolve Project Problems":**
+   * Đây là hiện tượng bình thường khi clone dự án Maven mới về máy.
+   * Bạn chỉ cần bấm vào nút **Resolve...** trên thông báo $\rightarrow$ bấm **Resolve Problems**, IDE sẽ tự động kích hoạt Maven tải đầy đủ thư viện.
 
-* Mở rộng module **`server`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.server`.
-* Nhấp chuột phải vào file **`Server.java`** $\rightarrow$ Chọn **`Run File`** (hoặc phím tắt **`Shift + F6`**).
-* Server sẽ khởi động trên cổng 5000 và hiển thị thông báo sẵn sàng lắng nghe.
+---
 
-*(Hoặc chạy lệnh Maven từ thư mục `source`: `mvn exec:java -pl server -Dexec.mainClass="com.incidentreport.server.Server"`)*
+## 10.5. Cơ Chế Khởi Tạo Cơ Sở Dữ Liệu Tự Động (Database Auto-Init)
 
-## 11.2. Start Client
+* Bạn **hoàn toàn không cần cài đặt phần mềm quản lý CSDL riêng** (không cần cài MySQL, PostgreSQL, XAMPP hay chạy script SQL thủ công).
+* Khi Server khởi động lần đầu:
+  * Hệ thống tự động kiểm tra sự tồn tại của file `database/incident_report.db`.
+  * Nếu chưa có, lớp [`InitDatabase.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/service/src/main/java/com/incidentreport/service/InitDatabase.java) sẽ tự động nạp cấu trúc bảng từ `database/schema.sql` và nạp sẵn 50 tài khoản người dùng mẫu từ `database/seed_data.sql`.
+* **Cách reset dữ liệu về trạng thái ban đầu:** Nếu sau khi test muốn xóa sạch các sự cố cũ để bắt đầu lại, chỉ cần xóa file `database/incident_report.db` và khởi động lại Server.
 
-* Mở rộng module **`client`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.client`.
-* Nhấp chuột phải vào file **`IncidentReportApp.java`** $\rightarrow$ Chọn **`Run File`** (**`Shift + F6`**).
-* Màn hình đăng nhập JavaFX sẽ hiển thị ngay lập tức.
+---
 
-*(Hoặc chạy lệnh Maven từ thư mục `source`: `mvn javafx:run -pl client`)*
+# 11. Hướng Dẫn Khởi Chạy Hệ Thống (Running Guide)
 
-## 11.3. Start Multiple Clients
+> [!IMPORTANT]
+> **THỨ TỰ KHỞI CHẠY BẮT BUỘC:**
+> 1. **Khởi động Máy chủ (`Server.java`) TRƯỚC.**
+> 2. **Khởi động Giao diện Người dùng (`Main.java` / `IncidentReportApp.java`) SAU.**
 
-Để kiểm nghiệm tính năng Server Push và Chat thời gian thực giữa hai người dùng khác nhau trên cùng một máy:
-* Nhấp chuột phải vào **`IncidentReportApp.java`** $\rightarrow$ Chọn **`Run File`** (**`Shift + F6`**) thêm một lần nữa để mở cửa sổ Client thứ hai:
-  * **Cửa sổ 1:** Đăng nhập tài khoản Giáo viên (`gv_lan` / `123456`) để gửi sự cố.
-  * **Cửa sổ 2:** Đăng nhập tài khoản Kỹ thuật viên (`kt_tuan` / `123456`) để tiếp nhận và chat xử lý.
+---
 
-## 11.4. Run Test
+## 11.1. Bước 1: Khởi Động Server
 
-### Chạy Bộ Kiểm thử Tự động JUnit 5
-Trên NetBeans, chuột phải vào dự án gốc `incident-report-system` $\rightarrow$ Chọn **`Test`** (hoặc chạy lệnh dòng lệnh từ thư mục `source`: `mvn test`).
+### Cách 1: Chạy trực tiếp từ giao diện NetBeans (Khuyên dùng)
+1. Trong cửa sổ **Projects**, mở rộng module **`server`** $\rightarrow$ mở thư mục **`Source Packages`** $\rightarrow$ `com.incidentreport.server`.
+2. Nhấp chuột phải vào file **[`Server.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/server/src/main/java/com/incidentreport/server/Server.java)** $\rightarrow$ Chọn **Run File** (hoặc nhấn phím tắt **`Shift + F6`**).
+3. Khung Output sẽ xuất hiện thông báo máy chủ sẵn sàng:
+   ```text
+   ℹ️ Cơ sở dữ liệu SQLite đã sẵn sàng (giữ nguyên toàn bộ dữ liệu hiện có).
+   🚀 Server đang lắng nghe trên cổng TCP: 5000 (Max Threads: 500)...
+   ```
 
-### Chạy Phân hệ Đo lường Hiệu năng (Benchmark Suite)
-Mở module **`benchmark`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.benchmark` $\rightarrow$ Chuột phải vào **`BenchmarkSuite.java`** $\rightarrow$ Chọn **`Run File`** (**`Shift + F6`**).
+### Cách 2: Chạy qua dòng lệnh Terminal (CLI)
+Từ thư mục `source`, thực hiện lệnh:
+```bash
+mvn exec:java -pl server -Dexec.mainClass="com.incidentreport.server.Server"
+```
+
+---
+
+## 11.2. Bước 2: Khởi Động Client (Giao diện JavaFX)
+
+### Cách 1: Chạy trực tiếp từ giao diện NetBeans
+1. Trong cửa sổ **Projects**, mở rộng module **`client`** $\rightarrow$ mở thư mục **`Source Packages`** $\rightarrow$ `com.incidentreport.client`.
+2. Nhấp chuột phải vào file **[`Main.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/client/src/main/java/com/incidentreport/client/Main.java)** (hoặc [`IncidentReportApp.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/client/src/main/java/com/incidentreport/client/IncidentReportApp.java)) $\rightarrow$ Chọn **Run File** (**`Shift + F6`**).
+3. Cửa sổ ứng dụng Desktop JavaFX với giao diện sang trọng "Sổ trực nhà trường" sẽ xuất hiện ngay lập tức.
+
+### Cách 2: Chạy qua lệnh Maven JavaFX Plugin
+Từ thư mục `source`, thực hiện lệnh:
+```bash
+mvn javafx:run -pl client
+```
+
+---
+
+## 11.3. Bước 3: Mở Nhiều Client Đồng Thời Để Test Tính Năng Mạng
+
+Để kiểm chứng toàn bộ sức mạnh của hệ thống (Báo sự cố $\rightarrow$ Server Push tự động $\rightarrow$ Kỹ thuật viên nhận việc $\rightarrow$ Chat 1-1 $\rightarrow$ Nghiệm thu $\rightarrow$ BGH Giám sát), bạn có thể **Run file `Main.java` nhiều lần** để mở nhiều cửa sổ cùng lúc trên một màn hình:
+
+* **Cửa sổ 1 (Giáo viên báo sự cố - REPORTER):**
+  * Đăng nhập: `gv_lan` / Mật khẩu: `123456` (Cô Trần Thị Lan - GVCN 10A2).
+  * Thao tác: Báo sự cố hỏng máy chiếu phòng A201 $\rightarrow$ Theo dõi trạng thái ca.
+* **Cửa sổ 2 (Kỹ thuật viên - RESPONDER):**
+  * Đăng nhập: `kt_tuan` / Mật khẩu: `123456` (Anh Hoàng Văn Tuấn - Kỹ thuật điện 1).
+  * Thao tác: Lập tức nghe chuông báo động và nhận pop-up sự cố $\rightarrow$ Bấm tiếp nhận $\rightarrow$ Nhắn tin 1-1 với cô Lan $\rightarrow$ Nghiệm thu hoàn tất.
+* **Cửa sổ 3 (Ban Giám Hiệu - ADMIN):**
+  * Đăng nhập: `admin_bgh` / Mật khẩu: `123456` (Thầy Nguyễn Văn An - Hiệu trưởng).
+  * Thao tác: Giám sát toàn bộ sự cố thời gian thực $\rightarrow$ Phân công chỉ định cán bộ $\rightarrow$ Xuất báo cáo thống kê ra file Excel CSV có UTF-8 BOM.
+
+---
+
+## 11.4. Chạy Bộ Kiểm Thử Tự Động (Automated Testing)
+
+* **Chạy Unit & Integration Tests (JUnit 5):**
+  * Trong NetBeans: Nhấp chuột phải vào dự án gốc `incident-report-system` $\rightarrow$ Chọn **Test**.
+  * Dòng lệnh: `mvn test` (tại thư mục `source`).
+  * Tất cả các kịch bản kiểm thử (Đóng gói nhị phân `0xCAFE`, Tranh chấp nguyên tử SQLite WAL, Xác thực Salted SHA-256) sẽ chạy tự động và thông báo `BUILD SUCCESS`.
+
+* **Chạy Phân Hệ Đo Lường Hiệu Năng (Benchmark Suite):**
+  * Mở module **`benchmark`** $\rightarrow$ `com.incidentreport.benchmark` $\rightarrow$ Chuột phải vào **`BenchmarkSuite.java`** $\rightarrow$ Chọn **Run File** (**`Shift + F6`**).
+
+---
+
+## 11.5. Xử Lý Sự Cố Thường Gặp (Troubleshooting & FAQs)
+
+| Vấn đề gặp phải | Nguyên nhân | Cách khắc phục triệt để |
+| :--- | :--- | :--- |
+| **Báo lỗi `Address already in use: bind` khi chạy Server** | Cổng 5000 đang bị chiếm bởi một phiên chạy Server trước đó chưa tắt hoặc ứng dụng khác. | 1. Tắt tiến trình Java cũ trong Task Manager.<br>2. Hoặc sửa port trong file `config/server.properties`: đổi `server.port=5000` thành `5001`. |
+| **NetBeans báo lỗi đỏ ở các từ khóa cú pháp Java 17** | NetBeans đang trỏ nhầm JDK cũ (JDK 8 hoặc JDK 11). | Vào Menu **Tools $\rightarrow$ Java Platforms** $\rightarrow$ Thêm JDK 17 $\rightarrow$ Chuột phải vào dự án chọn **Properties $\rightarrow$ Sources $\rightarrow$ Source/Binary Format: chọn 17**. |
+| **Không thấy các sub-modules sau khi Open Project** | Bạn đã mở nhầm thư mục bọc ngoài cùng thay vì mở thư mục `source`. | Đóng project lại $\rightarrow$ Vào **File $\rightarrow$ Open Project** $\rightarrow$ Chọn đúng thư mục con **`source`**. |
+| **Báo lỗi thiếu file `.db` hoặc không lưu được dữ liệu** | Thư mục chưa được cấp quyền ghi file. | Đảm bảo thư mục dự án nằm ở phân vùng đĩa thông thường (như ổ `D:\` hoặc thư mục người dùng), không để trong thư mục hệ thống hạn chế quyền (`Program Files`). |
 
 ---
 
