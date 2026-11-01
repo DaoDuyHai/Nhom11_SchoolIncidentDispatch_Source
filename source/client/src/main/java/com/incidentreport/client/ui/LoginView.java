@@ -22,6 +22,7 @@ import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.prefs.Preferences;
 
 /**
  * Giao diện Đăng nhập tái thiết kế theo DESIGN_SYSTEM.md (Mục 5.1):
@@ -31,8 +32,12 @@ import java.util.Map;
  */
 public class LoginView extends HBox implements SocketClientManager.PacketListener {
 
-    private final TextField txtHost = new TextField(Constants.DEFAULT_SERVER_HOST);
-    private final TextField txtPort = new TextField(String.valueOf(Constants.TCP_PORT));
+    private static final Preferences PREFS = Preferences.userNodeForPackage(LoginView.class);
+    private static final String PREF_SERVER_HOST = "sids_server_host";
+    private static final String PREF_SERVER_PORT = "sids_server_port";
+
+    private final TextField txtHost = new TextField(PREFS.get(PREF_SERVER_HOST, Constants.DEFAULT_SERVER_HOST));
+    private final TextField txtPort = new TextField(PREFS.get(PREF_SERVER_PORT, String.valueOf(Constants.TCP_PORT)));
     private final TextField txtUsername = new TextField("admin_bgh");
     private final PasswordField txtPassword = new PasswordField();
     private final TextField txtPasswordVisible = new TextField();
@@ -104,17 +109,17 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
     }
 
     private Node createFormPanel() {
-        VBox formBox = new VBox(10);
+        VBox formBox = new VBox(8);
         formBox.getStyleClass().add("login-form");
         formBox.setAlignment(Pos.CENTER_LEFT);
-        formBox.setPadding(new Insets(32, 44, 32, 44));
+        formBox.setPadding(new Insets(24, 44, 24, 44));
 
         Label lblTitle = new Label("Đăng nhập");
         lblTitle.getStyleClass().add("h1");
 
         Label lblSub = new Label("Dùng tài khoản do nhà trường cấp.");
         lblSub.getStyleClass().add("muted");
-        lblSub.setStyle("-fx-font-size: 12.5px; -fx-padding: 0 0 10 0;");
+        lblSub.setStyle("-fx-font-size: 12.5px; -fx-padding: 0 0 6 0;");
 
         // Tên đăng nhập
         Label lblUser = new Label("Tên đăng nhập");
@@ -186,24 +191,78 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
         lblError.setVisible(false);
         lblError.setManaged(false);
 
-        // Cấu hình máy chủ (TitledPane thu gọn)
-        HBox serverBox = new HBox(8, new Label("Máy chủ:"), txtHost, new Label(":"), txtPort);
+        // Lựa chọn nhanh máy chủ (Mặc định Localhost vs Radmin VPN)
+        Label lblServerChoice = new Label("Máy chủ kết nối:");
+        lblServerChoice.getStyleClass().addAll("caption", "muted");
+        lblServerChoice.setStyle("-fx-font-weight: bold; -fx-padding: 2 0 0 0;");
+
+        ToggleGroup netToggleGroup = new ToggleGroup();
+        ToggleButton btnLocal = new ToggleButton("🖥️ Mặc định (Local)");
+        ToggleButton btnRadmin = new ToggleButton("🌐 Radmin VPN");
+        btnLocal.setToggleGroup(netToggleGroup);
+        btnRadmin.setToggleGroup(netToggleGroup);
+        btnLocal.getStyleClass().add("chip");
+        btnRadmin.getStyleClass().add("chip");
+
+        String currentHost = txtHost.getText().trim();
+        if (Constants.RADMIN_VPN_HOST.equals(currentHost)) {
+            btnRadmin.setSelected(true);
+        } else if (Constants.DEFAULT_SERVER_HOST.equals(currentHost)) {
+            btnLocal.setSelected(true);
+        }
+
+        btnLocal.setOnAction(e -> {
+            if (btnLocal.isSelected()) {
+                txtHost.setText(Constants.DEFAULT_SERVER_HOST);
+                txtPort.setText(String.valueOf(Constants.TCP_PORT));
+                saveServerPrefs(Constants.DEFAULT_SERVER_HOST, String.valueOf(Constants.TCP_PORT));
+            }
+        });
+
+        btnRadmin.setOnAction(e -> {
+            if (btnRadmin.isSelected()) {
+                txtHost.setText(Constants.RADMIN_VPN_HOST);
+                txtPort.setText(String.valueOf(Constants.TCP_PORT));
+                saveServerPrefs(Constants.RADMIN_VPN_HOST, String.valueOf(Constants.TCP_PORT));
+            }
+        });
+
+        HBox netPresetBox = new HBox(8, btnLocal, btnRadmin);
+        netPresetBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Cấu hình máy chủ chi tiết (TitledPane thu gọn)
+        HBox serverBox = new HBox(8, new Label("Địa chỉ IP:"), txtHost, new Label(":"), txtPort);
         serverBox.setAlignment(Pos.CENTER_LEFT);
         txtHost.setPrefWidth(130);
         txtPort.setPrefWidth(65);
 
-        serverPane.setText(String.format("▸ Cấu hình máy chủ (%s:%s)", txtHost.getText(), txtPort.getText()));
+        serverPane.setText(String.format("▸ Tùy chỉnh IP/Port (%s:%s)", txtHost.getText().trim(), txtPort.getText().trim()));
         serverPane.setContent(serverBox);
         serverPane.setExpanded(false);
-        txtHost.textProperty().addListener((obs, old, val) -> updateServerPaneTitle());
-        txtPort.textProperty().addListener((obs, old, val) -> updateServerPaneTitle());
+
+        txtHost.textProperty().addListener((obs, old, val) -> {
+            String v = val.trim();
+            if (Constants.RADMIN_VPN_HOST.equals(v)) {
+                btnRadmin.setSelected(true);
+            } else if (Constants.DEFAULT_SERVER_HOST.equals(v)) {
+                btnLocal.setSelected(true);
+            } else {
+                netToggleGroup.selectToggle(null);
+            }
+            updateServerPaneTitle();
+            saveServerPrefs(v, txtPort.getText().trim());
+        });
+        txtPort.textProperty().addListener((obs, old, val) -> {
+            updateServerPaneTitle();
+            saveServerPrefs(txtHost.getText().trim(), val.trim());
+        });
 
         // Khối chọn nhanh tài khoản demo
         Label lblDemo = new Label("── Truy cập nhanh (demo) ──");
         lblDemo.getStyleClass().addAll("caption", "muted");
         lblDemo.setAlignment(Pos.CENTER);
         lblDemo.setMaxWidth(Double.MAX_VALUE);
-        lblDemo.setStyle("-fx-padding: 6 0 2 0;");
+        lblDemo.setStyle("-fx-padding: 4 0 2 0;");
 
         HBox demoRow1 = new HBox(8);
         demoRow1.setAlignment(Pos.CENTER);
@@ -227,6 +286,7 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
                 lblPass, passStack,
                 btnLogin,
                 lblError,
+                lblServerChoice, netPresetBox,
                 serverPane,
                 lblDemo, demoRow1, demoRow2
         );
@@ -235,7 +295,15 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
     }
 
     private void updateServerPaneTitle() {
-        serverPane.setText(String.format("▸ Cấu hình máy chủ (%s:%s)", txtHost.getText().trim(), txtPort.getText().trim()));
+        serverPane.setText(String.format("▸ Tùy chỉnh IP/Port (%s:%s)", txtHost.getText().trim(), txtPort.getText().trim()));
+    }
+
+    private void saveServerPrefs(String host, String port) {
+        try {
+            PREFS.put(PREF_SERVER_HOST, host);
+            PREFS.put(PREF_SERVER_PORT, port);
+        } catch (Exception ignored) {
+        }
     }
 
     private Button createDemoChip(String label, String username, String password, String dotColorHex) {
@@ -274,6 +342,8 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
             showError("Cổng kết nối không hợp lệ!");
             return;
         }
+
+        saveServerPrefs(host, portStr);
 
         setLoading(true);
 

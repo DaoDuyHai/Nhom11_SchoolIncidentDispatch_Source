@@ -55,6 +55,7 @@ public class Constants {
     // 2. CẤU HÌNH MẠNG MẶC ĐỊNH
     // =========================================================================
     public static final String DEFAULT_SERVER_HOST = "127.0.0.1";
+    public static final String RADMIN_VPN_HOST     = "26.239.191.202";
     public static final int TCP_PORT = 5000;
 
     // =========================================================================

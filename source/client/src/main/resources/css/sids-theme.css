@@ -370,5 +370,7 @@
 .login-form { -fx-background-color: -paper-50; -fx-padding: 44 48; }
 .chip { -fx-background-color: white; -fx-border-color: -paper-300; -fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 12; -fx-font-size: 11.5px; -fx-text-fill: -text-900; -fx-graphic-text-gap: 6; -fx-cursor: hand; }
 .chip:hover { -fx-background-color: -paper-100; -fx-border-color: -brass-500; }
+.chip:selected { -fx-background-color: -ink-900; -fx-text-fill: white; -fx-border-color: -ink-900; -fx-font-weight: bold; }
+.chip:selected:hover { -fx-background-color: -ink-800; -fx-border-color: -ink-800; }
 .titled-pane > .title { -fx-background-color: transparent; -fx-padding: 6 0; }
 .titled-pane > .content { -fx-background-color: transparent; -fx-border-color: transparent; }
