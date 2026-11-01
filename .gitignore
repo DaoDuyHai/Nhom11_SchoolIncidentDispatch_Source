@@ -27,7 +27,12 @@ buildNumber.properties
 *.log
 received_image.*
 test.*
+!Test.md
 uploads/
+
+# --- Cơ sở dữ liệu SQLite (Không bao giờ lưu vào Git, tự động tạo từ schema & seed_data) ---
+*.db
 *.db-wal
 *.db-shm
 *.db-journal
+database/*.db

@@ -205,8 +205,11 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
         btnLocal.getStyleClass().add("chip");
         btnRadmin.getStyleClass().add("chip");
 
+        String radminHost = loadRadminVpnHost();
+        btnRadmin.setTooltip(new Tooltip("Kết nối tới máy chủ Radmin VPN (" + radminHost + ") - Cấu hình trong server.properties"));
+
         String currentHost = txtHost.getText().trim();
-        if (Constants.RADMIN_VPN_HOST.equals(currentHost)) {
+        if (radminHost.equals(currentHost)) {
             btnRadmin.setSelected(true);
         } else if (Constants.DEFAULT_SERVER_HOST.equals(currentHost)) {
             btnLocal.setSelected(true);
@@ -222,9 +225,10 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
 
         btnRadmin.setOnAction(e -> {
             if (btnRadmin.isSelected()) {
-                txtHost.setText(Constants.RADMIN_VPN_HOST);
+                String latestHost = loadRadminVpnHost();
+                txtHost.setText(latestHost);
                 txtPort.setText(String.valueOf(Constants.TCP_PORT));
-                saveServerPrefs(Constants.RADMIN_VPN_HOST, String.valueOf(Constants.TCP_PORT));
+                saveServerPrefs(latestHost, String.valueOf(Constants.TCP_PORT));
             }
         });
 
@@ -243,7 +247,7 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
 
         txtHost.textProperty().addListener((obs, old, val) -> {
             String v = val.trim();
-            if (Constants.RADMIN_VPN_HOST.equals(v)) {
+            if (loadRadminVpnHost().equals(v)) {
                 btnRadmin.setSelected(true);
             } else if (Constants.DEFAULT_SERVER_HOST.equals(v)) {
                 btnLocal.setSelected(true);
@@ -293,6 +297,31 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
         );
 
         return formBox;
+    }
+
+    public static String loadRadminVpnHost() {
+        String[] configPaths = new String[]{
+                "config/server.properties",
+                "../config/server.properties",
+                "../../config/server.properties",
+                "source/config/server.properties"
+        };
+        for (String cp : configPaths) {
+            java.io.File f = new java.io.File(cp);
+            if (f.exists() && f.isFile()) {
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(f)) {
+                    java.util.Properties props = new java.util.Properties();
+                    props.load(fis);
+                    String h = props.getProperty("radmin.server.host");
+                    if (h == null || h.trim().isEmpty()) h = props.getProperty("server.radmin.host");
+                    if (h == null || h.trim().isEmpty()) h = props.getProperty("server.host");
+                    if (h != null && !h.trim().isEmpty()) {
+                        return h.trim();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return Constants.RADMIN_VPN_HOST;
     }
 
     private void updateServerPaneTitle() {

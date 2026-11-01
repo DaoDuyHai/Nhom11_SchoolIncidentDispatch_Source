@@ -412,7 +412,7 @@ Hệ thống được thiết kế và kiểm thử thực nghiệm trên mô h�
   * **CPU:** Intel Core i3 (Tích hợp đồ họa Intel HD Graphics 620, 2 nhân / 4 luồng, xung nhịp ~2.40 GHz).
   * **RAM:** **4 GB RAM** (DDR4).
   * **Ổ đĩa:** 256 GB SSD (Tối thiểu trống 1GB cho file CSDL và ảnh uploads).
-  * **Mạng:** Kết nối qua card mạng Radmin VPN (`26.239.191.202`).
+  * **Mạng:** Kết nối qua card mạng Radmin VPN (`26.51.180.99` - cấu hình linh hoạt trong `config/server.properties`).
 * **Máy Trạm Sinh Tải (Benchmark Client Host):**
   * **CPU:** AMD Ryzen 7 (8 nhân / 16 luồng, xung nhịp Turbo Boost ~4.50 - 4.75 GHz).
   * **RAM:** **25 GB RAM** (Dung lượng lớn để mở hàng trăm đến 1.000 luồng client song song).
@@ -632,7 +632,7 @@ Hệ thống cung cấp danh mục 50 tài khoản thực tế được cấp s�
 ## 13.1. Environment
 
 * **Mô hình triển khai:** Hệ thống phân tán 2 máy tính vật lý độc lập kết nối qua mạng riêng ảo P2P **Radmin VPN** (`26.239.191.0/24`).
-* **Máy Chủ (Target Server Host):** CPU Intel Core i3 (2 Cores, 4 Threads, xung nhịp ~2.40 GHz), RAM 4 GB DDR4, 256 GB SSD, Windows 11 64-bit, JDK 17 (Heap: `-Xms256m -Xmx1536m`, G1GC). Địa chỉ VPN: `26.239.191.202:5000`.
+* **Máy Chủ (Target Server Host):** CPU Intel Core i3 (2 Cores, 4 Threads, xung nhịp ~2.40 GHz), RAM 4 GB DDR4, 256 GB SSD, Windows 11 64-bit, JDK 17 (Heap: `-Xms256m -Xmx1536m`, G1GC). Địa chỉ VPN: `26.51.180.99:5000`.
 * **Máy Trạm Sinh Tải (Benchmark Client Host):** CPU AMD Ryzen 7 (8 Cores, 16 Threads, Turbo Boost ~4.75 GHz), RAM 25 GB DDR4/DDR5, 512 GB NVMe PCIe SSD, Windows 11 64-bit.
 * **Đặc tính đường truyền mạng:** RTT Ping trung bình $\approx 5 - 25\text{ ms}$, Jitter $< 3\text{ ms}$, MTU 1500 bytes. Lưu lượng đi qua card mạng ảo VPN thật, phản ánh chính xác môi trường mạng diện rộng.
 
@@ -879,7 +879,7 @@ Các định hướng nâng cấp tiếp theo:
 
 ## Demo Environment
 
-* **Máy Server:** Laptop chạy Windows 11, CPU Intel Core i3, RAM 4GB, IP VPN `26.239.191.202:5000`.
+* **Máy Server:** Laptop chạy Windows 11, CPU Intel Core i3, RAM 4GB, IP VPN `26.51.180.99:5000` (cấu hình trong `config/server.properties`).
 * **Máy Client:** Laptop chạy Windows 11, CPU AMD Ryzen 7, RAM 25GB, kết nối qua mạng Radmin VPN.
 * **Số lượng Client tham gia demo:** 3 cửa sổ Client đồng thời (1 Giáo viên, 1 Kỹ thuật viên, 1 Ban Giám Hiệu).
 

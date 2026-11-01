@@ -68,6 +68,18 @@ public class InitDatabase {
         if (f.exists()) return f;
         f = new File("../source/" + clean);
         if (f.exists()) return f;
+
+        // Nếu file chưa tồn tại (ví dụ file CSDL .db khi lần đầu tải dự án về)
+        if (clean.startsWith("database/")) {
+            File schemaFile = new File("database/schema.sql");
+            if (!schemaFile.exists()) schemaFile = new File("../database/schema.sql");
+            if (!schemaFile.exists()) schemaFile = new File("../../database/schema.sql");
+            if (schemaFile.exists() && schemaFile.getParentFile() != null) {
+                String subName = clean.substring("database/".length());
+                return new File(schemaFile.getParentFile(), subName);
+            }
+        }
+
         return new File(clean);
     }
 

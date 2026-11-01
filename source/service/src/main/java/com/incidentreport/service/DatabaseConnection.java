@@ -27,6 +27,13 @@ public class DatabaseConnection {
         if (dbFile.exists()) return dbFile;
         dbFile = new File("../../database/incident_report.db");
         if (dbFile.exists()) return dbFile;
+
+        // Nếu CSDL chưa tồn tại (lần đầu clone/tải zip về chưa có file .db):
+        // Tìm thư mục database/ chuẩn dựa theo vị trí của schema.sql
+        File schemaFile = InitDatabase.findFile("database/schema.sql");
+        if (schemaFile.exists() && schemaFile.getParentFile() != null) {
+            return new File(schemaFile.getParentFile(), "incident_report.db");
+        }
         return new File("database/incident_report.db");
     }
 
@@ -43,6 +50,9 @@ public class DatabaseConnection {
                     }
                     dbUrl = "jdbc:sqlite:" + resolved.getAbsolutePath();
                 } else {
+                    if (f.getParentFile() != null && !f.getParentFile().exists()) {
+                        f.getParentFile().mkdirs();
+                    }
                     dbUrl = customDbUrl;
                 }
             } else {
@@ -54,7 +64,7 @@ public class DatabaseConnection {
                 dbUrl = sysProp.trim();
             } else {
                 File dbFile = getDatabaseFile();
-                if (!dbFile.getParentFile().exists()) {
+                if (dbFile.getParentFile() != null && !dbFile.getParentFile().exists()) {
                     dbFile.getParentFile().mkdirs();
                 }
                 dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
