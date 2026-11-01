@@ -83,6 +83,10 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
     private final FilteredList<IncidentTicket> filteredMyTasks = new FilteredList<>(myTasksList, t -> true);
     private final TableView<IncidentTicket> myTasksTable = new TableView<>();
     private final ToggleGroup segGroup = new ToggleGroup();
+    private final DatePicker dpDateFilter = new DatePicker();
+    private final ComboBox<String> cbMonthFilter = new ComboBox<>();
+    private final ComboBox<String> cbYearFilter = new ComboBox<>();
+    private String currentTaskStatusFilter = null;
 
     public ResponderView(User user) {
         this.currentUser = user;
@@ -581,11 +585,13 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         ToggleButton segProgress = createSegment("Đang xử lý", false);
         ToggleButton segResolved = createSegment("Đã hoàn tất", false);
 
-        segAll.setOnAction(e -> applyTaskFilter(null));
-        segProgress.setOnAction(e -> applyTaskFilter(Constants.STATUS_IN_PROGRESS));
-        segResolved.setOnAction(e -> applyTaskFilter(Constants.STATUS_RESOLVED));
+        segAll.setOnAction(e -> { currentTaskStatusFilter = null; applyTaskFilter(); });
+        segProgress.setOnAction(e -> { currentTaskStatusFilter = Constants.STATUS_IN_PROGRESS; applyTaskFilter(); });
+        segResolved.setOnAction(e -> { currentTaskStatusFilter = Constants.STATUS_RESOLVED; applyTaskFilter(); });
 
         segGroupContainer.getChildren().addAll(segAll, segProgress, segResolved);
+
+        HBox dateBox = ComponentFactory.createDateFilterBar(dpDateFilter, cbMonthFilter, cbYearFilter, this::applyTaskFilter);
 
         Region sp = new Region();
         HBox.setHgrow(sp, Priority.ALWAYS);
@@ -595,7 +601,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         btnRefresh.setGraphic(ComponentFactory.createIcon("mdi2r-refresh", 16, Color.web("#14264A")));
         btnRefresh.setOnAction(e -> loadMyTasks());
 
-        toolBar.getChildren().addAll(segGroupContainer, sp, btnRefresh);
+        toolBar.getChildren().addAll(segGroupContainer, dateBox, sp, btnRefresh);
 
         // Columns
         myTasksTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -794,11 +800,18 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
         return btn;
     }
 
-    private void applyTaskFilter(String status) {
+    private void applyTaskFilter() {
         filteredMyTasks.setPredicate(t -> {
             if (t == null) return false;
-            if (status == null) return true;
-            return status.equalsIgnoreCase(t.getStatus());
+            if (currentTaskStatusFilter != null && !currentTaskStatusFilter.equalsIgnoreCase(t.getStatus())) {
+                return false;
+            }
+            return ComponentFactory.matchesDateFilter(
+                    t.getCreatedAt(),
+                    dpDateFilter.getValue(),
+                    cbMonthFilter.getSelectionModel().getSelectedIndex(),
+                    cbYearFilter.getValue()
+            );
         });
     }
 
@@ -851,7 +864,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
             l1.setMaxWidth(Double.MAX_VALUE);
 
             Label l2 = new Label("• Sự cố: " + (target.getCategoryName() != null ? target.getCategoryName() : target.getCategoryCode()));
-            l2.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-text-overrun: clip;");
+            l2.setStyle("-fx-font-size: 12px; -fx-text-fill: #4A453A; -fx-text-overrun: clip;");
             l2.setWrapText(true);
             l2.setMinHeight(Region.USE_PREF_SIZE);
             l2.setMaxWidth(Double.MAX_VALUE);

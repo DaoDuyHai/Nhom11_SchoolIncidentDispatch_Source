@@ -102,6 +102,10 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private final FilteredList<IncidentTicket> filteredTickets = new FilteredList<>(ticketList, t -> true);
     private final TableView<IncidentTicket> ticketTable = new TableView<>();
     private final ToggleGroup segGroup = new ToggleGroup();
+    private final DatePicker dpDateFilter = new DatePicker();
+    private final ComboBox<String> cbMonthFilter = new ComboBox<>();
+    private final ComboBox<String> cbYearFilter = new ComboBox<>();
+    private String currentStatusFilter = null;
 
     public ReporterView(User user) {
         this.currentUser = user;
@@ -457,6 +461,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         ScrollPane scroll = new ScrollPane(mainBox);
         scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         return scroll;
     }
 
@@ -842,13 +847,13 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         lCat.setWrapText(true);
         lCat.setMinHeight(Region.USE_PREF_SIZE);
         lCat.setMaxWidth(Double.MAX_VALUE);
-        lCat.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
+        lCat.setStyle("-fx-font-size: 12px; -fx-text-fill: #4A453A; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
 
         Label lDesc = new Label("• Mô tả: " + desc);
         lDesc.setWrapText(true);
         lDesc.setMinHeight(Region.USE_PREF_SIZE);
         lDesc.setMaxWidth(Double.MAX_VALUE);
-        lDesc.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
+        lDesc.setStyle("-fx-font-size: 12px; -fx-text-fill: #4A453A; -fx-line-spacing: 3px; -fx-text-overrun: clip;");
 
         Label lPhoto = new Label("• Ảnh hiện trường: " + (chosenImageBytes != null ? "Đã chọn ảnh (" + (chosenImageBytes.length / 1024) + " KB)" : "Không đính kèm"));
         lPhoto.setWrapText(true);
@@ -929,12 +934,14 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         ToggleButton segProgress = createSegment("Đang xử lý", false);
         ToggleButton segResolved = createSegment("Đã hoàn tất", false);
 
-        segAll.setOnAction(e -> applyFilter(null));
-        segPending.setOnAction(e -> applyFilter(Constants.STATUS_PENDING));
-        segProgress.setOnAction(e -> applyFilter(Constants.STATUS_IN_PROGRESS));
-        segResolved.setOnAction(e -> applyFilter(Constants.STATUS_RESOLVED));
+        segAll.setOnAction(e -> { currentStatusFilter = null; applyFilter(); });
+        segPending.setOnAction(e -> { currentStatusFilter = Constants.STATUS_PENDING; applyFilter(); });
+        segProgress.setOnAction(e -> { currentStatusFilter = Constants.STATUS_IN_PROGRESS; applyFilter(); });
+        segResolved.setOnAction(e -> { currentStatusFilter = Constants.STATUS_RESOLVED; applyFilter(); });
 
         segGroupContainer.getChildren().addAll(segAll, segPending, segProgress, segResolved);
+
+        HBox dateBox = ComponentFactory.createDateFilterBar(dpDateFilter, cbMonthFilter, cbYearFilter, this::applyFilter);
 
         Region sp = new Region();
         HBox.setHgrow(sp, Priority.ALWAYS);
@@ -944,7 +951,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         btnRefresh.setGraphic(ComponentFactory.createIcon("mdi2r-refresh", 16, Color.web("#14264A")));
         btnRefresh.setOnAction(e -> loadMyTickets());
 
-        toolBar.getChildren().addAll(segGroupContainer, sp, btnRefresh);
+        toolBar.getChildren().addAll(segGroupContainer, dateBox, sp, btnRefresh);
 
         // Bảng dữ liệu gộp cột
         ticketTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -1143,11 +1150,18 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         return btn;
     }
 
-    private void applyFilter(String status) {
+    private void applyFilter() {
         filteredTickets.setPredicate(t -> {
             if (t == null) return false;
-            if (status == null) return true;
-            return status.equalsIgnoreCase(t.getStatus());
+            if (currentStatusFilter != null && !currentStatusFilter.equalsIgnoreCase(t.getStatus())) {
+                return false;
+            }
+            return ComponentFactory.matchesDateFilter(
+                    t.getCreatedAt(),
+                    dpDateFilter.getValue(),
+                    cbMonthFilter.getSelectionModel().getSelectedIndex(),
+                    cbYearFilter.getValue()
+            );
         });
     }
 

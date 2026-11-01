@@ -96,6 +96,9 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
     private final TextField txtSearchTicket = new TextField();
     private final ComboBox<String> cbStatusFilter = new ComboBox<>();
     private final ComboBox<String> cbDeptFilter = new ComboBox<>();
+    private final DatePicker dpDateFilter = new DatePicker();
+    private final ComboBox<String> cbMonthFilter = new ComboBox<>();
+    private final ComboBox<String> cbYearFilter = new ComboBox<>();
     private final Label lblFilterCount = new Label();
 
     // Tab 3: User Management
@@ -440,6 +443,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         ScrollPane scroll = new ScrollPane(layout);
         scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         return scroll;
     }
 
@@ -687,11 +691,13 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         VBox layout = new VBox(12);
         layout.getStyleClass().add("page-body");
 
-        // Filter bar Card
-        HBox filterCard = new HBox(12);
-        filterCard.setAlignment(Pos.CENTER_LEFT);
+        // Filter bar Card (Responsive 2-Row Card)
+        VBox filterCard = new VBox(8);
         filterCard.getStyleClass().add("card");
         filterCard.setPadding(new Insets(10, 16, 10, 16));
+
+        HBox row1 = new HBox(10);
+        row1.setAlignment(Pos.CENTER_LEFT);
 
         txtSearchTicket.setPromptText("Tìm mã, phòng, người báo, cán bộ...");
         txtSearchTicket.getStyleClass().add("search-field");
@@ -717,7 +723,19 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         btnRefresh.setTooltip(new Tooltip("Làm mới danh sách"));
         btnRefresh.setOnAction(e -> loadAllTickets());
 
-        filterCard.getChildren().addAll(txtSearchTicket, cbStatusFilter, cbDeptFilter, sp, lblFilterCount, btnRefresh);
+        row1.getChildren().addAll(txtSearchTicket, cbStatusFilter, cbDeptFilter, sp, lblFilterCount, btnRefresh);
+
+        HBox row2 = new HBox(10);
+        row2.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblTimeTag = new Label("Thời gian:");
+        lblTimeTag.getStyleClass().addAll("caption", "muted");
+
+        HBox dateBox = ComponentFactory.createDateFilterBar(dpDateFilter, cbMonthFilter, cbYearFilter, this::applyTicketFilter);
+
+        row2.getChildren().addAll(lblTimeTag, dateBox);
+
+        filterCard.getChildren().addAll(row1, row2);
 
         // Columns
         allTicketsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -917,6 +935,15 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 if (deptSel.contains("TECHNICAL") && !Constants.SPECIALTY_TECHNICAL.equalsIgnoreCase(t.getTargetDepartment())) return false;
                 if (deptSel.contains("MEDICAL") && !Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(t.getTargetDepartment())) return false;
                 if (deptSel.contains("SECURITY") && !Constants.SPECIALTY_SECURITY.equalsIgnoreCase(t.getTargetDepartment())) return false;
+            }
+
+            // Lọc theo ngày / tháng / năm
+            if (!ComponentFactory.matchesDateFilter(
+                    t.getCreatedAt(),
+                    dpDateFilter.getValue(),
+                    cbMonthFilter.getSelectionModel().getSelectedIndex(),
+                    cbYearFilter.getValue())) {
+                return false;
             }
 
             if (!keyword.isEmpty()) {
@@ -1266,7 +1293,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         tableCard.getChildren().addAll(tableTop, userTable);
 
-        layout.getChildren().addAll(formCard, tableCard);
+        // Bọc formCard trong ScrollPane để thích ứng mượt mà với màn hình 13 inch
+        ScrollPane scrollForm = new ScrollPane(formCard);
+        scrollForm.setFitToWidth(true);
+        scrollForm.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
+        scrollForm.setPrefWidth(335);
+        scrollForm.setMinWidth(310);
+
+        layout.getChildren().addAll(scrollForm, tableCard);
         return layout;
     }
 
@@ -1306,7 +1340,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         lUser.setMaxWidth(Double.MAX_VALUE);
 
         Label lRole = new Label("• Vai trò: " + r + (Constants.ROLE_RESPONDER.equals(r) ? " (" + s + ")" : ""));
-        lRole.setStyle("-fx-font-size: 12px; -fx-text-fill: -text-700; -fx-text-overrun: clip;");
+        lRole.setStyle("-fx-font-size: 12px; -fx-text-fill: #4A453A; -fx-text-overrun: clip;");
         lRole.setWrapText(true);
         lRole.setMinHeight(Region.USE_PREF_SIZE);
         lRole.setMaxWidth(Double.MAX_VALUE);

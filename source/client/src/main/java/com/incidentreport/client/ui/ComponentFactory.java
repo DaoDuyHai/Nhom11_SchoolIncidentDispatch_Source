@@ -14,6 +14,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -32,6 +34,7 @@ import javafx.util.Duration;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.net.URL;
+import java.time.LocalDate;
 import java.util.function.Function;
 
 /**
@@ -692,5 +695,124 @@ public class ComponentFactory {
         if (Constants.ROLE_RESPONDER.equalsIgnoreCase(role)) return "Cán bộ chuyên môn phụ trách";
         if (Constants.ROLE_REPORTER.equalsIgnoreCase(role)) return "Giáo viên / Học sinh (Người báo)";
         return role != null ? role : "Người dùng";
+    }
+
+    // =========================================================================
+    // BỘ LỌC THỜI GIAN (NGÀY, THÁNG, NĂM) DÙNG CHUNG
+    // =========================================================================
+    public static HBox createDateFilterBar(DatePicker dpDate, ComboBox<String> cbMonth, ComboBox<String> cbYear, Runnable onFilterChanged) {
+        dpDate.setPromptText("Ngày cụ thể...");
+        dpDate.setPrefWidth(125);
+        dpDate.setStyle("-fx-font-size: 11.5px;");
+
+        cbMonth.getItems().setAll(
+                "Tất cả tháng",
+                "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
+                "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
+                "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+        );
+        cbMonth.getSelectionModel().select(0);
+        cbMonth.setPrefWidth(110);
+        cbMonth.setStyle("-fx-font-size: 11.5px;");
+
+        cbYear.getItems().setAll(
+                "Tất cả năm",
+                "2027", "2026", "2025", "2024"
+        );
+        cbYear.getSelectionModel().select(0);
+        cbYear.setPrefWidth(95);
+        cbYear.setStyle("-fx-font-size: 11.5px;");
+
+        Button btnClear = new Button();
+        btnClear.setGraphic(createIcon("mdi2c-close", 13, Color.web("#8C8677")));
+        btnClear.getStyleClass().addAll("btn-icon", "btn-sm");
+        btnClear.setTooltip(new Tooltip("Xóa bộ lọc thời gian"));
+
+        boolean[] updating = new boolean[]{false};
+
+        dpDate.valueProperty().addListener((obs, old, val) -> {
+            if (updating[0]) return;
+            if (val != null) {
+                updating[0] = true;
+                cbMonth.getSelectionModel().select(val.getMonthValue());
+                String yr = String.valueOf(val.getYear());
+                if (cbYear.getItems().contains(yr)) {
+                    cbYear.getSelectionModel().select(yr);
+                }
+                updating[0] = false;
+            }
+            if (onFilterChanged != null) onFilterChanged.run();
+        });
+
+        cbMonth.setOnAction(e -> {
+            if (updating[0]) return;
+            if (dpDate.getValue() != null) {
+                updating[0] = true;
+                dpDate.setValue(null);
+                updating[0] = false;
+            }
+            if (onFilterChanged != null) onFilterChanged.run();
+        });
+
+        cbYear.setOnAction(e -> {
+            if (updating[0]) return;
+            if (dpDate.getValue() != null) {
+                updating[0] = true;
+                dpDate.setValue(null);
+                updating[0] = false;
+            }
+            if (onFilterChanged != null) onFilterChanged.run();
+        });
+
+        btnClear.setOnAction(e -> {
+            updating[0] = true;
+            dpDate.setValue(null);
+            cbMonth.getSelectionModel().select(0);
+            cbYear.getSelectionModel().select(0);
+            updating[0] = false;
+            if (onFilterChanged != null) onFilterChanged.run();
+        });
+
+        FontIcon calIcon = createIcon("mdi2c-calendar-outline", 14, Color.web("#8A6218"));
+        HBox box = new HBox(6, calIcon, dpDate, cbMonth, cbYear, btnClear);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
+    }
+
+    public static boolean matchesDateFilter(String createdAt, LocalDate pickedDate, int selectedMonthIndex, String selectedYear) {
+        if (createdAt == null || createdAt.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            String datePart = createdAt.trim().split("[ T]")[0]; // "yyyy-MM-dd"
+            String[] ymd = datePart.split("-");
+            if (ymd.length < 3) return true;
+
+            String y = ymd[0];
+            String m = ymd[1];
+
+            // 1. Nếu người dùng chọn ngày cụ thể trên DatePicker
+            if (pickedDate != null) {
+                return datePart.equals(pickedDate.toString());
+            }
+
+            // 2. Lọc theo Năm
+            if (selectedYear != null && !selectedYear.startsWith("Tất cả")) {
+                if (!y.equals(selectedYear.trim())) {
+                    return false;
+                }
+            }
+
+            // 3. Lọc theo Tháng (1..12)
+            if (selectedMonthIndex > 0) {
+                String expectedM = String.format("%02d", selectedMonthIndex);
+                if (!m.equals(expectedM)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ex) {
+            return true;
+        }
     }
 }

@@ -6,8 +6,10 @@ import com.incidentreport.common.Constants;
 import com.incidentreport.common.model.User;
 import com.incidentreport.common.packet.Packet;
 import javafx.application.Application;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 /**
@@ -43,9 +45,9 @@ public class IncidentReportApp extends Application {
                 ComponentFactory.applyTheme(scene);
                 primaryStage.setWidth(width);
                 primaryStage.setHeight(height);
-                primaryStage.centerOnScreen();
             }
             primaryStage.setResizable(resizable);
+            primaryStage.centerOnScreen();
         }
     }
 
@@ -69,7 +71,19 @@ public class IncidentReportApp extends Application {
             primaryStage.setTitle("SIDS - " + titleRole);
         }
 
-        showView(mainView, 1180, 740, true);
+        // Tối ưu kích thước thích ứng (Responsive) theo màn hình laptop 13 inch đến 16 inch:
+        // - Laptop 13 inch (1366x768 hoặc 1920x1080 scaling 150% -> viewport khả dụng ~1280x720):
+        //   Chiều cao tối ưu 640-670px để nằm gọn trên màn hình, không bị taskbar che.
+        // - Laptop 16 inch (1920x1080 scaling 100-125% -> viewport >= 1536x864):
+        //   Cửa sổ mở rộng 1180x740 hoặc phóng to toàn màn hình mượt mà.
+        Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        double targetWidth = Math.min(1180, Math.max(980, bounds.getWidth() * 0.92));
+        double targetHeight = Math.min(740, Math.max(580, bounds.getHeight() * 0.90));
+
+        primaryStage.setMinWidth(960);
+        primaryStage.setMinHeight(560);
+
+        showView(mainView, targetWidth, targetHeight, true);
     }
 
     public static void logout() {
