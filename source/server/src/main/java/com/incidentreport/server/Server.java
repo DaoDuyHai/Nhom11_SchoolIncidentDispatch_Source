@@ -44,9 +44,9 @@ public class Server {
         if (configFile.exists()) {
             try (FileInputStream fis = new FileInputStream(configFile)) {
                 props.load(fis);
-                System.out.println("⚙️ Đã nạp cấu hình từ: " + configFile.getPath());
+                System.out.println("[CONFIG] Đã nạp cấu hình từ: " + configFile.getPath());
             } catch (Exception e) {
-                System.err.println("⚠️ Không thể đọc file cấu hình: " + e.getMessage());
+                System.err.println("[WARN] Không thể đọc file cấu hình: " + e.getMessage());
             }
         }
 
@@ -73,12 +73,12 @@ public class Server {
                     DatabaseConnection.setCustomDbUrl("jdbc:sqlite:" + dbF.getAbsolutePath());
                 }
             }
-            System.out.println("🗄️ CSDL đang sử dụng: " + (DatabaseConnection.getCustomDbUrl() != null
+            System.out.println("[DATABASE] CSDL đang sử dụng: " + (DatabaseConnection.getCustomDbUrl() != null
                     ? DatabaseConnection.getCustomDbUrl()
                     : DatabaseConnection.getDatabaseFile().getAbsolutePath()));
             InitDatabase.initDatabase();
         } catch (Exception e) {
-            System.err.println("⚠️ Kiểm tra CSDL: " + e.getMessage());
+            System.err.println("[WARN] Kiểm tra CSDL: " + e.getMessage());
         }
 
         // 3. Đặt lại trạng thái offline cho toàn bộ người dùng khi Server khởi động
@@ -86,11 +86,11 @@ public class Server {
 
         // 4. Tải danh mục sự cố & quy tắc điều phối vào RAM cache
         CategoryDAO.refreshCache();
-        System.out.println("✅ Đã nạp danh mục sự cố và cấu hình phòng ban vào RAM cache!");
+        System.out.println("[OK] Đã nạp danh mục sự cố và cấu hình phòng ban vào RAM cache!");
 
         // 5. Khởi động TCP ServerSocket
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\n🛑 Đang dừng Server an toàn...");
+            System.out.println("\n[SHUTDOWN] Đang dừng Server an toàn...");
             running = false;
             UserDAO.resetAllUsersOffline();
             try {
@@ -99,12 +99,12 @@ public class Server {
                 }
             } catch (IOException ignored) {}
             clientThreadPool.shutdownNow();
-            System.out.println("👋 Server đã dừng hoàn tất.");
+            System.out.println("[SHUTDOWN] Server đã dừng hoàn tất.");
         }));
 
         try {
             serverSocket = new ServerSocket(port, 250);
-            System.out.printf("🚀 Server đang lắng nghe trên cổng TCP: %d (Max Threads: %d)...\n", port, maxThreads);
+            System.out.printf("[SERVER] Server đang lắng nghe trên cổng TCP: %d (Max Threads: %d)...\n", port, maxThreads);
 
             while (running) {
                 try {
@@ -114,11 +114,11 @@ public class Server {
                     if (!running) {
                         break;
                     }
-                    System.err.println("⚠️ Lỗi accept kết nối: " + e.getMessage());
+                    System.err.println("[WARN] Lỗi accept kết nối: " + e.getMessage());
                 }
             }
         } catch (IOException e) {
-            System.err.println("💥 Không thể mở cổng TCP " + port + ": " + e.getMessage());
+            System.err.println("[ERROR] Không thể mở cổng TCP " + port + ": " + e.getMessage());
         } finally {
             running = false;
             clientThreadPool.shutdown();

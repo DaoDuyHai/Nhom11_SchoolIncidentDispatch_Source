@@ -95,7 +95,7 @@ public class DatabaseConnection {
                         Thread.sleep(200);
                     } catch (InterruptedException ignored) {}
                 } else {
-                    System.err.println("Lỗi kết nối Database: " + e.getMessage());
+                    System.err.println("[ERROR] Lỗi kết nối Database: " + e.getMessage());
                     return null;
                 }
             }

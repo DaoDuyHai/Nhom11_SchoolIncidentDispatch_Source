@@ -8,6 +8,40 @@
 
 ---
 
+# 📑 Mục Lục (Table of Contents)
+
+> [!IMPORTANT]
+> 🚀 **DÀNH CHO GIẢNG VIÊN CHẤM ĐIỂM & TEST NHANH HỆ THỐNG:**  
+> 👉 **[MỤC 10: HƯỚNG DẪN CÀI ĐẶT (INSTALLATION GUIDE)](#10-hướng-dẫn-cài-đặt-installation-guide)** *(Hệ thống tự động sinh CSDL SQLite, nạp sẵn 50 user, 10 sự cố mẫu, 24 tin nhắn chat – Không cần cài MySQL/XAMPP)*  
+> 👉 **[MỤC 11: HƯỚNG DẪN KHỞI CHẠY (RUNNING GUIDE)](#11-hướng-dẫn-khởi-chạy-hệ-thống-running-guide)** *(Khởi chạy 1-Click bằng file script Windows `.bat` hoặc NetBeans `Shift + F6`)*
+
+* [1. Project Information](#1-project-information)
+* [2. Project Summary](#2-project-summary)
+* [3. System Overview](#3-system-overview)
+* [4. System Architecture](#4-system-architecture)
+* [5. Network Communication Design](#5-network-communication-design)
+* [6. Technology Stack](#6-technology-stack)
+* [7. Novelty and Contributions](#7-novelty-and-contributions)
+* [8. Project Structure](#8-project-structure)
+* [9. Requirements](#9-requirements)
+* 🚀 **[10. HƯỚNG DẪN CÀI ĐẶT (INSTALLATION GUIDE) – ⭐ BẮT ĐẦU TẠI ĐÂY](#10-hướng-dẫn-cài-đặt-installation-guide)**
+* ⚡ **[11. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG (RUNNING GUIDE) – ⭐ 1-CLICK RUN](#11-hướng-dẫn-khởi-chạy-hệ-thống-running-guide)**
+* [12. Main Features](#12-main-features)
+* [13. Experimental Setup](#13-experimental-setup)
+* [14. Experimental Results](#14-experimental-results)
+* [15. Discussion](#15-discussion)
+* [16. Limitations](#16-limitations)
+* [17. Future Work](#17-future-work)
+* [18. Report](#18-report)
+* [19. References](#19-references)
+* [20. Team Contribution](#20-team-contribution)
+* [21. Demo](#21-demo)
+* [22. Submission](#22-submission)
+* [23. Final Verification](#23-final-verification)
+* [24. Contact](#24-contact)
+
+---
+
 # 1. Project Information
 
 ## 1.1. Project Name
@@ -27,9 +61,9 @@
 
 | No. | Student ID | Full Name | Email | Main Responsibility | Contribution |
 | :---: | :---: | :--- | :--- | :--- | :---: |
-| 1 | *[Điền MSSV]* | **Đào Duy Hải** (Trưởng nhóm) | `duyhai12121212@gmail.com` | Thiết kế kiến trúc hệ thống, Giao thức nhị phân `0xCAFE`, TCP Server, ThreadPool Dispatcher, Phân hệ Benchmark tự động | 34% |
-| 2 | *[Điền MSSV]* | **[Thành viên 2]** | `member2@email.com` | Thiết kế CSDL SQLite WAL, Tầng DAO, Xử lý giao dịch nguyên tử (Atomic Claim), Mã hóa Salted SHA-256 | 33% |
-| 3 | *[Điền MSSV]* | **[Thành viên 3]** | `member3@email.com` | Phát triển giao diện người dùng JavaFX Desktop (Reporter, Responder, Admin), Giao diện Chat Split-Pane 1-1, Báo cáo & Tài liệu | 33% |
+| 1 | **B23DCCN268** | **Đào Duy Hải** (Trưởng nhóm) | `duyhai12121212@gmail.com` | Thiết kế kiến trúc hệ thống, Giao thức nhị phân `0xCAFE`, TCP Server, ThreadPool Dispatcher, Phân hệ Benchmark tự động | 34% |
+| 2 | **B23DCCN086** | **Phan Thanh Bình** | `binhptit086@gmail.com` | Thiết kế CSDL SQLite WAL, Tầng DAO, Xử lý giao dịch nguyên tử (Atomic Claim), Mã hóa Salted SHA-256 | 33% |
+| 3 | **B23DCCN575** | **Đỗ Hữu Nam** | `namptit575@gmail.com` | Phát triển giao diện người dùng JavaFX Desktop (Reporter, Responder, Admin), Giao diện Chat Split-Pane 1-1, Báo cáo & Tài liệu | 33% |
 | | | | | **Total** | **100%** |
 
 ## 1.4. Instructor
@@ -388,7 +422,6 @@ Dự án **School Incident Dispatch System (SIDS)** tiếp cận bài toán từ
 ```text
 Nhom11_SchoolIncidentDispatch_Source/
 ├── README.md
-├── sids-theme.css
 ├── config/
 ├── database/
 ├── report/
@@ -406,18 +439,30 @@ Nhom11_SchoolIncidentDispatch_Source/
 
 ## Hardware
 
-Hệ thống được thiết kế và kiểm thử thực nghiệm trên mô hình bất đối xứng:
+Hệ thống được thiết kế và kiểm thử thực nghiệm trên 2 môi trường chuyên biệt:
 
-* **Máy Chủ (Server Host - Đối tượng thử nghiệm):**
+### 1. Môi trường Thực nghiệm Đo kiểm Hiệu năng (Benchmark & Stress Test Lab)
+* **Máy Chủ thử nghiệm (Target Server Host - Khảo sát giới hạn):**
   * **CPU:** Intel Core i3 (Tích hợp đồ họa Intel HD Graphics 620, 2 nhân / 4 luồng, xung nhịp ~2.40 GHz).
   * **RAM:** **4 GB RAM** (DDR4).
   * **Ổ đĩa:** 256 GB SSD (Tối thiểu trống 1GB cho file CSDL và ảnh uploads).
-  * **Mạng:** Kết nối qua card mạng Radmin VPN (`26.51.180.99` - cấu hình linh hoạt trong `config/server.properties`).
+  * **HĐH:** Windows 11 64-bit, JDK 17 (Heap: `-Xms256m -Xmx1536m`, G1GC).
+  * *Mục đích nghiên cứu:* Đánh giá khả năng chịu tải, phân vị độ trễ (P50/P95) và tìm kiếm ranh giới ổn định (Breaking Point) của mô hình Socket đa luồng trên phần cứng máy tính văn phòng phổ thông khiêm tốn của trường học.
 * **Máy Trạm Sinh Tải (Benchmark Client Host):**
   * **CPU:** AMD Ryzen 7 (8 nhân / 16 luồng, xung nhịp Turbo Boost ~4.50 - 4.75 GHz).
-  * **RAM:** **25 GB RAM** (Dung lượng lớn để mở hàng trăm đến 1.000 luồng client song song).
+  * **RAM:** **24 - 25 GB RAM** (Dung lượng lớn để mở hàng trăm đến 1.000 luồng client song song).
   * **Ổ đĩa:** 512 GB NVMe M.2 SSD PCIe.
-  * **Mạng:** Kết nối tới máy chủ qua Radmin VPN.
+  * **Mạng:** Kết nối tới máy chủ qua mạng diện rộng Radmin VPN để bắn tải từ 10 đến 1.000 kết nối đồng thời và bão tin nhắn.
+
+### 2. Môi trường Triển khai Trình diễn & Vấn đáp Thực tế (Live Defense & Demo Environment)
+* **Máy Chủ Server (Chủ phòng Radmin VPN - Máy Đào Duy Hải):**
+  * **CPU:** AMD Ryzen 7 6800H / Intel Core i7 (8 nhân / 16 luồng, xung nhịp cao), tích hợp card đồ họa Radeon 680M Graphics.
+  * **RAM:** **24 GB RAM**.
+  * **Mạng:** Radmin VPN Host IP: **`26.51.180.99`** (cổng TCP `5000`), cấu hình sẵn trong `config/server.properties`.
+  * *Mục đích:* Đảm bảo máy chủ vận hành mượt mà, ổn định tuyệt đối trong suốt buổi vấn đáp và bảo vệ đồ án với Thầy cô và Hội đồng.
+* **Máy Client Tham Gia Demo:**
+  * Máy tính cá nhân của các thành viên trong nhóm (Phan Thanh Bình, Đỗ Hữu Nam) hoặc máy trạm bất kỳ kết nối vào mạng Radmin VPN `26.51.180.99` hoặc mạng LAN trường học (chỉ cần cài đặt Java 17, không yêu cầu cấu hình phần cứng).
+  * *Khả năng chạy linh hoạt:* Hệ thống hỗ trợ trình diễn hoàn hảo ngay trên cùng 1 máy tính duy nhất (Single-machine Demo) bằng cách mở 1 Server và mở nhiều cửa sổ Client (`Shift + F6`) kết nối qua `127.0.0.1` hoặc IP Radmin.
 
 ## Software
 
@@ -431,177 +476,102 @@ Hệ thống được thiết kế và kiểm thử thực nghiệm trên mô h�
 
 # 10. Hướng Dẫn Cài Đặt (Installation Guide)
 
-> [!IMPORTANT]
-> **TÍNH TƯƠNG THÍCH & ĐỘC LẬP CAO (PORTABLE SYSTEM):**
-> * Dự án được chuẩn hóa theo mô hình **Maven Multi-Module**. Bất kỳ máy tính nào clone về cũng có thể mở và chạy được ngay.
-> * **Không cần cài đặt CSDL rời (như MySQL hay PostgreSQL hay XAMPP):** Dự án sử dụng SQLite file-based (`sqlite-jdbc`), hệ thống tự động nhận diện, tự tạo file database và nạp dữ liệu mẫu ban đầu.
-> * **Không cần cài đặt JavaFX SDK ngoài vào hệ điều hành:** Toàn bộ thư viện đồ họa JavaFX 17, bộ Icon Ikonli, Gson... đã được khai báo sẵn trong Maven dependencies và được tự động tải về máy.
-> * **Tự động nhận diện Maven (Không lo bị lẫn sang Ant):** Dự án chỉ chứa `pom.xml`, hoàn toàn không có file `build.xml` của Ant. Khi mở thư mục `source` trên IDE (NetBeans, IntelliJ), IDE sẽ **tự động 100% nhận diện là Maven Project**.
+> [!TIP]
+> **Không cần cài đặt CSDL rời (Zero Config):** Hệ thống dùng CSDL nhúng SQLite tự động sinh file `incident_report.db` và nạp sẵn 50 tài khoản, 10 sự cố mẫu khi chạy Server lần đầu. **Tuyệt đối không cần cài MySQL, PostgreSQL hay XAMPP**.
 
----
+### 10.1. Yêu cầu môi trường
+* **Java:** JDK 17 LTS trở lên.
+* **IDE (Khuyên dùng):** Apache NetBeans (12 - 20+) hoặc IntelliJ IDEA / VS Code.
 
-## 10.1. Yêu Cầu Môi Trường (Prerequisites)
-
-Trước khi khởi chạy, máy tính của bạn chỉ cần đáp ứng 2 yêu cầu kỹ thuật cơ bản:
-1. **Java Development Kit (JDK):** Phiên bản **Java 17 LTS trở lên** (khuyên dùng Oracle OpenJDK 17, Eclipse Temurin 17, hoặc Amazon Corretto 17).
-2. **Môi trường phát triển (IDE):**
-   * **Apache NetBeans (từ bản 12 đến 20+)** *(Khuyến nghị tối đa - phù hợp nhất với học phần)*.
-   * Hoặc **IntelliJ IDEA** (Community / Ultimate).
-   * Hoặc **Visual Studio Code** (cài Java Extension Pack).
-3. **Kết nối mạng Internet (Chỉ cần trong lần biên dịch đầu tiên):** Để Maven tự động tải các gói thư viện (`.jar`) từ kho Maven Central về thư mục `.m2` trên máy. Sau lần đầu này, hệ thống chạy **offline hoàn toàn**.
-
----
-
-## 10.2. Tải Mã Nguồn (Clone / Download)
-
-Tải toàn bộ thư mục dự án về máy tính:
-
+### 10.2. Tải mã nguồn
 ```bash
-git clone https://github.com/[your-repo]/Nhom11_SchoolIncidentDispatch_Source.git
-cd Nhom11_SchoolIncidentDispatch_Source
+git clone https://github.com/DaoDuyHai/SchoolIncidentDispatch.git
+cd SchoolIncidentDispatch
 ```
+*(Hoặc tải file `.zip` từ GitHub về và giải nén).*
 
----
-
-## 10.3. Mở Dự Án Trong IDE (Quan Trọng Nhất)
-
-> [!WARNING]
-> **QUY TẮC MỞ THƯ MỤC CHUẨN:**
-> * Bạn phải mở đúng thư mục con **`source`** (nơi chứa file `pom.xml` cha quản lý 5 module).
-> * **KHÔNG** mở thư mục bọc ngoài cùng `Nhom11_SchoolIncidentDispatch_Source`, vì IDE sẽ không nhận diện được ngay cấu trúc Maven Multi-Module.
-
-### Thao tác trên Apache NetBeans:
-1. Khởi động **Apache NetBeans**.
-2. Trên thanh menu, chọn **File $\rightarrow$ Open Project...** (hoặc tổ hợp phím `Ctrl + Shift + O`).
-3. Điều hướng và chọn đúng thư mục **`source`** trong thư mục dự án:
+### 10.3. Mở dự án trong Apache NetBeans
+1. Mở NetBeans $\rightarrow$ chọn **File $\rightarrow$ Open Project...** (hoặc `Ctrl + Shift + O`).
+2. Chọn đúng thư mục con **`source`** bên trong dự án:
    ```text
    📁 Nhom11_SchoolIncidentDispatch_Source/
-       └── 📁 source/   <--- [CHỌN THƯ MỤC NÀY ĐỂ MỞ]
-            ├── 📄 pom.xml (Parent POM)
-            ├── 📁 common/
-            ├── 📁 service/
-            ├── 📁 server/
-            ├── 📁 client/
-            └── 📁 benchmark/
+       └── 📁 source/   <--- [CHỌN ĐÚNG THƯ MỤC NÀY ĐỂ MỞ]
    ```
-4. NetBeans sẽ tự động hiển thị biểu tượng dự án có **chữ `m` nhỏ màu xanh** (Maven). Nhấn nút **Open Project**.
-5. Cây dự án sẽ hiện ra gồm 1 dự án gốc **`incident-report-system`** và 5 sub-modules đi kèm (`common`, `service`, `server`, `client`, `benchmark`).
-
----
-
-## 10.4. Tải Thư Viện Tự Động & Biên Dịch (Clean and Build)
-
-1. **Biên dịch lần đầu:**
-   * Trong cửa sổ **Projects** của NetBeans, nhấp chuột phải vào dự án gốc **`incident-report-system`**.
-   * Chọn **Clean and Build**.
-   * Maven sẽ tự động kết nối Internet, tải toàn bộ thư viện JavaFX, SQLite, Ikonli, Gson về máy và biên dịch tất cả các module.
-   * Chờ khoảng 30–60 giây cho đến khi khung Output thông báo:
-     ```text
-     [INFO] Reactor Summary for incident-report-system 1.0-SNAPSHOT:
-     [INFO] incident-report-system ............................. SUCCESS
-     [INFO] common ............................................. SUCCESS
-     [INFO] service ............................................ SUCCESS
-     [INFO] server ............................................. SUCCESS
-     [INFO] client ............................................. SUCCESS
-     [INFO] benchmark .......................................... SUCCESS
-     [INFO] BUILD SUCCESS
-     ```
-
-2. **Nếu NetBeans hiện thông báo màu vàng "Resolve Project Problems":**
-   * Đây là hiện tượng bình thường khi clone dự án Maven mới về máy.
-   * Bạn chỉ cần bấm vào nút **Resolve...** trên thông báo $\rightarrow$ bấm **Resolve Problems**, IDE sẽ tự động kích hoạt Maven tải đầy đủ thư viện.
-
----
-
-## 10.5. Cơ Chế Khởi Tạo Cơ Sở Dữ Liệu Tự Động (Database Auto-Init)
-
-* Bạn **hoàn toàn không cần cài đặt phần mềm quản lý CSDL riêng** (không cần cài MySQL, PostgreSQL, XAMPP hay chạy script SQL thủ công).
-* Khi Server khởi động lần đầu:
-  * Hệ thống tự động kiểm tra sự tồn tại của file `database/incident_report.db`.
-  * Nếu chưa có, lớp [`InitDatabase.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/service/src/main/java/com/incidentreport/service/InitDatabase.java) sẽ tự động nạp cấu trúc bảng từ `database/schema.sql` và nạp sẵn 50 tài khoản người dùng mẫu từ `database/seed_data.sql`.
-* **Cách reset dữ liệu về trạng thái ban đầu:** Nếu sau khi test muốn xóa sạch các sự cố cũ để bắt đầu lại, chỉ cần xóa file `database/incident_report.db` và khởi động lại Server.
+3. Bấm **Open Project**. Cây dự án gồm `incident-report-system` và 5 modules con sẽ hiển thị đầy đủ.
+4. Chuột phải vào `incident-report-system` $\rightarrow$ chọn **Clean and Build** để tải thư viện lần đầu.
 
 ---
 
 # 11. Hướng Dẫn Khởi Chạy Hệ Thống (Running Guide)
 
 > [!IMPORTANT]
-> **THỨ TỰ KHỞI CHẠY BẮT BUỘC:**
-> 1. **Khởi động Máy chủ (`Server.java`) TRƯỚC.**
-> 2. **Khởi động Giao diện Người dùng (`Main.java` / `IncidentReportApp.java`) SAU.**
+> **Quy tắc:** Bật **Server** trước $\rightarrow$ Bật **Client** sau.
 
 ---
 
-## 11.1. Bước 1: Khởi Động Server
-
-### Cách 1: Chạy trực tiếp từ giao diện NetBeans (Khuyên dùng)
-1. Trong cửa sổ **Projects**, mở rộng module **`server`** $\rightarrow$ mở thư mục **`Source Packages`** $\rightarrow$ `com.incidentreport.server`.
-2. Nhấp chuột phải vào file **[`Server.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/server/src/main/java/com/incidentreport/server/Server.java)** $\rightarrow$ Chọn **Run File** (hoặc nhấn phím tắt **`Shift + F6`**).
-3. Khung Output sẽ xuất hiện thông báo máy chủ sẵn sàng:
-   ```text
-   ℹ️ Cơ sở dữ liệu SQLite đã sẵn sàng (giữ nguyên toàn bộ dữ liệu hiện có).
-   🚀 Server đang lắng nghe trên cổng TCP: 5000 (Max Threads: 500)...
-   ```
-
-### Cách 2: Chạy qua dòng lệnh Terminal (CLI)
-Từ thư mục `source`, thực hiện lệnh:
-```bash
-mvn exec:java -pl server -Dexec.mainClass="com.incidentreport.server.Server"
-```
+## 🚀 Cách 1: Khởi Chạy 1-Click Bằng File Script (Nhanh Nhất - Khuyên Dùng)
+Tại thư mục gốc dự án:
+1. **Bật Server:** Nhấp đúp chuột vào file **`run_server.bat`** (mở cổng Socket `5000`).
+2. **Bật Client:** Nhấp đúp chuột vào file **`run_client.bat`** (mở giao diện đăng nhập).
+   * *Mở nhiều Client:* Nhấp đúp **`run_client.bat` thêm nhiều lần** để mở 2-3 cửa sổ đăng nhập các vai trò khác nhau (Giáo viên, Kỹ thuật, Ban Giám Hiệu) để quan sát tính năng đẩy sự cố tức thời và chat 1-1.
 
 ---
 
-## 11.2. Bước 2: Khởi Động Client (Giao diện JavaFX)
+## 💻 Cách 2: Khởi Chạy Trực Tiếp Trên Apache NetBeans
+1. **Chạy Server:** Mở module **`server`** $\rightarrow$ `Source Packages` $\rightarrow$ Chuột phải **[`Server.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/server/src/main/java/com/incidentreport/server/Server.java)** $\rightarrow$ Chọn **Run File** (`Shift + F6`).
+2. **Chạy Client:** Mở module **`client`** $\rightarrow$ `Source Packages` $\rightarrow$ Chuột phải **[`Main.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/client/src/main/java/com/incidentreport/client/Main.java)** $\rightarrow$ Chọn **Run File** (`Shift + F6`). (Bấm thêm lần nữa nếu muốn mở thêm Client).
 
-### Cách 1: Chạy trực tiếp từ giao diện NetBeans
-1. Trong cửa sổ **Projects**, mở rộng module **`client`** $\rightarrow$ mở thư mục **`Source Packages`** $\rightarrow$ `com.incidentreport.client`.
-2. Nhấp chuột phải vào file **[`Main.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/client/src/main/java/com/incidentreport/client/Main.java)** (hoặc [`IncidentReportApp.java`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/source/client/src/main/java/com/incidentreport/client/IncidentReportApp.java)) $\rightarrow$ Chọn **Run File** (**`Shift + F6`**).
-3. Cửa sổ ứng dụng Desktop JavaFX với giao diện sang trọng "Sổ trực nhà trường" sẽ xuất hiện ngay lập tức.
+---
 
-### Cách 2: Chạy qua lệnh Maven JavaFX Plugin
-Từ thư mục `source`, thực hiện lệnh:
+## ⌨️ Cách 3: Khởi Chạy Bằng Lệnh Terminal (Maven CLI)
+Mở Terminal tại thư mục **`source`**:
 ```bash
+# 1. Khởi động Server:
+mvn exec:java -pl server
+
+# 2. Khởi động Client (Giao diện JavaFX):
 mvn javafx:run -pl client
+
+# 3. Chạy 26 bài test tự động (JUnit 5):
+mvn test
+
+# 4. Chạy phân hệ đo lường hiệu năng (Benchmark Suite):
+mvn exec:java -pl benchmark
 ```
 
 ---
 
-## 11.3. Bước 3: Mở Nhiều Client Đồng Thời Để Test Tính Năng Mạng
+## 🔑 Danh Sách Tài Khoản Dùng Thử
+> **Mật khẩu chung cho tất cả tài khoản:** `123456`
 
-Để kiểm chứng toàn bộ sức mạnh của hệ thống (Báo sự cố $\rightarrow$ Server Push tự động $\rightarrow$ Kỹ thuật viên nhận việc $\rightarrow$ Chat 1-1 $\rightarrow$ Nghiệm thu $\rightarrow$ BGH Giám sát), bạn có thể **Run file `Main.java` nhiều lần** để mở nhiều cửa sổ cùng lúc trên một màn hình:
-
-* **Cửa sổ 1 (Giáo viên báo sự cố - REPORTER):**
-  * Đăng nhập: `gv_lan` / Mật khẩu: `123456` (Cô Trần Thị Lan - GVCN 10A2).
-  * Thao tác: Báo sự cố hỏng máy chiếu phòng A201 $\rightarrow$ Theo dõi trạng thái ca.
-* **Cửa sổ 2 (Kỹ thuật viên - RESPONDER):**
-  * Đăng nhập: `kt_tuan` / Mật khẩu: `123456` (Anh Hoàng Văn Tuấn - Kỹ thuật điện 1).
-  * Thao tác: Lập tức nghe chuông báo động và nhận pop-up sự cố $\rightarrow$ Bấm tiếp nhận $\rightarrow$ Nhắn tin 1-1 với cô Lan $\rightarrow$ Nghiệm thu hoàn tất.
-* **Cửa sổ 3 (Ban Giám Hiệu - ADMIN):**
-  * Đăng nhập: `admin_bgh` / Mật khẩu: `123456` (Thầy Nguyễn Văn An - Hiệu trưởng).
-  * Thao tác: Giám sát toàn bộ sự cố thời gian thực $\rightarrow$ Phân công chỉ định cán bộ $\rightarrow$ Xuất báo cáo thống kê ra file Excel CSV có UTF-8 BOM.
+| Vai trò | Tên đăng nhập | Họ tên / Chức danh | Tính năng trải nghiệm |
+| :--- | :--- | :--- | :--- |
+| **`ADMIN`** | **`admin_bgh`** | Thầy Nguyễn Văn An (Hiệu trưởng) | Giám sát toàn trường, chỉ định cán bộ, thống kê & xuất CSV. |
+| **`REPORTER`** | **`gv_lan`** | Cô Trần Thị Lan (GVCN 10A2) | Báo sự cố kèm ảnh, theo dõi tiến độ, chat 1-1 với kỹ thuật. |
+| **`REPORTER`** | **`gv_hung`** | Thầy Đỗ Quốc Hùng (GVCN 11A1) | Báo hỏng thiết bị, hủy báo cáo nhầm (`PENDING`). |
+| **`RESPONDER`** | **`kt_tuan`** | Anh Hoàng Văn Tuấn (Kỹ thuật điện) | Nhận thông báo Push, nhận việc nguyên tử (Claim), chat cứu hộ. |
+| **`RESPONDER`** | **`yte_mai`** | Chị Nguyễn Mai Anh (Y tế học đường) | Nhận sự cố y tế, sơ cứu học sinh, cập nhật hoàn tất. |
+| **`RESPONDER`** | **`bv_son`** | Bác Lê Đình Sơn (Tổ trưởng Bảo vệ) | Nhận sự cố an ninh, trật tự trường học. |
 
 ---
 
-## 11.4. Chạy Bộ Kiểm Thử Tự Động (Automated Testing)
-
-* **Chạy Unit & Integration Tests (JUnit 5):**
-  * Trong NetBeans: Nhấp chuột phải vào dự án gốc `incident-report-system` $\rightarrow$ Chọn **Test**.
-  * Dòng lệnh: `mvn test` (tại thư mục `source`).
-  * Tất cả các kịch bản kiểm thử (Đóng gói nhị phân `0xCAFE`, Tranh chấp nguyên tử SQLite WAL, Xác thực Salted SHA-256) sẽ chạy tự động và thông báo `BUILD SUCCESS`.
-
-* **Chạy Phân Hệ Đo Lường Hiệu Năng (Benchmark Suite):**
-  * Mở module **`benchmark`** $\rightarrow$ `com.incidentreport.benchmark` $\rightarrow$ Chuột phải vào **`BenchmarkSuite.java`** $\rightarrow$ Chọn **Run File** (**`Shift + F6`**).
+## 🌐 Cấu Hình IP Kết Nối (Localhost & Radmin VPN)
+* **Chạy trên 1 máy (Localhost):** Giữ nguyên mặc định `127.0.0.1:5000` trên màn hình đăng nhập.
+* **Chạy 2 máy qua Radmin VPN:**
+  * Bấm nút **`🌐 Radmin VPN`** trên giao diện đăng nhập để tự động điền IP Host: **`26.51.180.99`**.
+  * Nếu đổi sang IP khác, sửa tại file [`config/server.properties`](file:///d:/Filecode/Laptrinhmang/Nhom11_SchoolIncidentDispatch_Source/config/server.properties):
+    ```properties
+    radmin.server.host=26.51.180.99
+    ```
 
 ---
 
-## 11.5. Xử Lý Sự Cố Thường Gặp (Troubleshooting & FAQs)
-
-| Vấn đề gặp phải | Nguyên nhân | Cách khắc phục triệt để |
-| :--- | :--- | :--- |
-| **Báo lỗi `Address already in use: bind` khi chạy Server** | Cổng 5000 đang bị chiếm bởi một phiên chạy Server trước đó chưa tắt hoặc ứng dụng khác. | 1. Tắt tiến trình Java cũ trong Task Manager.<br>2. Hoặc sửa port trong file `config/server.properties`: đổi `server.port=5000` thành `5001`. |
-| **NetBeans báo lỗi đỏ ở các từ khóa cú pháp Java 17** | NetBeans đang trỏ nhầm JDK cũ (JDK 8 hoặc JDK 11). | Vào Menu **Tools $\rightarrow$ Java Platforms** $\rightarrow$ Thêm JDK 17 $\rightarrow$ Chuột phải vào dự án chọn **Properties $\rightarrow$ Sources $\rightarrow$ Source/Binary Format: chọn 17**. |
-| **Không thấy các sub-modules sau khi Open Project** | Bạn đã mở nhầm thư mục bọc ngoài cùng thay vì mở thư mục `source`. | Đóng project lại $\rightarrow$ Vào **File $\rightarrow$ Open Project** $\rightarrow$ Chọn đúng thư mục con **`source`**. |
-| **Báo lỗi thiếu file `.db` hoặc không lưu được dữ liệu** | Thư mục chưa được cấp quyền ghi file. | Đảm bảo thư mục dự án nằm ở phân vùng đĩa thông thường (như ổ `D:\` hoặc thư mục người dùng), không để trong thư mục hệ thống hạn chế quyền (`Program Files`). |
+## 🛠️ Xử Lý Sự Cố Thường Gặp (FAQs)
+| Vấn đề | Cách xử lý nhanh |
+| :--- | :--- |
+| **Lỗi `Address already in use: bind`** | Cổng 5000 đang mở dở. Tắt tiến trình Java trong Task Manager hoặc đổi cổng trong `config/server.properties`. |
+| **Không thấy các sub-modules** | Đã mở nhầm thư mục bọc ngoài. Chọn lại **File $\rightarrow$ Open Project** $\rightarrow$ chọn đúng thư mục con **`source`**. |
+| **NetBeans báo đỏ cú pháp Java 17** | Vào **Tools $\rightarrow$ Java Platforms** $\rightarrow$ thêm JDK 17 $\rightarrow$ Chuột phải project chọn Properties $\rightarrow$ chọn Source 17. |
 
 ---
 
@@ -845,7 +815,7 @@ Các định hướng nâng cấp tiếp theo:
 
 * Báo cáo đầy đủ được biên soạn chuẩn cấu trúc Technical Paper khoa học theo đúng quy định của môn học:
   ```text
-  report/report.pdf
+  report/Nhom11_SchoolIncidentDispatch_Report.pdf
   ```
   *(Phiên bản Word phục vụ nộp Compilatio: `Nhom11_SchoolIncidentDispatch_Report.docx`)*
 * Báo cáo đã được kiểm tra trên hệ thống **Compilatio** và cam kết:
@@ -866,12 +836,12 @@ Các định hướng nâng cấp tiếp theo:
 
 # 20. Team Contribution
 
-| Student | Main Contribution | Percentage |
-| :--- | :--- | :---: |
-| **Đào Duy Hải** | Kiến trúc hệ thống, Giao thức nhị phân `0xCAFE`, TCP Server, ThreadPool Dispatcher, Phân hệ Benchmark tự động | 34% |
-| **[Thành viên 2]** | Thiết kế CSDL SQLite WAL, Tầng DAO, Xử lý giao dịch nguyên tử (Atomic Claim), Mã hóa Salted SHA-256 | 33% |
-| **[Thành viên 3]** | Phát triển giao diện người dùng JavaFX Desktop (Reporter, Responder, Admin), Giao diện Chat Split-Pane 1-1, Báo cáo & Tài liệu | 33% |
-| **Total** | | **100%** |
+| Student | Student ID | Main Contribution | Percentage |
+| :--- | :---: | :--- | :---: |
+| **Đào Duy Hải** (Trưởng nhóm) | **B23DCCN268** | Kiến trúc hệ thống, Giao thức nhị phân `0xCAFE`, TCP Server, ThreadPool Dispatcher, Phân hệ Benchmark tự động | 34% |
+| **Phan Thanh Bình** | **B23DCCN086** | Thiết kế CSDL SQLite WAL, Tầng DAO, Xử lý giao dịch nguyên tử (Atomic Claim), Mã hóa Salted SHA-256 | 33% |
+| **Đỗ Hữu Nam** | **B23DCCN575** | Phát triển giao diện người dùng JavaFX Desktop (Reporter, Responder, Admin), Giao diện Chat Split-Pane 1-1, Báo cáo & Tài liệu | 33% |
+| **Total** | | | **100%** |
 
 ---
 
@@ -879,30 +849,35 @@ Các định hướng nâng cấp tiếp theo:
 
 ## Demo Environment
 
-* **Máy Server:** Laptop chạy Windows 11, CPU Intel Core i3, RAM 4GB, IP VPN `26.51.180.99:5000` (cấu hình trong `config/server.properties`).
-* **Máy Client:** Laptop chạy Windows 11, CPU AMD Ryzen 7, RAM 25GB, kết nối qua mạng Radmin VPN.
-* **Số lượng Client tham gia demo:** 3 cửa sổ Client đồng thời (1 Giáo viên, 1 Kỹ thuật viên, 1 Ban Giám Hiệu).
+* **Máy Server (Chủ host phòng Radmin VPN - Máy Đào Duy Hải):** Laptop chạy Windows 11 64-bit, CPU AMD Ryzen 7 6800H / Intel Core i7 (8 nhân / 16 luồng), card đồ họa Radeon 680M Graphics, **24 GB RAM**. Địa chỉ IP Radmin VPN: **`26.51.180.99:5000`** (cấu hình trong `config/server.properties`).
+* **Máy Client tham gia demo:** Laptop của các thành viên trong nhóm (Phan Thanh Bình, Đỗ Hữu Nam) kết nối qua mạng Radmin VPN `26.51.180.99`.
+* **Khả năng chạy thử nghiệm độc lập trên 1 máy (Single-machine Demo):** Thầy cô hoàn toàn có thể chạy cả Server và mở 2 đến 3 cửa sổ Client song song trên cùng một chiếc laptop thông qua địa chỉ IP `127.0.0.1` (Localhost) hoặc `26.51.180.99`.
+* **Số lượng Client tham gia demo:** 3 vai trò độc lập tương tác qua lại đồng thời:
+  * 1 Giáo viên báo sự cố (`REPORTER` - `gv_lan` / `123456`)
+  * 1 Kỹ thuật viên ứng cứu (`RESPONDER` - `kt_tuan` / `123456`)
+  * 1 Thầy Hiệu trưởng giám sát (`ADMIN` - `admin_bgh` / `123456`)
 
 ## Demo Steps
 
 ### Bước 1: Khởi động Máy chủ TCP Trung tâm
-* Trên NetBeans: Mở module **`server`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.server` $\rightarrow$ Chuột phải **`Server.java`** chọn **`Run File`** (**`Shift + F6`**).
-* Cửa sổ console hiển thị: `✅ [TCP SERVER] Đang lắng nghe kết nối trên cổng TCP 5000... Máy chủ sẵn sàng tiếp nhận điều phối!`.
+* **Cách 1 (Script):** Nhấp đúp chuột vào file **`run_server.bat`**.
+* **Cách 2 (NetBeans):** Mở module **`server`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.server` $\rightarrow$ Chuột phải **`Server.java`** chọn **`Run File`** (**`Shift + F6`**).
+* Cửa sổ console hiển thị: `🚀 Server đang lắng nghe trên cổng TCP: 5000 (Max Threads: 250)... Máy chủ sẵn sàng tiếp nhận điều phối!`.
 
 ### Bước 2: Giáo viên gửi Báo cáo sự cố chập điện có Ảnh hiện trường
-* Trên NetBeans: Mở module **`client`** $\rightarrow$ `Source Packages` $\rightarrow$ `com.incidentreport.client` $\rightarrow$ Chuột phải **`IncidentReportApp.java`** chọn **`Run File`** (**`Shift + F6`**).
-* Đăng nhập tài khoản Giáo viên Cô Lan: `gv_lan` / `123456`.
+* **Khởi động Client:** Nhấp đúp **`run_client.bat`** (hoặc nhấn `Shift + F6` trên `Main.java` / `IncidentReportApp.java`).
+* Đăng nhập tài khoản Giáo viên Cô Lan: **`gv_lan`** / Mật khẩu: **`123456`**.
 * Tại tab *"Báo sự cố mới"*:
   * Vị trí: `Phòng A201 (Tầng 2 nhà A)`.
   * Danh mục: `Sự cố Điện nguy hiểm`.
   * Tiêu đề: `Chập át-tô-mát góc cuối lớp`.
-  * Mô tả: `Cầu dao bốc khói khét và phát tia lửa điện`.
+  * Mô tả: `Cầu dao bốc khói khét và phát tia lửa điện nguy hiểm`.
   * Chọn ảnh hiện trường: Đính kèm file ảnh JPEG 250KB.
   * Bấm **"Gửi Báo Cáo"**. Máy chủ tiếp nhận sau ~300ms và cấp mã vé `TK-xxxx`.
 
 ### Bước 3: Server Push & Kỹ thuật viên Nhận việc (Claim Task)
-* Trên NetBeans: Chuột phải **`IncidentReportApp.java`** chọn **`Run File`** (**`Shift + F6`**) thêm một lần nữa để mở cửa sổ Client thứ hai.
-* Đăng nhập tài khoản Kỹ thuật viên: `kt_tuan` / `123456`.
+* Mở thêm một cửa sổ Client thứ hai (nhấp đúp `run_client.bat` hoặc nhấn `Shift + F6`).
+* Đăng nhập tài khoản Kỹ thuật viên: **`kt_tuan`** / Mật khẩu: **`123456`**.
 * Tab *"Chờ tiếp nhận"* của anh Tuấn lập tức xuất hiện sự cố phòng A201 (nhờ cơ chế Server Push $<1\text{ ms}$). Các tài khoản Y tế và Bảo vệ hoàn toàn không bị làm phiền.
 * Anh Tuấn nhấn nút **"Nhận việc"** $\rightarrow$ Sự cố chuyển sang trạng thái `IN_PROGRESS` và gán cho `kt_tuan`. Nếu có kỹ thuật viên khác cùng bấm, người đó sẽ nhận thông báo an toàn `ALREADY_TAKEN`.
 
@@ -910,14 +885,14 @@ Các định hướng nâng cấp tiếp theo:
 * Cả 2 cửa sổ Client chuyển sang tab **"Trò chuyện (Chat)"**. Phiên chat tương ứng với sự cố phòng A201 xuất hiện chấm đỏ báo tin nhắn mới.
 * Anh Tuấn nhắn: *"Em đang chuẩn bị đồ nghề lên tầng 2, cô ngắt át phụ hành lang giúp em trước nhé!"*.
 * Cô Lan nhắn lại: *"Cô vừa ngắt rồi Tuấn nhé!"*.
-* Tin nhắn hiển thị dạng bong bóng tức thì với độ trễ $< 1\text{ ms}$.
+* Tin nhắn hiển thị dạng bong bóng tức thì với độ trễ $< 1\text{ ms}$ (chuyển tiếp trực tiếp trong RAM).
 
 ### Bước 5: Nghiệm thu & Tự động khóa phiên chat an toàn
 * Anh Tuấn sửa xong át-tô-mát, cập nhật trạng thái sự cố sang **"Hoàn thành" (RESOLVED)** kèm ghi chú nghiệm thu.
 * Khung chat hiển thị thanh thông báo: `🔒 Sự cố đã hoàn tất. Phiên chat đã đóng.` và tự động vô hiệu hóa ô nhập liệu để bảo toàn chứng cứ kiểm toán.
 
 ### Bước 6: Ban Giám Hiệu (Admin) Giám sát & Xuất báo cáo CSV
-* Mở thêm cửa sổ Client thứ ba trên NetBeans (`Shift + F6` trên `IncidentReportApp.java`) $\rightarrow$ Đăng nhập Hiệu trưởng: `admin_bgh` / `123456`.
+* Mở thêm cửa sổ Client thứ ba $\rightarrow$ Đăng nhập Hiệu trưởng: **`admin_bgh`** / Mật khẩu: **`123456`**.
 * Gõ tìm kiếm `A201` $\rightarrow$ Bảng tự động lọc tức thì sự cố phòng A201.
 * Sang tab Thống kê $\rightarrow$ Chọn chu kỳ `Hôm nay (DAY)` $\rightarrow$ Nhấn **"Xuất Báo Cáo (CSV)"**. File CSV được tạo với chuẩn mã hóa UTF-8 BOM, mở trên Microsoft Excel hiển thị tiếng Việt sắc nét.
 
@@ -931,7 +906,8 @@ Toàn bộ thư mục Source Code hoàn chỉnh được đặt tên chuẩn m�
 ```text
 Nhom11_SchoolIncidentDispatch_Source/
 ```
-Được nén hoặc tải lên **Google Drive** theo đường link do Giảng viên chỉ định.
+Được nén hoặc tải lên **GitHub / Google Drive** theo đường link do Giảng viên chỉ định:
+* **GitHub Repository:** `https://github.com/DaoDuyHai/SchoolIncidentDispatch.git`
 
 ## Report
 
@@ -939,7 +915,7 @@ File báo cáo bản mềm nộp trên Compilatio được đặt tên theo đú
 ```text
 Nhom11_SchoolIncidentDispatch_Report.docx
 ```
-*(Bản PDF đính kèm trong thư mục: `report/report.pdf`)*
+*(Bản PDF đính kèm trong thư mục: `report/Nhom11_SchoolIncidentDispatch_Report.pdf`)*
 
 ## Gói Bàn Giao Cuối Cùng Cho Lớp Trưởng Nộp USB
 
@@ -954,9 +930,9 @@ Nhom11_SchoolIncidentDispatch/
 
 * [x] Source code hoàn chỉnh các module (`common`, `service`, `server`, `client`, `benchmark`).
 * [x] File tài liệu `README.md` đầy đủ 24 mục theo đúng chuẩn của giảng viên.
-* [x] File báo cáo nghiên cứu `report/report.pdf` (và `.docx`).
+* [x] File báo cáo nghiên cứu `report/Nhom11_SchoolIncidentDispatch_Report.pdf` (và `.docx`).
 * [x] Thư mục cấu hình `config/` đầy đủ file properties.
-* [x] Thư mục CSDL `database/` với `schema.sql`, `seed_data.sql`, `incident_report.db` và `test_incident_report.db`.
+* [x] Thư mục CSDL `database/` chứa `schema.sql`, `seed_data.sql` (Tự động khởi tạo và nạp dữ liệu vào `incident_report.db` ngay khi chạy).
 * [x] Bộ kiểm thử tự động JUnit 5 và phân hệ đo lường Benchmark Suite.
 
 ---
@@ -974,7 +950,7 @@ Bảng kiểm tra rà soát trước giờ nộp bài:
 [x] Có protocol/message format rõ ràng (Đóng khung nhị phân 0xCAFE)
 [x] Có concurrency (ExecutorService ThreadPool, ConcurrentHashMap, CountDownLatch)
 [x] Có error handling toàn diện (readFully, Magic check, buffer limit, timeout)
-[x] Project chạy được 100% mượt mà trên Apache NetBeans (Shift + F6)
+[x] Project chạy được 100% mượt mà trên Apache NetBeans (Shift + F6) và lệnh Maven
 [x] README đầy đủ 24 mục, không còn bất kỳ ký tự placeholder '...' nào
 [x] Có test cases tự động JUnit 5 cách ly dữ liệu
 [x] Có experiment thực nghiệm đa kịch bản
@@ -992,6 +968,9 @@ Bảng kiểm tra rà soát trước giờ nộp bài:
 # 24. Contact
 
 Mọi thắc mắc kỹ thuật hoặc yêu cầu kiểm tra mã nguồn, vui lòng liên hệ:
-* **Trưởng nhóm:** Đào Duy Hải – Email: `duyhai12121212@gmail.com`
-* **Nhóm sinh viên thực hiện:** Nhóm 11 – Lớp Lập trình Mạng, Năm học 2026–2027
+* **Trưởng nhóm:** **Đào Duy Hải** (B23DCCN268) – Email: `duyhai12121212@gmail.com`
+* **Thành viên:**
+  * **Phan Thanh Bình** (B23DCCN086) – Email: `binhptit086@gmail.com`
+  * **Đỗ Hữu Nam** (B23DCCN575) – Email: `namptit575@gmail.com`
+* **Nhóm sinh viên thực hiện:** Nhóm 11 – Lớp Lập trình Mạng, Học viện Công nghệ Bưu chính Viễn thông (PTIT)
 * **Giảng viên phụ trách học phần:** Bộ môn Mạng máy tính & Truyền thông dữ liệu.

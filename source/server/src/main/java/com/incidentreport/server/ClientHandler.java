@@ -110,7 +110,7 @@ public class ClientHandler implements Runnable {
             // Client ngắt kết nối bình thường
         } catch (Exception e) {
             if (running) {
-                System.out.printf("ℹ️ Client ngắt kết nối: %s (%s)\n", socket.getRemoteSocketAddress(), e.getMessage());
+                System.out.printf("[INFO] Client ngắt kết nối: %s (%s)\n", socket.getRemoteSocketAddress(), e.getMessage());
             }
         } finally {
             closeConnection();
@@ -128,7 +128,7 @@ public class ClientHandler implements Runnable {
                 break;
             } catch (IOException e) {
                 if (running) {
-                    System.err.printf("⚠️ Lỗi ghi socket tới client %s: %s\n", socket.getRemoteSocketAddress(), e.getMessage());
+                    System.err.printf("[WARN] Lỗi ghi socket tới client %s: %s\n", socket.getRemoteSocketAddress(), e.getMessage());
                 }
                 break;
             }
@@ -140,7 +140,7 @@ public class ClientHandler implements Runnable {
         if (running && packet != null) {
             boolean added = outgoingQueue.offer(packet);
             if (!added) {
-                System.err.println("⚠️ Hàng đợi gửi đầy (1000 items), bỏ qua gói tin: " + packet.getType());
+                System.err.println("[WARN] Hàng đợi gửi đầy (1000 items), bỏ qua gói tin: " + packet.getType());
             }
         }
     }
@@ -248,7 +248,7 @@ public class ClientHandler implements Runnable {
         Packet successPkt = new Packet(Constants.TYPE_LOGIN_RESP, header, gson.toJson(user).getBytes(StandardCharsets.UTF_8));
         enqueuePacket(successPkt);
 
-        System.out.printf("👤 [LOGIN] Người dùng %s (%s - %s) đăng nhập thành công.\n",
+        System.out.printf("[LOGIN] Người dùng %s (%s - %s) đăng nhập thành công.\n",
                 user.getUsername(), user.getRole(), user.getSpecialty());
 
         // CHỨC NĂNG CỐT LÕI: ĐẨY SỰ CỐ TỒN ĐỌNG (OFFLINE BACKLOG) CHO CÁN BỘ PHÒNG BAN VỪA ONLINE
@@ -259,7 +259,7 @@ public class ClientHandler implements Runnable {
                 enqueuePacket(pushPkt);
             }
             if (!backlog.isEmpty()) {
-                System.out.printf("📥 [OFFLINE SYNC] Đã đẩy %d sự cố tồn đọng cho Responder %s vừa online.\n",
+                System.out.printf("[OFFLINE SYNC] Đã đẩy %d sự cố tồn đọng cho Responder %s vừa online.\n",
                         backlog.size(), user.getUsername());
             }
         }
@@ -293,9 +293,9 @@ public class ClientHandler implements Runnable {
                 File destFile = new File(uploadDir, fileBase);
                 Files.write(destFile.toPath(), attach);
                 imagePath = "uploads/" + fileBase;
-                System.out.printf("📸 [IMAGE] Đã lưu ảnh hiện trường sự cố vào thư mục cố định: %s (%d bytes)\n", destFile.getAbsolutePath(), attach.length);
+                System.out.printf("[IMAGE] Đã lưu ảnh hiện trường sự cố vào thư mục cố định: %s (%d bytes)\n", destFile.getAbsolutePath(), attach.length);
             } catch (IOException e) {
-                System.err.println("⚠️ Không thể lưu ảnh đính kèm: " + e.getMessage());
+                System.err.println("[WARN] Không thể lưu ảnh đính kèm: " + e.getMessage());
             }
         }
 
@@ -347,7 +347,7 @@ public class ClientHandler implements Runnable {
         // Đẩy báo cáo tới Admin để theo dõi giám sát
         ServerSessionManager.sendToAdmin(dispatchPkt);
 
-        System.out.printf("📢 [AUTO DISPATCH] Sự cố %s tại %s -> Đã tự động đẩy tới phòng ban: %s\n",
+        System.out.printf("[AUTO DISPATCH] Sự cố %s tại %s -> Đã tự động đẩy tới phòng ban: %s\n",
                 ticket.getTicketCode(), ticket.getRoomLocation(), targetDept);
     }
 
@@ -396,7 +396,7 @@ public class ClientHandler implements Runnable {
                 ServerSessionManager.sendToDepartment(ticket.getTargetDepartment(), statusPkt);
             }
             ServerSessionManager.sendToAdmin(statusPkt);
-            System.out.printf("🤝 [CLAIM] Cán bộ %s đã tiếp nhận sự cố #%d.\n", loggedInUser.getFullName(), ticketId);
+            System.out.printf("[CLAIM] Cán bộ %s đã tiếp nhận sự cố #%d.\n", loggedInUser.getFullName(), ticketId);
         } else {
             Packet respPkt = new Packet(Constants.TYPE_CLAIM_RESP, "CLAIM_RESP|status=ALREADY_TAKEN|ticketId=" + ticketId + "|message=Sự cố đã được người khác tiếp nhận hoặc không đúng chuyên môn!");
             enqueuePacket(respPkt);
@@ -519,7 +519,7 @@ public class ClientHandler implements Runnable {
                 ServerSessionManager.sendToDepartment(ticket.getTargetDepartment(), statusPkt);
             }
             ServerSessionManager.sendToAdmin(statusPkt);
-            System.out.printf("🔄 [STATUS] Sự cố #%d chuyển sang trạng thái: %s bởi %s\n", ticketId, status, loggedInUser.getFullName());
+            System.out.printf("[STATUS] Sự cố #%d chuyển sang trạng thái: %s bởi %s\n", ticketId, status, loggedInUser.getFullName());
         } else {
             sendError("UPDATE_FAILED", "Không thể cập nhật trạng thái sự cố!");
         }
@@ -698,7 +698,7 @@ public class ClientHandler implements Runnable {
 
         if (UserDAO.usernameExists(username)) {
             enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Tên đăng nhập '" + username + "' đã tồn tại!"));
-            System.out.printf("⚠️ [ADMIN] Từ chối tạo tài khoản: tên đăng nhập '%s' đã tồn tại.\n", username);
+            System.out.printf("[ADMIN] Từ chối tạo tài khoản: tên đăng nhập '%s' đã tồn tại.\n", username);
             return;
         }
 
@@ -707,7 +707,7 @@ public class ClientHandler implements Runnable {
 
         if (created) {
             enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=OK|username=" + username));
-            System.out.printf("👤 [ADMIN USER] Đã cấp mới tài khoản: %s (%s - %s)\n", username, role, specialty);
+            System.out.printf("[ADMIN USER] Đã cấp mới tài khoản: %s (%s - %s)\n", username, role, specialty);
         } else {
             enqueuePacket(new Packet(Constants.TYPE_ADMIN_CREATE_RESP, "ADMIN_CREATE_RESP|status=FAIL|message=Tên đăng nhập đã tồn tại hoặc lỗi CSDL!"));
         }
@@ -757,9 +757,9 @@ public class ClientHandler implements Runnable {
                     "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=OK|fileName=" + imgFile.getName(),
                     bytes);
             enqueuePacket(resp);
-            System.out.printf("📤 [IMAGE] Đã truyền tải ảnh sự cố #%d (%d bytes) tới client.\n", ticketId, bytes.length);
+            System.out.printf("[IMAGE] Đã truyền tải ảnh sự cố #%d (%d bytes) tới client.\n", ticketId, bytes.length);
         } catch (IOException e) {
-            System.err.println("⚠️ Lỗi đọc file ảnh truyền tải tới client: " + e.getMessage());
+            System.err.println("[WARN] Lỗi đọc file ảnh truyền tải tới client: " + e.getMessage());
             enqueuePacket(new Packet(Constants.TYPE_GET_IMAGE_RESP, "GET_IMAGE_RESP|ticketId=" + ticketId + "|status=ERROR"));
         }
     }
@@ -787,7 +787,7 @@ public class ClientHandler implements Runnable {
             if (!ServerSessionManager.isUserOnline(uid)) {
                 UserDAO.updateUserOnlineStatus(uid, false);
             }
-            System.out.printf("👋 [LOGOUT] Người dùng %s ngắt kết nối.\n", uname);
+            System.out.printf("[LOGOUT] Người dùng %s ngắt kết nối.\n", uname);
         }
         try {
             if (socket != null && !socket.isClosed()) {

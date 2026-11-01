@@ -29,6 +29,7 @@ received_image.*
 test.*
 !Test.md
 uploads/
+source/uploads/
 
 # --- Cơ sở dữ liệu SQLite (Không bao giờ lưu vào Git, tự động tạo từ schema & seed_data) ---
 *.db

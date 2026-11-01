@@ -444,6 +444,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         ScrollPane scroll = new ScrollPane(layout);
         scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         return scroll;
     }
@@ -1110,9 +1111,10 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         HBox layout = new HBox(16);
         layout.getStyleClass().add("page-body");
 
-        // Form Card (Left 280px)
-        VBox formCard = new VBox(10);
+        // Form Card (Left ~280px)
+        VBox formCard = new VBox(8);
         formCard.getStyleClass().add("card");
+        formCard.setPadding(new Insets(14, 16, 14, 16));
         formCard.setPrefWidth(280);
         formCard.setMinWidth(260);
         formCard.setMaxWidth(300);
@@ -1211,23 +1213,34 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 btnCreate
         );
 
+        // ScrollPane riêng cho form: CHỈ cuộn dọc nếu chiều cao màn hình nhỏ, TUYỆT ĐỐI không cuộn ngang
+        ScrollPane formScroll = new ScrollPane(formCard);
+        formScroll.setFitToWidth(true);
+        formScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        formScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
+        formScroll.setPrefWidth(285);
+        formScroll.setMinWidth(265);
+        formScroll.setMaxWidth(305);
+
         // Table Card (Right)
         VBox tableCard = new VBox(12);
         tableCard.getStyleClass().add("card");
         HBox.setHgrow(tableCard, Priority.ALWAYS);
+        tableCard.setMinWidth(360);
 
         HBox tableTop = new HBox(12);
         tableTop.setAlignment(Pos.CENTER_LEFT);
 
-        Label lblUsersTitle = new Label("DANH SÁCH TÀI KHOẢN TOÀN TRƯỜNG");
+        Label lblUsersTitle = new Label("DANH SÁCH TÀI KHOẢN");
         lblUsersTitle.getStyleClass().add("caption");
 
         Region sp = new Region();
         HBox.setHgrow(sp, Priority.ALWAYS);
 
         Button btnRefreshUsers = new Button("Làm mới");
-        btnRefreshUsers.getStyleClass().add("btn-secondary");
-        btnRefreshUsers.setGraphic(ComponentFactory.createIcon("mdi2r-refresh", 16, Color.web("#14264A")));
+        btnRefreshUsers.getStyleClass().addAll("btn-secondary", "btn-sm");
+        btnRefreshUsers.setGraphic(ComponentFactory.createIcon("mdi2r-refresh", 14, Color.web("#14264A")));
         btnRefreshUsers.setOnAction(e -> loadAllUsers());
 
         tableTop.getChildren().addAll(lblUsersTitle, sp, btnRefreshUsers);
@@ -1237,8 +1250,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colUser = new TableColumn<>("NGƯỜI DÙNG");
         colUser.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFullName()));
-        colUser.setMinWidth(115);
-        colUser.setPrefWidth(150);
+        colUser.setMinWidth(110);
+        colUser.setPrefWidth(140);
         colUser.setCellFactory(col -> new ComponentFactory.PersonCell<>(user -> "@" + user.getUsername()));
 
         TableColumn<User, String> colRole = new TableColumn<>("VAI TRÒ");
@@ -1268,14 +1281,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         TableColumn<User, String> colSpec = new TableColumn<>("PHÒNG BAN");
         colSpec.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSpecialty()));
-        colSpec.setMinWidth(70);
-        colSpec.setPrefWidth(85);
+        colSpec.setMinWidth(65);
+        colSpec.setPrefWidth(75);
         colSpec.setCellFactory(col -> new ComponentFactory.DeptBadgeCell<>());
 
         TableColumn<User, String> colPhone = new TableColumn<>("SỐ ĐT");
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone() != null ? d.getValue().getPhone() : "-"));
-        colPhone.setMinWidth(75);
-        colPhone.setPrefWidth(85);
+        colPhone.setMinWidth(65);
+        colPhone.setPrefWidth(75);
 
         TableColumn<User, Integer> colOnline = new TableColumn<>("TRẠNG THÁI");
         colOnline.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getIsOnline()));
@@ -1314,13 +1327,8 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
         tableCard.getChildren().addAll(tableTop, userTable);
 
-        layout.getChildren().addAll(formCard, tableCard);
-
-        ScrollPane pageScroll = new ScrollPane(layout);
-        pageScroll.setFitToWidth(true);
-        pageScroll.setFitToHeight(true);
-        pageScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
-        return pageScroll;
+        layout.getChildren().addAll(formScroll, tableCard);
+        return layout;
     }
 
     private void doCreateUser() {

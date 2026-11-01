@@ -483,6 +483,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         ScrollPane scroll = new ScrollPane(mainBox);
         scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         return scroll;
     }

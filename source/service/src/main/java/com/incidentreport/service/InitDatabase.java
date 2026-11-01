@@ -112,7 +112,7 @@ public class InitDatabase {
     public static boolean init(boolean forceReset) {
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) {
-                System.err.println("❌ Không thể kết nối cơ sở dữ liệu!");
+                System.err.println("[ERROR] Không thể kết nối cơ sở dữ liệu!");
                 return false;
             }
 
@@ -122,12 +122,12 @@ public class InitDatabase {
                 try (Statement stmt = conn.createStatement()) {
                     stmt.executeUpdate("UPDATE incident_tickets SET resolve_note = 'Người báo chủ động hủy' WHERE resolve_note = 'Nguoi bao chu dong huy'");
                 } catch (Exception ignored) {}
-                System.out.println("ℹ️ Cơ sở dữ liệu SQLite đã sẵn sàng (giữ nguyên toàn bộ dữ liệu hiện có).");
+                System.out.println("[INFO] Cơ sở dữ liệu SQLite đã sẵn sàng (giữ nguyên toàn bộ dữ liệu hiện có).");
                 return true;
             }
 
             if (forceReset) {
-                System.out.println("⚠️ Đang đặt lại CSDL về trạng thái ban đầu...");
+                System.out.println("[WARN] Đang đặt lại CSDL về trạng thái ban đầu...");
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute("PRAGMA foreign_keys = OFF;");
                     stmt.execute("DROP TABLE IF EXISTS chat_messages;");
@@ -142,10 +142,10 @@ public class InitDatabase {
             if (!schemaOk) return false;
 
             executeSqlFile(conn, "database/seed_data.sql");
-            System.out.println("✅ Đã khởi tạo thành công CSDL và nạp dữ liệu người dùng ban đầu!");
+            System.out.println("[OK] Đã khởi tạo thành công CSDL và nạp dữ liệu người dùng ban đầu!");
             return true;
         } catch (Exception e) {
-            System.err.println("❌ Lỗi kết nối CSDL: " + e.getMessage());
+            System.err.println("[ERROR] Lỗi kết nối CSDL: " + e.getMessage());
             return false;
         }
     }
@@ -153,7 +153,7 @@ public class InitDatabase {
     public static boolean executeSqlFile(Connection conn, String relativePath) {
         File f = findFile(relativePath);
         if (!f.exists()) {
-            System.err.println("❌ Không tìm thấy file: " + f.getAbsolutePath());
+            System.err.println("[ERROR] Không tìm thấy file: " + f.getAbsolutePath());
             return false;
         }
 
@@ -168,7 +168,7 @@ public class InitDatabase {
                 sb.append(line).append("\n");
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi đọc " + relativePath + ": " + e.getMessage());
+            System.err.println("[ERROR] Lỗi đọc " + relativePath + ": " + e.getMessage());
             return false;
         }
 
@@ -186,7 +186,7 @@ public class InitDatabase {
             }
             return true;
         } catch (Exception e) {
-            System.err.println("❌ Lỗi thực thi " + relativePath + ": " + e.getMessage());
+            System.err.println("[ERROR] Lỗi thực thi " + relativePath + ": " + e.getMessage());
             return false;
         }
     }
@@ -197,12 +197,17 @@ public class InitDatabase {
     }
 
     public static void main(String[] args) {
-        System.out.println("🛠️ Đang khởi tạo/kiểm tra CSDL SQLite...");
+        try {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err), true, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+
+        System.out.println("[INIT] Đang khởi tạo/kiểm tra CSDL SQLite...");
         boolean success = init(false);
         if (success) {
-            System.out.println("🎉 Hoàn tất kiểm tra CSDL.");
+            System.out.println("[OK] Hoàn tất kiểm tra CSDL.");
         } else {
-            System.err.println("💥 Khởi tạo CSDL thất bại.");
+            System.err.println("[ERROR] Khởi tạo CSDL thất bại.");
         }
     }
 }

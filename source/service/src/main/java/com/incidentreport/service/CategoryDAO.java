@@ -46,7 +46,7 @@ public class CategoryDAO {
                 cache.put(c.getCategoryCode(), c);
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi CategoryDAO.refreshCache: " + e.getMessage());
+            System.err.println("[ERROR] Lỗi CategoryDAO.refreshCache: " + e.getMessage());
         }
     }
 }

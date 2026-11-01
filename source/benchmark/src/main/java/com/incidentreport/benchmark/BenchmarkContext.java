@@ -21,7 +21,7 @@ import java.util.Properties;
  */
 public class BenchmarkContext {
 
-    private static String targetHost = "26.239.191.202";
+    private static String targetHost = "26.51.180.99";
     private static int targetPort = 5000;
     private static final String REPORT_FILE = "reports/benchmark_report.md";
     private static boolean initialized = false;
@@ -65,25 +65,28 @@ public class BenchmarkContext {
             return;
         }
 
-        // 2. Nếu không có args (chạy Run File trong NetBeans), đọc từ config/benchmark.properties
+        // 2. Nếu không có args (chạy Run File trong NetBeans), đọc từ config/benchmark.properties (hoặc server.properties)
         File configFile = findFile("config/benchmark.properties");
+        if (!configFile.exists()) {
+            configFile = findFile("config/server.properties");
+        }
         if (configFile.exists()) {
             try (FileInputStream fis = new FileInputStream(configFile)) {
                 Properties props = new Properties();
                 props.load(fis);
-                targetHost = props.getProperty("server.host", "26.239.191.202").trim();
+                targetHost = props.getProperty("server.host", props.getProperty("radmin.server.host", "26.51.180.99")).trim();
                 targetPort = Integer.parseInt(props.getProperty("server.port", "5000").trim());
-                System.out.printf("⚙️ [NetBeans Run] Đã nạp cấu hình từ %s -> Target Server: %s:%d\n",
+                System.out.printf("[CONFIG] [NetBeans Run] Đã nạp cấu hình từ %s -> Target Server: %s:%d\n",
                         configFile.getPath(), targetHost, targetPort);
             } catch (Exception e) {
-                System.err.println("⚠️ Không thể đọc config/benchmark.properties: " + e.getMessage());
+                System.err.println("[WARN] Không thể đọc file cấu hình: " + e.getMessage());
             }
         }
 
         // 3. Kiểm tra thông mạch: Nếu targetHost cấu hình không kết nối được, thử kiểm tra 127.0.0.1
         if (!isServerReachable(targetHost, targetPort, 1000) && !"127.0.0.1".equals(targetHost)) {
             if (isServerReachable("127.0.0.1", targetPort, 1000)) {
-                System.out.printf("ℹ️ Server tại %s không phản hồi, tự động chuyển sang Localhost: 127.0.0.1:%d\n", targetHost, targetPort);
+                System.out.printf("[INFO] Server tại %s không phản hồi, tự động chuyển sang Localhost: 127.0.0.1:%d\n", targetHost, targetPort);
                 targetHost = "127.0.0.1";
             }
         }

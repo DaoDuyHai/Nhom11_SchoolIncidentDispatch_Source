@@ -10,6 +10,10 @@
     </parent>
     <artifactId>service</artifactId>
 
+    <properties>
+        <exec.mainClass>com.incidentreport.service.InitDatabase</exec.mainClass>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.incidentreport</groupId>

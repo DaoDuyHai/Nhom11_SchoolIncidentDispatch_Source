@@ -1,12 +1,16 @@
 @echo off
 chcp 65001 >nul
+set "JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8"
 title SERVER - HE THONG DIEU PHOI SU CO TRUONG THPT
 echo ============================================================================
 echo   KHOI DONG SERVER TRUNG TAM (PORT 5000)
 echo ============================================================================
 
-set CP=source\common\target\classes;source\service\target\classes;source\server\target\classes;%USERPROFILE%\.m2\repository\org\xerial\sqlite-jdbc\3.42.0.0\sqlite-jdbc-3.42.0.0.jar;%USERPROFILE%\.m2\repository\com\google\code\gson\gson\2.10.1\gson-2.10.1.jar
+set MAVEN_CMD="C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd"
 
-java -cp "%CP%" com.incidentreport.server.Server
+if exist %MAVEN_CMD% (
+    %MAVEN_CMD% exec:java -pl server -f source\pom.xml
+) else (
+    mvn exec:java -pl server -f source\pom.xml
+)
 pause
-

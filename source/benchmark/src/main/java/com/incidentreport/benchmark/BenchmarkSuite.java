@@ -19,6 +19,11 @@ import java.util.Scanner;
 public class BenchmarkSuite {
 
     public static void main(String[] args) {
+        try {
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), true, java.nio.charset.StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.err), true, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+
         BenchmarkContext.initTarget(args);
         String targetHost = BenchmarkContext.getTargetHost();
         int targetPort = BenchmarkContext.getTargetPort();
@@ -28,7 +33,7 @@ public class BenchmarkSuite {
         // Kiểm tra kết nối tới Server mục tiêu
         boolean serverReachable = testConnection(targetHost, targetPort, 3000);
         if (!serverReachable) {
-            System.err.println("\n❌ CẢNH BÁO KẾT NỐI:");
+            System.err.println("\n[WARN] CẢNH BÁO KẾT NỐI:");
             System.err.printf("   Không thể kết nối Socket tới Server tại %s:%d!\n", targetHost, targetPort);
             System.err.println("   ▶ Vui lòng đảm bảo Server SIDS đã được khởi động trước.");
             System.err.println("   ▶ Nếu chạy 2 máy qua Radmin VPN, hãy kiểm tra nút bật VPN trên cả 2 máy.");
@@ -143,8 +148,8 @@ public class BenchmarkSuite {
         System.out.println("   HỆ THỐNG ĐIỀU PHỐI SỰ CỐ SIDS - BỘ KIỂM THỬ & ĐO LƯỜNG HIỆU NĂNG TỰ ĐỘNG     ");
         System.out.println("   School Incident Dispatch System (SIDS) - Comprehensive Performance Suite     ");
         System.out.println("================================================================================");
-        System.out.printf("🎯 Server Mục tiêu: %s:%d\n", host, port);
-        System.out.println("📁 Báo cáo xuất ra: reports/benchmark_report.md");
+        System.out.printf("[TARGET] Server Mục tiêu: %s:%d\n", host, port);
+        System.out.println("[REPORT] Báo cáo xuất ra: reports/benchmark_report.md");
         System.out.println("--------------------------------------------------------------------------------");
     }
 

@@ -19,7 +19,7 @@ public class ServerSessionManager {
 
     public static void addClient(int userId, ClientHandler handler) {
         activeSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(handler);
-        System.out.printf("👤 [SESSION] User #%d online. Tổng phiên hoạt động: %d\n", userId, getOnlineCount());
+        System.out.printf("[SESSION] User #%d online. Tổng phiên hoạt động: %d\n", userId, getOnlineCount());
     }
 
     public static void removeClient(int userId, ClientHandler handler) {
@@ -29,7 +29,7 @@ public class ServerSessionManager {
             if (set.isEmpty()) {
                 activeSessions.remove(userId);
             }
-            System.out.printf("👤 [SESSION] User #%d rời phiên. Còn lại: %d\n", userId, getOnlineCount());
+            System.out.printf("[SESSION] User #%d rời phiên. Còn lại: %d\n", userId, getOnlineCount());
         }
     }
 
@@ -39,7 +39,7 @@ public class ServerSessionManager {
             for (ClientHandler handler : set) {
                 handler.closeConnection();
             }
-            System.out.printf("👤 [SESSION] Đã đóng toàn bộ phiên của User #%d. Còn lại: %d\n", userId, getOnlineCount());
+            System.out.printf("[SESSION] Đã đóng toàn bộ phiên của User #%d. Còn lại: %d\n", userId, getOnlineCount());
         }
     }
 

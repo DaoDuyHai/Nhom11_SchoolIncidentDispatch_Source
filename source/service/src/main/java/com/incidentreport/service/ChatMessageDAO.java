@@ -35,7 +35,7 @@ public class ChatMessageDAO {
             stmt.execute(sql);
             stmt.execute(idxSql);
         } catch (Exception e) {
-            System.err.println("⚠️ Lỗi ensureTableExists (chat_messages): " + e.getMessage());
+            System.err.println("[WARN] Lỗi ensureTableExists (chat_messages): " + e.getMessage());
         }
     }
 
@@ -72,7 +72,7 @@ public class ChatMessageDAO {
                 return true;
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi ChatMessageDAO.saveMessage: " + e.getMessage());
+            System.err.println("[ERROR] Lỗi ChatMessageDAO.saveMessage: " + e.getMessage());
         }
         return false;
     }
@@ -91,7 +91,7 @@ public class ChatMessageDAO {
                 }
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi ChatMessageDAO.getMessagesByTicket: " + e.getMessage());
+            System.err.println("[ERROR] Lỗi ChatMessageDAO.getMessagesByTicket: " + e.getMessage());
         }
         return list;
     }
@@ -110,7 +110,7 @@ public class ChatMessageDAO {
                 }
             }
         } catch (Exception e) {
-            System.err.println("❌ Lỗi ChatMessageDAO.getAllMessages: " + e.getMessage());
+            System.err.println("[ERROR] Lỗi ChatMessageDAO.getAllMessages: " + e.getMessage());
         }
         return list;
     }

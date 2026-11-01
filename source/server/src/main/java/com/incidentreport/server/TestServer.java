@@ -23,15 +23,15 @@ public class TestServer {
         } catch (Exception ignored) {}
 
         System.out.println("============================================================================");
-        System.out.println("   🛡️ SIDS TEST SERVER - MÁY CHỦ KIỂM THỬ & ĐO LƯỜNG HIỆU NĂNG             ");
+        System.out.println("   [TEST SERVER] SIDS TEST SERVER - MÁY CHỦ KIỂM THỬ & ĐO LƯỜNG HIỆU NĂNG   ");
         System.out.println("   Kiến trúc: Cô lập hoàn toàn cơ sở dữ liệu kiểm thử                      ");
         System.out.println("============================================================================");
 
         File testDb = InitDatabase.findFile("database/test_incident_report.db");
         DatabaseConnection.setCustomDbUrl("jdbc:sqlite:" + testDb.getAbsolutePath());
 
-        System.out.println("🔒 CSDL Test đang kích hoạt: " + testDb.getAbsolutePath());
-        System.out.println("✅ CSDL gốc (incident_report.db) ĐƯỢC BẢO VỆ NGUYÊN VẸN, KHÔNG BỊ GHI ĐÈ!\n");
+        System.out.println("[TEST DB] CSDL Test đang kích hoạt: " + testDb.getAbsolutePath());
+        System.out.println("[OK] CSDL gốc (incident_report.db) ĐƯỢC BẢO VỆ NGUYÊN VẸN, KHÔNG BỊ GHI ĐÈ!\n");
 
         // Đảm bảo test database đã có đầy đủ bảng và 50 tài khoản mẫu
         InitDatabase.init(false);
