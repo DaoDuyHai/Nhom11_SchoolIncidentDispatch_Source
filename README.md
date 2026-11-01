@@ -485,8 +485,8 @@ Hệ thống được thiết kế và kiểm thử thực nghiệm trên 2 môi
 
 ### 10.2. Tải mã nguồn
 ```bash
-git clone https://github.com/DaoDuyHai/SchoolIncidentDispatch.git
-cd SchoolIncidentDispatch
+git clone https://github.com/DaoDuyHai/Nhom11_SchoolIncidentDispatch_Source.git
+cd Nhom11_SchoolIncidentDispatch_Source
 ```
 *(Hoặc tải file `.zip` từ GitHub về và giải nén).*
 
@@ -907,7 +907,7 @@ Toàn bộ thư mục Source Code hoàn chỉnh được đặt tên chuẩn m�
 Nhom11_SchoolIncidentDispatch_Source/
 ```
 Được nén hoặc tải lên **GitHub / Google Drive** theo đường link do Giảng viên chỉ định:
-* **GitHub Repository:** `https://github.com/DaoDuyHai/SchoolIncidentDispatch.git`
+* **GitHub Repository:** `https://github.com/DaoDuyHai/Nhom11_SchoolIncidentDispatch_Source.git`
 
 ## Report
 
