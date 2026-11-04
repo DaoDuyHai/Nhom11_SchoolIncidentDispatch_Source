@@ -545,7 +545,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     IncidentTicket t = getTableView().getItems().get(getIndex());
                     boolean isUrgent = ComponentFactory.isUrgentTicket(t);
                     if (isUrgent) {
-                        btn.setText("🚨 Tiếp ứng ngay");
+                        btn.setText("Tiếp ứng ngay");
                         btn.getStyleClass().setAll("button", "btn-danger-solid", "btn-sm");
                         btn.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-padding: 3 10; -fx-cursor: hand; -fx-background-color: #DC2626; -fx-text-fill: white;");
                         btn.setGraphic(ComponentFactory.createIcon("mdi2a-alarm-light", 14, Color.WHITE));
@@ -1108,13 +1108,13 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 }
 
                 if ("true".equalsIgnoreCase(assignedByAdmin)) {
-                    String title = isUrgent ? "🎯 [CHỈ ĐỊNH KHẨN] BGH PHÂN CÔNG ỨNG CỨU CA KHẨN CẤP!" : "🎯 BẠN ĐƯỢC CHỈ ĐỊNH XỬ LÝ CA MỚI!";
-                    String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + (isUrgent ? "khẩn cấp " : "") + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "⚠️ Vui lòng tiếp ứng và xử lý ngay lập tức!" : "Ghi chú BGH: " + note);
+                    String title = isUrgent ? "[CHỈ ĐỊNH KHẨN] BGH PHÂN CÔNG ỨNG CỨU CA KHẨN CẤP!" : "[CHỈ ĐỊNH] BẠN ĐƯỢC PHÂN CÔNG XỬ LÝ CA MỚI!";
+                    String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + (isUrgent ? "khẩn cấp " : "") + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "Đề nghị tiếp ứng và xử lý ngay lập tức!" : "Ghi chú BGH: " + note);
                     ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
                 } else {
-                    String title = isUrgent ? "🚨 [BÁO ĐỘNG ĐỎ] YÊU CẦU ỨNG CỨU HIỆN TRƯỜNG KHẨN CẤP!" : "🚨 CÓ SỰ CỐ MỚI CẦN XỬ LÝ!";
+                    String title = isUrgent ? "[BÁO ĐỘNG ĐỎ] YÊU CẦU ỨNG CỨU HIỆN TRƯỜNG KHẨN CẤP!" : "CÓ SỰ CỐ MỚI CẦN XỬ LÝ!";
                     String msg = isUrgent
-                            ? "Ca khẩn cấp " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc) + "\n⚠️ ĐỀ NGHỊ CÁN BỘ CÓ MẶT TIẾP ỨNG NGAY LẬP TỨC!"
+                            ? "Ca khẩn cấp " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc) + "\nĐỀ NGHỊ CÁN BỘ CÓ MẶT TIẾP ỨNG NGAY LẬP TỨC!"
                             : "Bạn đang có một sự cố mới cần xử lý: Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
                     ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
                 }
@@ -1149,12 +1149,12 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
                     if (currentUser == null || !staff.equals(currentUser.getFullName())) {
                         SoundEffectManager.playNotification();
-                        ComponentFactory.showToast(this, "🤝 Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
+                        ComponentFactory.showToast(this, "[TIẾP NHẬN] Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
                     }
                 } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
                     if (currentUser == null || !staff.equals(currentUser.getFullName())) {
                         SoundEffectManager.playSuccess();
-                        ComponentFactory.showToast(this, "🎉 Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
+                        ComponentFactory.showToast(this, "[HOÀN TẤT] Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
                     }
                 } else if (Constants.STATUS_CANCELLED.equalsIgnoreCase(st)) {
                     SoundEffectManager.playWarning();

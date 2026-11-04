@@ -88,8 +88,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private final Button btnSubmit = new Button("GỬI BÁO CÁO");
     private final Label lblSubmitError = new Label();
     private boolean lastSubmittedIsUrgent = false;
-    private final ToggleButton tbNormal = new ToggleButton("🟢 Báo cáo tiêu chuẩn");
-    private final ToggleButton tbUrgent = new ToggleButton("🚨 Báo động khẩn cấp");
+    private final ToggleButton tbNormal = new ToggleButton("Báo cáo tiêu chuẩn");
+    private final ToggleButton tbUrgent = new ToggleButton("Báo động khẩn cấp");
 
     // Ảnh hiện trường (Tab 1)
     private final StackPane dropZone = new StackPane();
@@ -411,15 +411,23 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         tbNormal.setSelected(true);
         tbNormal.getStyleClass().setAll("chip");
         tbNormal.setStyle("-fx-font-size: 11.5px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-weight: 600;");
+        tbNormal.setGraphic(ComponentFactory.createIcon("mdi2c-check-circle-outline", 14, Color.web("#2F6F55")));
+        tbNormal.setGraphicTextGap(6);
 
         tbUrgent.setToggleGroup(priorityGroup);
         tbUrgent.getStyleClass().setAll("chip");
         tbUrgent.setStyle("-fx-font-size: 11.5px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-weight: 600;");
+        tbUrgent.setGraphic(ComponentFactory.createIcon("mdi2a-alarm-light", 14, Color.web("#DC2626")));
+        tbUrgent.setGraphicTextGap(6);
 
-        Label lblPriorityHint = new Label("⚠️ Chế độ khẩn cấp: Sẽ phát còi báo động tại phòng trực, huy động lực lượng phản ứng nhanh và báo động Ban Giám Hiệu.");
+        HBox priorityHintBox = new HBox(6);
+        priorityHintBox.setAlignment(Pos.CENTER_LEFT);
+        FontIcon hintIcon = ComponentFactory.createIcon("mdi2a-alert-circle", 14, Color.web("#DC2626"));
+        Label lblPriorityHint = new Label("Chế độ khẩn cấp: Sẽ phát còi báo động tại phòng trực, huy động lực lượng phản ứng nhanh và báo động Ban Giám Hiệu.");
         lblPriorityHint.setStyle("-fx-font-size: 11px; -fx-text-fill: #DC2626; -fx-font-weight: bold;");
-        lblPriorityHint.setVisible(false);
-        lblPriorityHint.setManaged(false);
+        priorityHintBox.getChildren().addAll(hintIcon, lblPriorityHint);
+        priorityHintBox.setVisible(false);
+        priorityHintBox.setManaged(false);
 
         priorityGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == null && oldVal != null) {
@@ -427,8 +435,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                 return;
             }
             boolean isEmergency = tbUrgent.isSelected();
-            lblPriorityHint.setVisible(isEmergency);
-            lblPriorityHint.setManaged(isEmergency);
+            priorityHintBox.setVisible(isEmergency);
+            priorityHintBox.setManaged(isEmergency);
             updateSubmitButtonState();
         });
 
@@ -487,7 +495,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         actionRow.getChildren().addAll(btnReset, btnSubmit);
 
-        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblPriorityTitle, priorityBox, lblPriorityHint, lblDesc, taDescription, lblSubmitError, actionRow);
+        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblPriorityTitle, priorityBox, priorityHintBox, lblDesc, taDescription, lblSubmitError, actionRow);
 
         // 2. Thẻ Ảnh hiện trường & Hướng dẫn (Right Card 320px)
         VBox rightCard = new VBox(12);
@@ -504,7 +512,9 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         // Hộp hướng dẫn điều phối sự cố
         VBox guideCard = new VBox(6);
         guideCard.setStyle("-fx-background-color: -paper-100; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: -paper-300; -fx-border-radius: 8;");
-        Label lblGuideTitle = new Label("💡 QUY TRÌNH ĐIỀU PHỐI TỰ ĐỘNG");
+        Label lblGuideTitle = new Label("QUY TRÌNH ĐIỀU PHỐI TỰ ĐỘNG");
+        lblGuideTitle.setGraphic(ComponentFactory.createIcon("mdi2l-lightbulb-on-outline", 14, Color.web("#D97706")));
+        lblGuideTitle.setGraphicTextGap(6);
         lblGuideTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: -ink-900;");
         Label g1 = new Label("1. Điền vị trí, chọn loại sự cố và đính kèm ảnh (nếu có)");
         Label g2 = new Label("2. Hệ thống định tuyến tức thời đến đúng cán bộ chuyên trách");
@@ -911,8 +921,10 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         }
 
         if (hasError) {
-            String msg = "⚠️ Vui lòng điền đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missing) + "!";
+            String msg = "Vui lòng điền đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missing) + "!";
             lblSubmitError.setText(msg);
+            lblSubmitError.setGraphic(ComponentFactory.createIcon("mdi2a-alert-circle", 14, Color.web("#DC2626")));
+            lblSubmitError.setGraphicTextGap(6);
             lblSubmitError.setVisible(true);
             lblSubmitError.setManaged(true);
             SoundEffectManager.playError();
@@ -935,9 +947,9 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         if (getScene() != null && getScene().getWindow() != null) {
             confirmDialog.initOwner(getScene().getWindow());
         }
-        confirmDialog.setTitle(isUrgent ? "🚨 PHÁT LỆNH BÁO ĐỘNG KHẨN CẤP" : "Xác nhận gửi sự cố");
+        confirmDialog.setTitle(isUrgent ? "[BÁO ĐỘNG] PHÁT LỆNH KHẨN CẤP" : "Xác nhận gửi sự cố");
         ComponentFactory.applyTheme(confirmDialog.getDialogPane());
-        confirmDialog.setHeaderText(isUrgent ? "⚠️ XÁC NHẬN PHÁT LỆNH ĐIỀU PHỐI KHẨN CẤP TOÀN TRƯỜNG" : "Gửi báo cáo sự cố tới hệ thống điều phối?");
+        confirmDialog.setHeaderText(isUrgent ? "XÁC NHẬN PHÁT LỆNH ĐIỀU PHỐI KHẨN CẤP TOÀN TRƯỜNG" : "Gửi báo cáo sự cố tới hệ thống điều phối?");
         confirmDialog.getDialogPane().setMinWidth(580);
         confirmDialog.getDialogPane().setPrefWidth(640);
 
@@ -997,7 +1009,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         confirmDialog.getDialogPane().setContent(box);
 
         ButtonType btnSend = isUrgent
-                ? new ButtonType("🚨 PHÁT LỆNH KHẨN CẤP", ButtonBar.ButtonData.OK_DONE)
+                ? new ButtonType("Phát lệnh khẩn cấp", ButtonBar.ButtonData.OK_DONE)
                 : new ButtonType("Xác nhận gửi", ButtonBar.ButtonData.OK_DONE);
         ButtonType btnCancel = new ButtonType("Kiểm tra lại", ButtonBar.ButtonData.CANCEL_CLOSE);
         confirmDialog.getDialogPane().getButtonTypes().addAll(btnCancel, btnSend);
@@ -1009,9 +1021,11 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             if (isUrgent) {
                 okBtn.getStyleClass().setAll("button", "btn-danger-solid");
                 okBtn.setStyle("-fx-font-size: 12.5px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand; -fx-background-color: #DC2626; -fx-text-fill: white; -fx-background-radius: 6;");
+                okBtn.setGraphic(ComponentFactory.createIcon("mdi2a-alarm-light", 15, Color.WHITE));
             } else {
                 okBtn.getStyleClass().setAll("button", "btn-primary");
                 okBtn.setStyle("-fx-font-size: 12.5px; -fx-padding: 8 20; -fx-cursor: hand; -fx-min-width: -1; -fx-pref-width: -1; -fx-text-overrun: clip;");
+                okBtn.setGraphic(ComponentFactory.createIcon("mdi2s-send", 15, Color.WHITE));
             }
         }
         Button cancelBtn = (Button) confirmDialog.getDialogPane().lookupButton(btnCancel);
@@ -1428,7 +1442,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                     if (lastSubmittedIsUrgent) {
                         SoundEffectManager.playEmergencyAlarm();
                         ComponentFactory.showUrgentNotification(this,
-                                "🚨 ĐÃ PHÁT LỆNH KHẨN CẤP THÀNH CÔNG!",
+                                "[BÁO ĐỘNG] ĐÃ PHÁT LỆNH KHẨN CẤP THÀNH CÔNG!",
                                 "Ca khẩn cấp " + (code != null ? code : "") + " đã được phát còi báo động tới Đội Ứng cứu khẩn cấp và Ban Giám Hiệu.\nXin vui lòng giữ bình tĩnh và hỗ trợ hiện trường an toàn!",
                                 "DISPATCH");
                     } else {
@@ -1488,18 +1502,18 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                 } else if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
                     if ("ASSIGN".equalsIgnoreCase(action)) {
                         SoundEffectManager.playNotification();
-                        String title = "🎯 BAN GIÁM HIỆU ĐÃ CHỈ ĐỊNH CÁN BỘ";
+                        String title = "[CHỈ ĐỊNH] BAN GIÁM HIỆU ĐÃ PHÂN CÔNG CÁN BỘ";
                         String msg = "Sự cố " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã được Ban Giám Hiệu chỉ định cho " + staff + " tiếp nhận xử lý.";
                         ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
                     } else {
                         SoundEffectManager.playClaim();
-                        String title = "🤝 CÁN BỘ ĐÃ TIẾP NHẬN SỰ CỐ";
+                        String title = "[TIẾP NHẬN] CÁN BỘ ĐÃ TIẾP NHẬN SỰ CỐ";
                         String msg = "Cán bộ " + staff + " đã tiếp nhận xử lý ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + "!";
                         ComponentFactory.showUrgentNotification(this, title, msg, "CLAIM");
                     }
                 } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
                     SoundEffectManager.playSuccess();
-                    String title = "🎉 SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ HOÀN TẤT";
+                    String title = "[HOÀN TẤT] SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ HOÀN TẤT";
                     String msg = "Cán bộ " + staff + " đã hoàn tất khắc phục ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + "!\n" + (note.isEmpty() ? "Đã nghiệm thu an toàn." : "Ghi chú: " + note);
                     ComponentFactory.showUrgentNotification(this, title, msg, "SUCCESS");
                 }

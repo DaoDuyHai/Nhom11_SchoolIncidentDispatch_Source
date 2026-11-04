@@ -1371,8 +1371,10 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
         }
 
         if (hasError) {
-            String msg = "⚠️ Vui lòng nhập đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missingFields) + "!";
+            String msg = "Vui lòng nhập đầy đủ các thông tin bắt buộc (*): " + String.join(", ", missingFields) + "!";
             lblUserFormError.setText(msg);
+            lblUserFormError.setGraphic(ComponentFactory.createIcon("mdi2a-alert-circle", 14, Color.web("#DC2626")));
+            lblUserFormError.setGraphicTextGap(6);
             lblUserFormError.setVisible(true);
             lblUserFormError.setManaged(true);
             SoundEffectManager.playError();
@@ -1563,14 +1565,14 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
                 if (isUrgent) {
                     SoundEffectManager.playEmergencyAlarm();
-                    String title = "🚨 [BÁO ĐỘNG ĐỎ] SỰ CỐ KHẨN CẤP TOÀN TRƯỜNG!";
+                    String title = "[BÁO ĐỘNG ĐỎ] SỰ CỐ KHẨN CẤP TOÀN TRƯỜNG!";
                     String msg = "Phát sinh ca khẩn cấp " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")"
                             + (desc.isEmpty() ? "" : "\nMô tả: " + desc)
                             + "\nĐã kích hoạt điều phối tức thời tới khối: " + dept;
                     ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
                 } else {
                     SoundEffectManager.playNotification();
-                    String title = "🚨 SỰ CỐ MỚI PHÁT SINH TOÀN TRƯỜNG";
+                    String title = "SỰ CỐ MỚI PHÁT SINH TOÀN TRƯỜNG";
                     String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")";
                     ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
                 }
@@ -1586,10 +1588,10 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
 
                 if (Constants.STATUS_IN_PROGRESS.equalsIgnoreCase(st)) {
                     SoundEffectManager.playClaim();
-                    ComponentFactory.showToast(this, "🤝 Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
+                    ComponentFactory.showToast(this, "[TIẾP NHẬN] Cán bộ " + staff + " đã tiếp nhận ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")"), true);
                 } else if (Constants.STATUS_RESOLVED.equalsIgnoreCase(st)) {
                     SoundEffectManager.playSuccess();
-                    ComponentFactory.showToast(this, "🎉 Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
+                    ComponentFactory.showToast(this, "[HOÀN TẤT] Ca " + code + (room.isEmpty() ? "" : " (Phòng " + room + ")") + " đã hoàn tất bởi " + staff, true);
                 } else if (Constants.STATUS_CANCELLED.equalsIgnoreCase(st)) {
                     SoundEffectManager.playWarning();
                     ComponentFactory.showToast(this, "Sự cố " + code + " đã được người báo hủy.", false);

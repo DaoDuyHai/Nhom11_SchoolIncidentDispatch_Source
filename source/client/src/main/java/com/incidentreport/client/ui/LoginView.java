@@ -198,8 +198,12 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
         lblServerChoice.setStyle("-fx-font-weight: bold; -fx-padding: 2 0 0 0;");
 
         ToggleGroup netToggleGroup = new ToggleGroup();
-        ToggleButton btnLocal = new ToggleButton("🖥️ Mặc định (Local)");
-        ToggleButton btnRadmin = new ToggleButton("🌐 Radmin VPN");
+        ToggleButton btnLocal = new ToggleButton("Mặc định (Local)");
+        btnLocal.setGraphic(ComponentFactory.createIcon("mdi2l-laptop", 14, Color.web("#2563EB")));
+        btnLocal.setGraphicTextGap(6);
+        ToggleButton btnRadmin = new ToggleButton("Radmin VPN");
+        btnRadmin.setGraphic(ComponentFactory.createIcon("mdi2l-lan", 14, Color.web("#0D9488")));
+        btnRadmin.setGraphicTextGap(6);
         btnLocal.setToggleGroup(netToggleGroup);
         btnRadmin.setToggleGroup(netToggleGroup);
         btnLocal.getStyleClass().add("chip");
@@ -375,7 +379,7 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
                 if (first == null) first = (isPasswordVisible ? txtPasswordVisible : txtPassword);
             }
             SoundEffectManager.playError();
-            showError("⚠️ Vui lòng nhập đầy đủ " + String.join(" và ", missing) + "!");
+            showError("Vui lòng nhập đầy đủ " + String.join(" và ", missing) + "!");
             if (first != null) first.requestFocus();
             return;
         }
@@ -473,6 +477,8 @@ public class LoginView extends HBox implements SocketClientManager.PacketListene
 
     private void showError(String msg) {
         lblError.setText(msg);
+        lblError.setGraphic(ComponentFactory.createIcon("mdi2a-alert-circle", 14, Color.web("#DC2626")));
+        lblError.setGraphicTextGap(6);
         lblError.setVisible(true);
         lblError.setManaged(true);
         txtUsername.getStyleClass().add("input-error");
