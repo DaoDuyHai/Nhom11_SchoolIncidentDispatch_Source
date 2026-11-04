@@ -554,15 +554,13 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             tile.getStyleClass().setAll("type-tile-compact");
             tile.setToggleGroup(catTileGroup);
             tile.setUserData(cat);
-            tile.setPrefHeight(44);
-            tile.setMinHeight(44);
-            tile.setMaxHeight(44);
+            tile.setPrefHeight(48);
+            tile.setMinHeight(48);
+            tile.setMaxHeight(48);
             tile.setAlignment(Pos.CENTER_LEFT);
 
             HBox row = new HBox(8);
             row.setAlignment(Pos.CENTER_LEFT);
-            row.setPrefHeight(32);
-            row.setMaxHeight(32);
 
             String iconLiteral = "mdi2w-wrench";
             if ("IT_NETWORK".equals(cat.getCategoryCode())) iconLiteral = "mdi2w-wifi";
@@ -581,22 +579,42 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
             if (Constants.SPECIALTY_MEDICAL.equals(cat.getRequiredSpecialty())) iconColor = Color.web("#A8402F");
             else if (Constants.SPECIALTY_SECURITY.equals(cat.getRequiredSpecialty())) iconColor = Color.web("#8A6218");
 
-            FontIcon icon = ComponentFactory.createIcon(iconLiteral, 16, iconColor);
-            Label lblName = new Label(cat.getCategoryName());
-            lblName.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: -text-900;");
-            lblName.setWrapText(true);
-            lblName.setMaxWidth(185);
+            FontIcon icon = ComponentFactory.createIcon(iconLiteral, 17, iconColor);
 
-            Region sp = new Region();
-            sp.setPrefHeight(1);
-            sp.setMaxHeight(1);
-            HBox.setHgrow(sp, Priority.ALWAYS);
+            String fullName = cat.getCategoryName();
+            String mainTitle = fullName;
+            String subDesc = "";
+            int openParen = fullName.indexOf('(');
+            int closeParen = fullName.lastIndexOf(')');
+            if (openParen > 0 && closeParen > openParen) {
+                mainTitle = fullName.substring(0, openParen).trim();
+                subDesc = fullName.substring(openParen + 1, closeParen).trim();
+            }
+
+            VBox textBox = new VBox(1);
+            textBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(textBox, Priority.ALWAYS);
+
+            Label lblTitle = new Label(mainTitle);
+            lblTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: -text-900;");
+
+            Label lblSub = new Label(subDesc);
+            lblSub.setStyle("-fx-font-size: 9.5px; -fx-text-fill: #736C5F;");
+
+            if (!subDesc.isEmpty()) {
+                textBox.getChildren().addAll(lblTitle, lblSub);
+            } else {
+                textBox.getChildren().add(lblTitle);
+            }
 
             Label badge = ComponentFactory.createDepartmentBadge(cat.getRequiredSpecialty());
+            badge.setStyle("-fx-font-size: 9px; -fx-padding: 1 5; -fx-font-weight: bold;");
+            badge.setMinWidth(Region.USE_PREF_SIZE);
 
-            row.getChildren().addAll(icon, lblName, sp, badge);
+            row.getChildren().addAll(icon, textBox, badge);
             tile.setGraphic(row);
             tile.setMaxWidth(Double.MAX_VALUE);
+            tile.setTooltip(new Tooltip(fullName));
 
             tileMap.put(cat, tile);
         }

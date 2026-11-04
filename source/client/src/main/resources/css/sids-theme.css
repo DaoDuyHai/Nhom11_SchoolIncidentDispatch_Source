@@ -388,7 +388,7 @@
 .type-tile:hover { -fx-background-color: -paper-100; }
 .type-tile:selected { -fx-border-color: -ink-900; -fx-border-width: 2; -fx-background-color: -ink-100; }
 
-.type-tile-compact { -fx-background-color: -paper-50; -fx-border-color: -paper-300; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 6 12; -fx-alignment: CENTER-LEFT; -fx-text-fill: -text-900; -fx-cursor: hand; -fx-max-width: infinity; -fx-pref-height: 44; -fx-min-height: 44; -fx-max-height: 44; }
+.type-tile-compact { -fx-background-color: -paper-50; -fx-border-color: -paper-300; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 8; -fx-alignment: CENTER-LEFT; -fx-text-fill: -text-900; -fx-cursor: hand; -fx-max-width: infinity; -fx-pref-height: 48; -fx-min-height: 48; -fx-max-height: 48; }
 .type-tile-compact:hover { -fx-background-color: -paper-100; }
 .type-tile-compact:selected { -fx-border-color: -ink-900; -fx-border-width: 2; -fx-background-color: -ink-100; }
 
