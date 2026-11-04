@@ -453,7 +453,15 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    setGraphic(lblC);
+                    if (item.isUrgent()) {
+                        HBox cellBox = new HBox(6);
+                        cellBox.setAlignment(Pos.CENTER_LEFT);
+                        Label urgentBadge = ComponentFactory.createPriorityBadge(true);
+                        cellBox.getChildren().addAll(urgentBadge, lblC);
+                        setGraphic(cellBox);
+                    } else {
+                        setGraphic(lblC);
+                    }
                 }
             }
         });
@@ -534,6 +542,19 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 super.updateItem(item, empty);
                 if (empty) setGraphic(null);
                 else {
+                    IncidentTicket t = getTableView().getItems().get(getIndex());
+                    boolean isUrgent = t != null && t.isUrgent();
+                    if (isUrgent) {
+                        btn.setText("🚨 Tiếp ứng ngay");
+                        btn.getStyleClass().setAll("button", "btn-danger-solid", "btn-sm");
+                        btn.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-padding: 3 10; -fx-cursor: hand; -fx-background-color: #DC2626; -fx-text-fill: white;");
+                        btn.setGraphic(ComponentFactory.createIcon("mdi2a-alarm-light", 14, Color.WHITE));
+                    } else {
+                        btn.setText("Nhận sự cố");
+                        btn.getStyleClass().setAll("button", "btn-success", "btn-sm");
+                        btn.setStyle("-fx-font-weight: bold; -fx-font-size: 11.5px; -fx-padding: 3 10; -fx-cursor: hand;");
+                        btn.setGraphic(ComponentFactory.createIcon("mdi2h-hand-pointing-right", 14, Color.WHITE));
+                    }
                     setGraphic(btnBox);
                     setAlignment(Pos.CENTER_LEFT);
                 }
@@ -654,7 +675,15 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    setGraphic(lblC);
+                    if (item.isUrgent()) {
+                        HBox cellBox = new HBox(6);
+                        cellBox.setAlignment(Pos.CENTER_LEFT);
+                        Label urgentBadge = ComponentFactory.createPriorityBadge(true);
+                        cellBox.getChildren().addAll(urgentBadge, lblC);
+                        setGraphic(cellBox);
+                    } else {
+                        setGraphic(lblC);
+                    }
                 }
             }
         });
@@ -1068,16 +1097,33 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 String assignedByAdmin = params.getOrDefault("assignedByAdmin", "false");
                 String note = params.getOrDefault("note", "");
 
+                String dept = params.getOrDefault("department", "");
+                boolean isUrgent = Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)
+                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)
+                        || (currentUser != null && (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(currentUser.getSpecialty()) || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(currentUser.getSpecialty())))
+                        || "FIRE_HAZARD".equalsIgnoreCase(cat)
+                        || "MEDICAL".equalsIgnoreCase(cat)
+                        || "FIRST_AID".equalsIgnoreCase(cat)
+                        || "FOOD_SAFETY".equalsIgnoreCase(cat)
+                        || "SECURITY".equalsIgnoreCase(cat)
+                        || "THEFT".equalsIgnoreCase(cat);
+
                 // 1. Phát chuông cảnh báo nổi bật & Banner thông báo thời gian thực không thể bỏ lỡ
-                SoundEffectManager.playNotification();
+                if (isUrgent) {
+                    SoundEffectManager.playEmergencyAlarm();
+                } else {
+                    SoundEffectManager.playNotification();
+                }
 
                 if ("true".equalsIgnoreCase(assignedByAdmin)) {
-                    String title = "🎯 BẠN ĐƯỢC CHỈ ĐỊNH XỬ LÝ CA MỚI!";
-                    String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "Vui lòng tiếp nhận và xử lý ngay." : "Ghi chú BGH: " + note);
+                    String title = isUrgent ? "🎯 [CHỈ ĐỊNH KHẨN] BGH PHÂN CÔNG ỨNG CỨU CA KHẨN CẤP!" : "🎯 BẠN ĐƯỢC CHỈ ĐỊNH XỬ LÝ CA MỚI!";
+                    String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + (isUrgent ? "khẩn cấp " : "") + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "⚠️ Vui lòng tiếp ứng và xử lý ngay lập tức!" : "Ghi chú BGH: " + note);
                     ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
                 } else {
-                    String title = "🚨 CÓ SỰ CỐ MỚI CẦN XỬ LÝ!";
-                    String msg = "Bạn đang có một sự cố mới cần xử lý: Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
+                    String title = isUrgent ? "🚨 [BÁO ĐỘNG ĐỎ] YÊU CẦU ỨNG CỨU HIỆN TRƯỜNG KHẨN CẤP!" : "🚨 CÓ SỰ CỐ MỚI CẦN XỬ LÝ!";
+                    String msg = isUrgent
+                            ? "Ca khẩn cấp " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc) + "\n⚠️ ĐỀ NGHỊ CÁN BỘ CÓ MẶT TIẾP ỨNG NGAY LẬP TỨC!"
+                            : "Bạn đang có một sự cố mới cần xử lý: Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
                     ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
                 }
 

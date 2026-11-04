@@ -789,7 +789,15 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    setGraphic(lblC);
+                    if (item.isUrgent()) {
+                        HBox cellBox = new HBox(6);
+                        cellBox.setAlignment(Pos.CENTER_LEFT);
+                        Label urgentBadge = ComponentFactory.createPriorityBadge(true);
+                        cellBox.getChildren().addAll(urgentBadge, lblC);
+                        setGraphic(cellBox);
+                    } else {
+                        setGraphic(lblC);
+                    }
                 }
             }
         });
@@ -1548,10 +1556,31 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 String code = p.getOrDefault("code", "Mới");
                 String room = p.getOrDefault("room", "");
                 String cat = p.getOrDefault("category", "Sự cố");
-                SoundEffectManager.playNotification();
-                String title = "🚨 SỰ CỐ MỚI PHÁT SINH TOÀN TRƯỜNG";
-                String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")";
-                ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
+                String dept = p.getOrDefault("department", "");
+                String desc = p.getOrDefault("desc", "");
+
+                boolean isUrgent = Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)
+                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)
+                        || "FIRE_HAZARD".equalsIgnoreCase(cat)
+                        || "MEDICAL".equalsIgnoreCase(cat)
+                        || "FIRST_AID".equalsIgnoreCase(cat)
+                        || "FOOD_SAFETY".equalsIgnoreCase(cat)
+                        || "SECURITY".equalsIgnoreCase(cat)
+                        || "THEFT".equalsIgnoreCase(cat);
+
+                if (isUrgent) {
+                    SoundEffectManager.playEmergencyAlarm();
+                    String title = "🚨 [BÁO ĐỘNG ĐỎ] SỰ CỐ KHẨN CẤP TOÀN TRƯỜNG!";
+                    String msg = "Phát sinh ca khẩn cấp " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")"
+                            + (desc.isEmpty() ? "" : "\nMô tả: " + desc)
+                            + "\nĐã kích hoạt điều phối tức thời tới khối: " + dept;
+                    ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
+                } else {
+                    SoundEffectManager.playNotification();
+                    String title = "🚨 SỰ CỐ MỚI PHÁT SINH TOÀN TRƯỜNG";
+                    String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")";
+                    ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
+                }
                 loadAllTickets();
                 loadStatistics(currentTimeRange);
 

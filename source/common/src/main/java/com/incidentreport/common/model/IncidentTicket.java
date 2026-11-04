@@ -86,4 +86,15 @@ public class IncidentTicket {
 
     public String getResolutionNote() { return resolutionNote; }
     public void setResolutionNote(String resolutionNote) { this.resolutionNote = resolutionNote; }
+
+    public boolean isUrgent() {
+        return Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(targetDepartment)
+                || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(targetDepartment)
+                || "FIRE_HAZARD".equalsIgnoreCase(categoryCode)
+                || "MEDICAL".equalsIgnoreCase(categoryCode)
+                || "FIRST_AID".equalsIgnoreCase(categoryCode)
+                || "FOOD_SAFETY".equalsIgnoreCase(categoryCode)
+                || "SECURITY".equalsIgnoreCase(categoryCode)
+                || "THEFT".equalsIgnoreCase(categoryCode);
+    }
 }

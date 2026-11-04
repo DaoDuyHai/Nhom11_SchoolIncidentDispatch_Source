@@ -125,6 +125,26 @@ public class SoundEffectManager {
     }
 
     /**
+     * Âm thanh 7: BÁO ĐỘNG ĐỎ KHẨN CẤP (EMERGENCY SIREN)
+     * Còi hú luân phiên 2 nhịp tần số cao báo động sự cố nguy hiểm khẩn cấp
+     */
+    public static void playEmergencyAlarm() {
+        if (!soundEnabled) return;
+        audioPool.submit(() -> {
+            try {
+                for (int loop = 0; loop < 2; loop++) {
+                    playTone(880.00, 140, 0.95);
+                    Thread.sleep(25);
+                    playTone(659.25, 140, 0.95);
+                    Thread.sleep(25);
+                    playTone(987.77, 180, 0.95);
+                    Thread.sleep(30);
+                }
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /**
      * Hàm sinh sóng âm Sine PCM 16-bit Mono 44.1kHz với đường bao âm lượng (Envelope ADSR)
      */
     private static void playTone(double freqHz, int durationMs, double volume) {

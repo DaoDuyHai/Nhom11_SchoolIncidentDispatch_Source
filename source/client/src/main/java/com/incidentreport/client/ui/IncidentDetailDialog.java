@@ -69,7 +69,12 @@ public class IncidentDetailDialog extends Dialog<Void> {
         Label deptBadge = ComponentFactory.createDepartmentBadge(ticket.getTargetDepartment());
         Label statusBadge = ComponentFactory.createStatusBadge(ticket.getStatus());
 
-        topTitleRow.getChildren().addAll(lblTitle, hSp, deptBadge, statusBadge);
+        if (ticket.isUrgent()) {
+            Label urgentBadge = ComponentFactory.createPriorityBadge(true);
+            topTitleRow.getChildren().addAll(lblTitle, urgentBadge, hSp, deptBadge, statusBadge);
+        } else {
+            topTitleRow.getChildren().addAll(lblTitle, hSp, deptBadge, statusBadge);
+        }
 
         HBox metaRow = new HBox(16);
         metaRow.setAlignment(Pos.CENTER_LEFT);
@@ -88,6 +93,21 @@ public class IncidentDetailDialog extends Dialog<Void> {
         // Body Content (Scrollable nếu màn hình nhỏ hoặc mô tả dài)
         VBox body = new VBox(16);
         body.setPadding(new Insets(16, 20, 16, 20));
+
+        if (ticket.isUrgent()) {
+            HBox emergencyBanner = new HBox(10);
+            emergencyBanner.setAlignment(Pos.CENTER_LEFT);
+            emergencyBanner.setStyle("-fx-background-color: #FDF2F0; -fx-border-color: #DC2626; -fx-border-width: 1.5; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 10 14;");
+            FontIcon siren = ComponentFactory.createIcon("mdi2a-alarm-light", 22, Color.web("#DC2626"));
+            VBox txts = new VBox(2);
+            Label l1 = new Label("SỰ CỐ MỨC ĐỘ KHẨN CẤP CAO (PRIORITY 1 - URGENT DISPATCH)");
+            l1.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #DC2626;");
+            Label l2 = new Label("Sự cố thuộc danh mục cứu nạn/an toàn khẩn cấp, cần ưu tiên xử lý hiện trường ngay lập tức.");
+            l2.setStyle("-fx-font-size: 11px; -fx-text-fill: #991B1B;");
+            txts.getChildren().addAll(l1, l2);
+            emergencyBanner.getChildren().addAll(siren, txts);
+            body.getChildren().add(emergencyBanner);
+        }
 
         // 1. Thẻ Thông tin hiện trường & Danh mục sự cố
         VBox cardIncident = new VBox(10);

@@ -137,6 +137,17 @@ public class ComponentFactory {
         return badge;
     }
 
+    public static Label createPriorityBadge(boolean isUrgent) {
+        if (!isUrgent) return null;
+        Label badge = new Label("KHẨN CẤP");
+        badge.setStyle("-fx-background-color: #FDF2F0; -fx-text-fill: #DC2626; -fx-font-size: 9.5px; -fx-font-weight: bold; -fx-padding: 1 6; -fx-background-radius: 4; -fx-border-color: #DC2626; -fx-border-radius: 4; -fx-border-width: 0.8;");
+        badge.setMinWidth(Region.USE_PREF_SIZE);
+        FontIcon icon = createIcon("mdi2a-alert-circle", 11, Color.web("#DC2626"));
+        badge.setGraphic(icon);
+        badge.setGraphicTextGap(3);
+        return badge;
+    }
+
     public static Label createStatusBadge(String status) {
         Label badge = new Label();
         badge.getStyleClass().add("badge");
