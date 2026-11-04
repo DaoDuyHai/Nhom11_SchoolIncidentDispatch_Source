@@ -789,7 +789,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    if (item.isUrgent()) {
+                    if (ComponentFactory.isUrgentTicket(item)) {
                         HBox cellBox = new HBox(6);
                         cellBox.setAlignment(Pos.CENTER_LEFT);
                         Label urgentBadge = ComponentFactory.createPriorityBadge(true);
@@ -1559,14 +1559,7 @@ public class AdminView extends StackPane implements SocketClientManager.PacketLi
                 String dept = p.getOrDefault("department", "");
                 String desc = p.getOrDefault("desc", "");
 
-                boolean isUrgent = Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)
-                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)
-                        || "FIRE_HAZARD".equalsIgnoreCase(cat)
-                        || "MEDICAL".equalsIgnoreCase(cat)
-                        || "FIRST_AID".equalsIgnoreCase(cat)
-                        || "FOOD_SAFETY".equalsIgnoreCase(cat)
-                        || "SECURITY".equalsIgnoreCase(cat)
-                        || "THEFT".equalsIgnoreCase(cat);
+                boolean isUrgent = "true".equalsIgnoreCase(p.get("urgent"));
 
                 if (isUrgent) {
                     SoundEffectManager.playEmergencyAlarm();

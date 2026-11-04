@@ -453,7 +453,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    if (item.isUrgent()) {
+                    if (ComponentFactory.isUrgentTicket(item)) {
                         HBox cellBox = new HBox(6);
                         cellBox.setAlignment(Pos.CENTER_LEFT);
                         Label urgentBadge = ComponentFactory.createPriorityBadge(true);
@@ -543,7 +543,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 if (empty) setGraphic(null);
                 else {
                     IncidentTicket t = getTableView().getItems().get(getIndex());
-                    boolean isUrgent = t != null && t.isUrgent();
+                    boolean isUrgent = ComponentFactory.isUrgentTicket(t);
                     if (isUrgent) {
                         btn.setText("🚨 Tiếp ứng ngay");
                         btn.getStyleClass().setAll("button", "btn-danger-solid", "btn-sm");
@@ -675,7 +675,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    if (item.isUrgent()) {
+                    if (ComponentFactory.isUrgentTicket(item)) {
                         HBox cellBox = new HBox(6);
                         cellBox.setAlignment(Pos.CENTER_LEFT);
                         Label urgentBadge = ComponentFactory.createPriorityBadge(true);
@@ -1098,15 +1098,7 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                 String note = params.getOrDefault("note", "");
 
                 String dept = params.getOrDefault("department", "");
-                boolean isUrgent = Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(dept)
-                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(dept)
-                        || (currentUser != null && (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(currentUser.getSpecialty()) || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(currentUser.getSpecialty())))
-                        || "FIRE_HAZARD".equalsIgnoreCase(cat)
-                        || "MEDICAL".equalsIgnoreCase(cat)
-                        || "FIRST_AID".equalsIgnoreCase(cat)
-                        || "FOOD_SAFETY".equalsIgnoreCase(cat)
-                        || "SECURITY".equalsIgnoreCase(cat)
-                        || "THEFT".equalsIgnoreCase(cat);
+                boolean isUrgent = "true".equalsIgnoreCase(params.get("urgent"));
 
                 // 1. Phát chuông cảnh báo nổi bật & Banner thông báo thời gian thực không thể bỏ lỡ
                 if (isUrgent) {

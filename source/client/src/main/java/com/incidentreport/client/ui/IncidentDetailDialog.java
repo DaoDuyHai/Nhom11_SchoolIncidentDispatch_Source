@@ -69,7 +69,7 @@ public class IncidentDetailDialog extends Dialog<Void> {
         Label deptBadge = ComponentFactory.createDepartmentBadge(ticket.getTargetDepartment());
         Label statusBadge = ComponentFactory.createStatusBadge(ticket.getStatus());
 
-        if (ticket.isUrgent()) {
+        if (ComponentFactory.isUrgentTicket(ticket)) {
             Label urgentBadge = ComponentFactory.createPriorityBadge(true);
             topTitleRow.getChildren().addAll(lblTitle, urgentBadge, hSp, deptBadge, statusBadge);
         } else {
@@ -94,7 +94,7 @@ public class IncidentDetailDialog extends Dialog<Void> {
         VBox body = new VBox(16);
         body.setPadding(new Insets(16, 20, 16, 20));
 
-        if (ticket.isUrgent()) {
+        if (ComponentFactory.isUrgentTicket(ticket)) {
             HBox emergencyBanner = new HBox(10);
             emergencyBanner.setAlignment(Pos.CENTER_LEFT);
             emergencyBanner.setStyle("-fx-background-color: #FDF2F0; -fx-border-color: #DC2626; -fx-border-width: 1.5; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 10 14;");

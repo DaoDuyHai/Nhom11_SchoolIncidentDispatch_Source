@@ -88,6 +88,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     private final Button btnSubmit = new Button("GỬI BÁO CÁO");
     private final Label lblSubmitError = new Label();
     private boolean lastSubmittedIsUrgent = false;
+    private final ToggleButton tbNormal = new ToggleButton("🟢 Báo cáo tiêu chuẩn");
+    private final ToggleButton tbUrgent = new ToggleButton("🚨 Báo động khẩn cấp");
 
     // Ảnh hiện trường (Tab 1)
     private final StackPane dropZone = new StackPane();
@@ -397,6 +399,41 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         VBox tilesBox = createCategoryTiles();
 
+        // Mức độ ưu tiên / Chế độ báo cáo (Người dùng tự do lựa chọn: Tiêu chuẩn hoặc Khẩn cấp)
+        Label lblPriorityTitle = new Label("Chế độ báo cáo sự cố *");
+        lblPriorityTitle.getStyleClass().add("field-label");
+
+        HBox priorityBox = new HBox(8);
+        priorityBox.setAlignment(Pos.CENTER_LEFT);
+
+        ToggleGroup priorityGroup = new ToggleGroup();
+        tbNormal.setToggleGroup(priorityGroup);
+        tbNormal.setSelected(true);
+        tbNormal.getStyleClass().setAll("chip");
+        tbNormal.setStyle("-fx-font-size: 11.5px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-weight: 600;");
+
+        tbUrgent.setToggleGroup(priorityGroup);
+        tbUrgent.getStyleClass().setAll("chip");
+        tbUrgent.setStyle("-fx-font-size: 11.5px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-weight: 600;");
+
+        Label lblPriorityHint = new Label("⚠️ Chế độ khẩn cấp: Sẽ phát còi báo động tại phòng trực, huy động lực lượng phản ứng nhanh và báo động Ban Giám Hiệu.");
+        lblPriorityHint.setStyle("-fx-font-size: 11px; -fx-text-fill: #DC2626; -fx-font-weight: bold;");
+        lblPriorityHint.setVisible(false);
+        lblPriorityHint.setManaged(false);
+
+        priorityGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null && oldVal != null) {
+                oldVal.setSelected(true);
+                return;
+            }
+            boolean isEmergency = tbUrgent.isSelected();
+            lblPriorityHint.setVisible(isEmergency);
+            lblPriorityHint.setManaged(isEmergency);
+            updateSubmitButtonState();
+        });
+
+        priorityBox.getChildren().addAll(tbNormal, tbUrgent);
+
         // Mô tả
         Label lblDesc = new Label("Mô tả chi tiết sự cố *");
         lblDesc.getStyleClass().add("field-label");
@@ -450,7 +487,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
 
         actionRow.getChildren().addAll(btnReset, btnSubmit);
 
-        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblDesc, taDescription, lblSubmitError, actionRow);
+        leftCard.getChildren().addAll(lblRoom, txtRoom, roomChips, lblCat, tilesBox, lblPriorityTitle, priorityBox, lblPriorityHint, lblDesc, taDescription, lblSubmitError, actionRow);
 
         // 2. Thẻ Ảnh hiện trường & Hướng dẫn (Right Card 320px)
         VBox rightCard = new VBox(12);
@@ -688,14 +725,12 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
     }
 
     private void updateSubmitButtonState() {
-        if (selectedCategory != null &&
-                (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
-                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
-                        || "FIRE_HAZARD".equalsIgnoreCase(selectedCategory.getCategoryCode()))) {
+        boolean isEmergency = tbUrgent != null && tbUrgent.isSelected();
+        if (isEmergency) {
             btnSubmit.getStyleClass().setAll("button", "btn-danger-solid");
             btnSubmit.setText("GỬI BÁO CÁO KHẨN");
-            btnSubmit.setGraphic(ComponentFactory.createIcon("mdi2a-alert-circle", 16, Color.WHITE));
-            btnSubmit.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand;");
+            btnSubmit.setGraphic(ComponentFactory.createIcon("mdi2a-alarm-light", 16, Color.WHITE));
+            btnSubmit.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 8 20; -fx-cursor: hand; -fx-background-color: #DC2626; -fx-text-fill: white;");
         } else {
             btnSubmit.getStyleClass().setAll("button", "btn-primary");
             btnSubmit.setText("GỬI BÁO CÁO");
@@ -838,6 +873,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         if (!catTileGroup.getToggles().isEmpty()) {
             catTileGroup.getToggles().get(0).setSelected(true);
         }
+        tbNormal.setSelected(true);
         btnSubmit.setDisable(false);
         updateSubmitButtonState();
     }
@@ -890,11 +926,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         lblSubmitError.setVisible(false);
         lblSubmitError.setManaged(false);
 
-        // Kiểm tra loại sự cố có phải mức độ khẩn cấp cao không
-        boolean isUrgent = selectedCategory != null &&
-                (Constants.SPECIALTY_MEDICAL.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
-                        || Constants.SPECIALTY_SECURITY.equalsIgnoreCase(selectedCategory.getRequiredSpecialty())
-                        || "FIRE_HAZARD".equalsIgnoreCase(selectedCategory.getCategoryCode()));
+        // Kiểm tra người dùng có chọn Chế độ báo động khẩn cấp không
+        boolean isUrgent = tbUrgent != null && tbUrgent.isSelected();
         lastSubmittedIsUrgent = isUrgent;
 
         // Hộp thoại xác nhận trước khi phát hành vé sự cố lên hệ thống
@@ -1004,8 +1037,8 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
         btnSubmit.setDisable(true);
         btnSubmit.setText("Đang gửi báo cáo...");
 
-        String headerPayload = String.format("INCIDENT|room=%s|category=%s|desc=%s",
-                room.toUpperCase(), selectedCategory.getCategoryCode(), desc.replace("|", "/"));
+        String headerPayload = String.format("INCIDENT|room=%s|category=%s|urgent=%s|desc=%s",
+                room.toUpperCase(), selectedCategory.getCategoryCode(), isUrgent ? "true" : "false", desc.replace("|", "/"));
 
         Packet packet = new Packet(Constants.TYPE_SUBMIT_INCIDENT, headerPayload, chosenImageBytes);
         SocketClientManager.getInstance().sendPacket(packet);
@@ -1110,7 +1143,7 @@ public class ReporterView extends StackPane implements SocketClientManager.Packe
                     Label lblC = new Label(catName);
                     lblC.setStyle("-fx-font-weight: 600; -fx-text-fill: -text-900; -fx-font-size: 12.5px;");
                     lblC.setTooltip(new Tooltip(catName + (item.getDescription() != null ? "\n" + item.getDescription() : "")));
-                    if (item.isUrgent()) {
+                    if (ComponentFactory.isUrgentTicket(item)) {
                         HBox cellBox = new HBox(6);
                         cellBox.setAlignment(Pos.CENTER_LEFT);
                         Label urgentBadge = ComponentFactory.createPriorityBadge(true);

@@ -305,10 +305,12 @@ public class ClientHandler implements Runnable {
                 ? category.getTargetDepartment().trim().toUpperCase()
                 : Constants.SPECIALTY_TECHNICAL;
 
+        boolean isUrgent = "true".equalsIgnoreCase(params.get("urgent")) || "1".equals(params.get("urgent"));
         IncidentTicket ticket = new IncidentTicket();
         ticket.setRoomLocation(roomLocation);
         ticket.setCategoryCode(categoryCode);
         ticket.setTargetDepartment(targetDept);
+        ticket.setTitle(isUrgent ? "URGENT" : "NORMAL");
         ticket.setDescription(description);
         ticket.setReporterId(loggedInUser.getUserId());
         ticket.setReporterName(loggedInUser.getFullName());
@@ -765,11 +767,12 @@ public class ClientHandler implements Runnable {
     }
 
     private Packet createDispatchPacket(IncidentTicket ticket) {
-        String header = String.format("DISPATCH_NOTIFY|ticketId=%d|code=%s|room=%s|category=%s|department=%s|desc=%s|time=%s",
+        String header = String.format("DISPATCH_NOTIFY|ticketId=%d|code=%s|room=%s|category=%s|department=%s|desc=%s|time=%s|urgent=%s",
                 ticket.getTicketId(), ticket.getTicketCode(), ticket.getRoomLocation(),
                 ticket.getCategoryCode(), ticket.getTargetDepartment(),
                 sanitize(ticket.getDescription()),
-                ticket.getCreatedAt() != null ? ticket.getCreatedAt() : "");
+                ticket.getCreatedAt() != null ? ticket.getCreatedAt() : "",
+                "URGENT".equalsIgnoreCase(ticket.getTitle()) ? "true" : "false");
         return new Packet(Constants.TYPE_DISPATCH_NOTIFY, header, gson.toJson(ticket).getBytes(StandardCharsets.UTF_8));
     }
 

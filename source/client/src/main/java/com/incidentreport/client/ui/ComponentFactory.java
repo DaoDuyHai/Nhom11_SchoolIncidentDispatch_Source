@@ -2,6 +2,7 @@ package com.incidentreport.client.ui;
 
 import com.incidentreport.client.IncidentReportApp;
 import com.incidentreport.common.Constants;
+import com.incidentreport.common.model.IncidentTicket;
 import com.incidentreport.common.model.User;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
@@ -146,6 +147,11 @@ public class ComponentFactory {
         badge.setGraphic(icon);
         badge.setGraphicTextGap(3);
         return badge;
+    }
+
+    public static boolean isUrgentTicket(IncidentTicket ticket) {
+        if (ticket == null) return false;
+        return "URGENT".equalsIgnoreCase(ticket.getTitle());
     }
 
     public static Label createStatusBadge(String status) {
@@ -444,7 +450,10 @@ public class ComponentFactory {
 
         btnClose.setOnAction(e -> {
             seq.stop();
-            fadeOut.play();
+            if (!(root instanceof StackPane)) {
+                banner.layoutXProperty().unbind();
+            }
+            root.getChildren().remove(banner);
         });
 
         seq.play();
