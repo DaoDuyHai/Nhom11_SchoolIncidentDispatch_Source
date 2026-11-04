@@ -276,9 +276,9 @@ public class ComponentFactory {
         HBox toast = new HBox(8);
         toast.setAlignment(Pos.CENTER_LEFT);
         toast.getStyleClass().addAll("toast", isSuccess ? "toast-success" : "toast-error");
-        toast.setManaged(false); // Tuyệt đối không để container cha (BorderPane/VBox) co giãn toast
         toast.setMouseTransparent(true);
         toast.setMaxWidth(360);
+        toast.setMaxHeight(Region.USE_PREF_SIZE);
 
         FontIcon icon = createIcon(isSuccess ? "mdi2c-check-circle" : "mdi2a-alert-circle",
                 16, isSuccess ? Color.web("#7FD0A8") : Color.web("#F0A99A"));
@@ -292,8 +292,14 @@ public class ComponentFactory {
         toast.setOpacity(0);
 
         // Neo cố định ở góc dưới bên phải, cách mép 20px
-        toast.layoutXProperty().bind(root.widthProperty().subtract(toast.widthProperty()).subtract(20));
-        toast.layoutYProperty().bind(root.heightProperty().subtract(toast.heightProperty()).subtract(20));
+        if (root instanceof StackPane) {
+            StackPane.setAlignment(toast, Pos.BOTTOM_RIGHT);
+            StackPane.setMargin(toast, new Insets(0, 20, 20, 0));
+        } else {
+            toast.setManaged(false);
+            toast.layoutXProperty().bind(root.widthProperty().subtract(toast.widthProperty()).subtract(20));
+            toast.layoutYProperty().bind(root.heightProperty().subtract(toast.heightProperty()).subtract(20));
+        }
 
         root.getChildren().add(toast);
         toast.toFront();
@@ -308,8 +314,10 @@ public class ComponentFactory {
         fadeOut.setFromValue(1);
         fadeOut.setToValue(0);
         fadeOut.setOnFinished(e -> {
-            toast.layoutXProperty().unbind();
-            toast.layoutYProperty().unbind();
+            if (!(root instanceof StackPane)) {
+                toast.layoutXProperty().unbind();
+                toast.layoutYProperty().unbind();
+            }
             root.getChildren().remove(toast);
         });
 
@@ -337,9 +345,9 @@ public class ComponentFactory {
 
         HBox banner = new HBox(12);
         banner.setAlignment(Pos.CENTER_LEFT);
-        banner.setManaged(false);
         banner.setPrefWidth(420);
         banner.setMaxWidth(440);
+        banner.setMaxHeight(Region.USE_PREF_SIZE);
         banner.setPadding(new Insets(12, 16, 12, 16));
 
         String borderColor = "#CBA447"; // Vàng đồng mặc định
@@ -348,7 +356,7 @@ public class ComponentFactory {
 
         if ("DISPATCH".equalsIgnoreCase(type)) {
             borderColor = "#E74C3C"; // Đỏ cảnh báo sự cố mới
-            iconLiteral = "mdi2a-alert-decagram";
+            iconLiteral = "mdi2a-alert-circle";
             iconColor = Color.web("#E74C3C");
         } else if ("SUCCESS".equalsIgnoreCase(type)) {
             borderColor = "#2ECC71"; // Xanh lá hoàn thành
@@ -393,8 +401,14 @@ public class ComponentFactory {
         banner.setOpacity(0);
 
         // Neo cố định ở góc trên bên phải, cách mép trên 20px, cách mép phải 20px
-        banner.layoutXProperty().bind(root.widthProperty().subtract(banner.widthProperty()).subtract(20));
-        banner.setLayoutY(20);
+        if (root instanceof StackPane) {
+            StackPane.setAlignment(banner, Pos.TOP_RIGHT);
+            StackPane.setMargin(banner, new Insets(20, 20, 0, 0));
+        } else {
+            banner.setManaged(false);
+            banner.layoutXProperty().bind(root.widthProperty().subtract(banner.widthProperty()).subtract(20));
+            banner.setLayoutY(20);
+        }
 
         root.getChildren().add(banner);
         banner.toFront();
@@ -409,7 +423,9 @@ public class ComponentFactory {
         fadeOut.setFromValue(1);
         fadeOut.setToValue(0);
         fadeOut.setOnFinished(e -> {
-            banner.layoutXProperty().unbind();
+            if (!(root instanceof StackPane)) {
+                banner.layoutXProperty().unbind();
+            }
             root.getChildren().remove(banner);
         });
 

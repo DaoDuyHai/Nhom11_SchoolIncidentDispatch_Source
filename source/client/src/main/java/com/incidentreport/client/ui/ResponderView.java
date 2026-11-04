@@ -1076,8 +1076,8 @@ public class ResponderView extends StackPane implements SocketClientManager.Pack
                     String msg = "Ban Giám Hiệu chỉ định bạn phụ trách ca " + code + (room.isEmpty() ? "" : " tại Phòng " + room) + ".\n" + (note.isEmpty() ? "Vui lòng tiếp nhận và xử lý ngay." : "Ghi chú BGH: " + note);
                     ComponentFactory.showUrgentNotification(this, title, msg, "ASSIGN");
                 } else {
-                    String title = "🚨 CÓ SỰ CỐ MỚI CẦN GIẢI QUYẾT!";
-                    String msg = "Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
+                    String title = "🚨 CÓ SỰ CỐ MỚI CẦN XỬ LÝ!";
+                    String msg = "Bạn đang có một sự cố mới cần xử lý: Ca " + code + (room.isEmpty() ? "" : " · Phòng " + room) + " (" + cat + ")" + (desc.isEmpty() ? "" : "\nMô tả: " + desc);
                     ComponentFactory.showUrgentNotification(this, title, msg, "DISPATCH");
                 }
 
